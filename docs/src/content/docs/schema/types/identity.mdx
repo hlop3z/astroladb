@@ -13,27 +13,12 @@ Generates a UUID v4 primary key column.
 | ------------------------------------------------------ |
 | `uuid` + `primary_key` + `default(uuid_generate_v4())` |
 
-```yaml
-schema:
-  users:
-    columns:
-      id: col.id()
-      name: col.name()
-```
-
-Expands to:
-
-```yaml
-schema:
-  users:
-    columns:
-      id:
-        type: uuid
-        primary_key: true
-        default: uuid_generate_v4()
-      name:
-        type: string
-        max_length: 100
+```js
+// schemas/auth/user.js
+export default table({
+  id: col.id(),
+  name: col.name(),
+});
 ```
 
 ## Usage Notes

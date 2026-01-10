@@ -5,14 +5,13 @@ description: Sample output for each supported language
 
 Given a simple User table in your schema:
 
-```yaml
-tables:
-  User:
-    columns:
-      id: uuid primarykey
-      email: string unique
-      name: string
-      created_at: timestamp
+```js
+// schemas/auth/user.js
+export default table({
+  id: col.id(),
+  email: col.email().unique(),
+  name: col.name(),
+}).timestamps();
 ```
 
 ## TypeScript

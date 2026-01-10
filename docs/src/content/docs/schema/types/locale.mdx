@@ -16,15 +16,15 @@ Locale types store standardized international codes.
 
 ## Example
 
-```yaml
-schema:
-  user_preferences:
-    columns:
-      id: col.id()
-      country: col.country()
-      currency: col.currency()
-      locale: col.locale()
-      timezone: col.timezone()
+```js
+// schemas/auth/user_preference.js
+export default table({
+  id: col.id(),
+  country: col.country(),
+  currency: col.currency(),
+  locale: col.locale(),
+  timezone: col.timezone(),
+});
 ```
 
 ## Valid Values

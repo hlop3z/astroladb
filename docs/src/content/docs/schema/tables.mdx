@@ -7,7 +7,9 @@ title: Tables
 Define tables using the `table({})` function with column definitions:
 
 ```js
-export const posts = table({
+// schemas/blog/post.js
+export default table({
+  id: col.id(),
   title: col.string(),
   body: col.text(),
   published: col.boolean().default(false),
@@ -20,7 +22,9 @@ export const posts = table({
 Chain modifiers to add common functionality:
 
 ```js
-export const articles = table({
+// schemas/blog/article.js
+export default table({
+  id: col.id(),
   title: col.string(),
   content: col.text(),
 })
@@ -44,7 +48,9 @@ export const articles = table({
 ## Composite Constraints Example
 
 ```js
-export const order_items = table({
+// schemas/sales/order_item.js
+export default table({
+  id: col.id(),
   order: col.belongs_to("sales.order"),
   product: col.belongs_to("catalog.product"),
   quantity: col.integer(),

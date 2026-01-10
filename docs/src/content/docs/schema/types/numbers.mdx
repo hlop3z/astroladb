@@ -19,17 +19,17 @@ and constraints.
 
 ## Example
 
-```yaml
-schema:
-  products:
-    columns:
-      id: col.id()
-      price: col.money()
-      discount: col.percentage()
-      stock: col.quantity()
-      views: col.counter()
-      rating: col.rating()
-      video_length: col.duration()
+```js
+// schemas/catalog/product.js
+export default table({
+  id: col.id(),
+  price: col.money(),
+  discount: col.percentage(),
+  stock: col.quantity(),
+  views: col.counter(),
+  rating: col.rating(),
+  video_length: col.duration(),
+});
 ```
 
 ## Precision Notes

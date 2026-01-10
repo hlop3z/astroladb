@@ -11,9 +11,11 @@ By default, all columns are required (NOT NULL). Use `.optional()` to allow NULL
 values.
 
 ```js
-export const users = table("users", {
-  name: col.string(100), // Required - NOT NULL
-  bio: col.text().optional(), // Optional - allows NULL
+// schemas/auth/user.js
+export default table({
+  id: col.id(),
+  name: col.string(100),        // Required - NOT NULL
+  bio: col.text().optional(),   // Optional - allows NULL
 });
 ```
 
@@ -22,11 +24,12 @@ export const users = table("users", {
 Use `.default()` to set a value for new rows when no value is provided.
 
 ```js
-export const posts = table("posts", {
+// schemas/blog/post.js
+export default table({
+  id: col.id(),
   title: col.string(200),
   status: col.string(20).default("draft"),
-  createdAt: col.datetime().default("now()"),
-});
+}).timestamps();
 ```
 
 ## Unique Constraints
@@ -34,10 +37,12 @@ export const posts = table("posts", {
 Use `.unique()` to ensure no duplicate values exist in a column.
 
 ```js
-export const accounts = table("accounts", {
+// schemas/auth/account.js
+export default table({
+  id: col.id(),
   email: col.email().unique(),
   username: col.string(50).unique(),
-  displayName: col.string(100), // Not unique - duplicates allowed
+  display_name: col.string(100),  // Not unique - duplicates allowed
 });
 ```
 
@@ -46,7 +51,9 @@ export const accounts = table("accounts", {
 Chain modifiers together for precise column definitions.
 
 ```js
-export const profiles = table("profiles", {
+// schemas/auth/profile.js
+export default table({
+  id: col.id(),
   website: col.url().optional().unique(),
   nickname: col.string(30).optional().default("Anonymous"),
 });

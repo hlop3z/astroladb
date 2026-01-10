@@ -15,14 +15,14 @@ Contact types handle validated communication fields.
 
 ## Example
 
-```yaml
-schema:
-  contacts:
-    columns:
-      id: col.id()
-      email: col.email()
-      phone: col.phone()
-      website: col.url()
+```js
+// schemas/core/contact.js
+export default table({
+  id: col.id(),
+  email: col.email(),
+  phone: col.phone(),
+  website: col.url(),
+});
 ```
 
 ## Validation

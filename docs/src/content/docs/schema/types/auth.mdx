@@ -15,14 +15,14 @@ Auth types provide secure handling of credentials and tokens.
 
 ## Example
 
-```yaml
-schema:
-  users:
-    columns:
-      id: col.id()
-      username: col.username()
-      password_hash: col.password_hash()
-      api_token: col.token()
+```js
+// schemas/auth/user.js
+export default table({
+  id: col.id(),
+  username: col.username(),
+  password_hash: col.password_hash(),
+  api_token: col.token(),
+});
 ```
 
 ## Username Pattern

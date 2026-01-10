@@ -18,16 +18,16 @@ Text types provide pre-configured string columns for common use cases.
 
 ## Example
 
-```yaml
-schema:
-  articles:
-    columns:
-      id: col.id()
-      title: col.title()
-      slug: col.slug()
-      summary: col.summary()
-      body: col.body()
-      sku: col.code()
+```js
+// schemas/blog/article.js
+export default table({
+  id: col.id(),
+  title: col.title(),
+  slug: col.slug(),
+  summary: col.summary(),
+  body: col.body(),
+  sku: col.code(),
+});
 ```
 
 ## Slug Pattern

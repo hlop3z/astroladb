@@ -14,24 +14,24 @@ Flag types provide boolean columns with sensible defaults.
 
 ## Example
 
-```yaml
-schema:
-  users:
-    columns:
-      id: col.id()
-      is_active: col.flag(true)
-      is_admin: col.flag()
-      email_verified: col.flag()
-      accepts_marketing: col.flag()
+```js
+// schemas/auth/user.js
+export default table({
+  id: col.id(),
+  is_active: col.flag(true),
+  is_admin: col.flag(),
+  email_verified: col.flag(),
+  accepts_marketing: col.flag(),
+});
 ```
 
 ## Default Behavior
 
 Without an argument, flags default to `false`:
 
-```yaml
-is_featured: col.flag() # defaults to false
-is_published: col.flag(true) # defaults to true
+```js
+is_featured: col.flag()      // defaults to false
+is_published: col.flag(true) // defaults to true
 ```
 
 ## Common Patterns

@@ -20,7 +20,9 @@ Modifiers customize column behavior, validation, and documentation.
 ## Validation Modifiers
 
 ```js
-export const products = table("products", {
+// schemas/catalog/product.js
+export default table({
+  id: col.id(),
   sku: col.string(20).pattern(/^[A-Z]{3}-\d{4}$/),
   price: col.decimal(10, 2).min(0),
   name: col.string(100).min(3).max(100),
@@ -32,7 +34,10 @@ export const products = table("products", {
 Use `.backfill()` when adding required columns to existing tables.
 
 ```js
-export const users = table("users", {
+// schemas/auth/user.js
+export default table({
+  id: col.id(),
+  email: col.email().unique(),
   // New required column - backfill sets value for existing rows
   tier: col.string(20).default("free").backfill("free"),
 });
@@ -43,7 +48,9 @@ export const users = table("users", {
 The `.docs()` modifier adds SQL comments and OpenAPI descriptions.
 
 ```js
-export const orders = table("orders", {
+// schemas/sales/order.js
+export default table({
+  id: col.id(),
   total: col.decimal(12, 2).docs("Order total in USD"),
 });
 ```

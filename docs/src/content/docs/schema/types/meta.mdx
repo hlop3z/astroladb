@@ -14,14 +14,13 @@ Meta types capture request and client metadata.
 
 ## Example
 
-```yaml
-schema:
-  access_logs:
-    columns:
-      id: col.id()
-      ip_address: col.ip()
-      user_agent: col.user_agent()
-      created_at: col.timestamp()
+```js
+// schemas/logs/access_log.js
+export default table({
+  id: col.id(),
+  ip_address: col.ip(),
+  user_agent: col.user_agent(),
+}).timestamps();
 ```
 
 ## IP Address Length

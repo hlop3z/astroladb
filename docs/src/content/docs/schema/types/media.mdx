@@ -15,14 +15,14 @@ Media types handle formatted content and visual data.
 
 ## Example
 
-```yaml
-schema:
-  posts:
-    columns:
-      id: col.id()
-      content: col.markdown()
-      rendered_html: col.html()
-      theme_color: col.color()
+```js
+// schemas/blog/post.js
+export default table({
+  id: col.id(),
+  content: col.markdown(),
+  rendered_html: col.html(),
+  theme_color: col.color(),
+});
 ```
 
 ## Color Format
@@ -38,9 +38,5 @@ rgb()    ✗
 ## Format Hints
 
 The `markdown` and `html` format hints inform API clients and admin UIs to
-render appropriate editors:
-
-```yaml
-# Client receives metadata:
-{ "content": { "type": "text", "format": "markdown" } }
-```
+render appropriate editors. OpenAPI exports include format metadata for these
+fields.
