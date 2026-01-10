@@ -1,0 +1,49 @@
+# Test databases - run once, test fast
+# Usage:
+#   docker-compose -f docker-compose.test.yml up -d
+#   go test ./... -tags=integration
+#   docker-compose -f docker-compose.test.yml down
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: alab
+      POSTGRES_PASSWORD: alab
+      POSTGRES_DB: alab_test
+    tmpfs:
+      - /var/lib/postgresql/data  # RAM disk for speed
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alab"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+
+  gitea:
+    image: gitea/gitea:1.22-rootless
+    ports:
+      - "3000:3000"   # Web UI
+      - "2222:2222"   # SSH
+    environment:
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__database__PATH=/var/lib/gitea/data/gitea.db
+      - GITEA__security__INSTALL_LOCK=true
+      - GITEA__server__ROOT_URL=http://localhost:3000/
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__server__SSH_PORT=2222
+      - GITEA__server__DISABLE_SSH=false
+      - GITEA__server__START_SSH_SERVER=true
+      - GITEA__service__DISABLE_REGISTRATION=false
+      - GITEA__service__REQUIRE_SIGNIN_VIEW=false
+    tmpfs:
+      - /var/lib/gitea/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/version"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+# SQLite uses :memory: or local file - no container needed
