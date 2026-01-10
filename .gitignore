@@ -1,0 +1,87 @@
+# ========================================
+# Alab local cache (rebuildable from migrations)
+# ========================================
+
+.alab/
+
+# ========================================
+# Rust-specific files and directories
+# ========================================
+
+# Compiled files
+/target/
+**/*.rs.bk
+
+# Cargo lock (for libraries, keep for applications)
+# We're building an application, so we keep Cargo.lock
+
+# ========================================
+# Database and State files
+# ========================================
+
+*.db
+*.redb
+*.sqlite
+*.sqlite3
+state.json
+
+# ========================================
+# Certificates and Secrets
+# ========================================
+
+*.pem
+*.crt
+*.key
+*.p12
+.env
+.env.local
+.env.*.local
+
+# ========================================
+# Logs and temporary files
+# ========================================
+
+*.log
+*.tmp
+logs/
+
+# ========================================
+# Editor and IDE specific files
+# ========================================
+
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+.DS_Store
+Thumbs.db
+
+# ========================================
+# Build artifacts
+# ========================================
+
+*.exe
+*.dll
+*.so
+*.dylib
+*.tar
+*.gz
+
+# ========================================
+# Node.js (if frontend is added later)
+# ========================================
+
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+
+# ========================================
+# Others
+# ========================================
+reset-*.sh
