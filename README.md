@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="astrola-db" width="180" />
+  <img src="docs/src/assets/logo.png" alt="astrola-db" width="180" />
 </p>
 
 <h1 align="center">Astroladb</h1>
