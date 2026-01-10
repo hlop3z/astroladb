@@ -71,14 +71,16 @@ install_alab() {
 
     info "Latest version: $VERSION"
 
-    # Construct download URL
-    EXT=""
+    # Construct download URL (matches release workflow naming)
     if [ "$OS" = "windows" ]; then
-        EXT=".exe"
+        ARCHIVE_NAME="${BINARY_NAME}-${OS}-${ARCH}.zip"
+        BINARY_EXT=".exe"
+    else
+        ARCHIVE_NAME="${BINARY_NAME}-${OS}-${ARCH}.tar.gz"
+        BINARY_EXT=""
     fi
 
-    FILENAME="${BINARY_NAME}_${VERSION#v}_${OS}_${ARCH}${EXT}"
-    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${FILENAME}"
+    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE_NAME}"
 
     info "Downloading from: $DOWNLOAD_URL"
 
@@ -86,25 +88,33 @@ install_alab() {
     TMP_DIR=$(mktemp -d)
     trap 'rm -rf "$TMP_DIR"' EXIT
 
-    # Download binary
-    if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_DIR/$BINARY_NAME$EXT" 2>/dev/null; then
-        warn "Pre-built binary not available. Building from source..."
+    # Download archive
+    if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_DIR/$ARCHIVE_NAME" 2>/dev/null; then
+        warn "Pre-built binary not available for $OS-$ARCH. Building from source..."
         install_from_source
         return
     fi
 
+    # Extract archive
+    cd "$TMP_DIR"
+    if [ "$OS" = "windows" ]; then
+        unzip -q "$ARCHIVE_NAME" || error "Failed to extract archive"
+    else
+        tar -xzf "$ARCHIVE_NAME" || error "Failed to extract archive"
+    fi
+
     # Make executable
-    chmod +x "$TMP_DIR/$BINARY_NAME$EXT"
+    chmod +x "${BINARY_NAME}${BINARY_EXT}"
 
     # Install
     if [ -w "$INSTALL_DIR" ]; then
-        mv "$TMP_DIR/$BINARY_NAME$EXT" "$INSTALL_DIR/$BINARY_NAME$EXT"
+        mv "${BINARY_NAME}${BINARY_EXT}" "$INSTALL_DIR/${BINARY_NAME}${BINARY_EXT}"
     else
         info "Requesting sudo to install to $INSTALL_DIR"
-        sudo mv "$TMP_DIR/$BINARY_NAME$EXT" "$INSTALL_DIR/$BINARY_NAME$EXT"
+        sudo mv "${BINARY_NAME}${BINARY_EXT}" "$INSTALL_DIR/${BINARY_NAME}${BINARY_EXT}"
     fi
 
-    success "Installed $BINARY_NAME to $INSTALL_DIR/$BINARY_NAME$EXT"
+    success "Installed $BINARY_NAME $VERSION to $INSTALL_DIR/${BINARY_NAME}${BINARY_EXT}"
 }
 
 # Build and install from source

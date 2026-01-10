@@ -1,17 +1,15 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
-      bump:
-        description: "Version bump type"
+      version:
+        description: "Version to release (e.g., v1.0.0)"
         required: true
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-        default: patch
+        type: string
 
 permissions:
   contents: write
@@ -70,23 +68,23 @@ jobs:
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: 0
         run: |
-          go build -ldflags="-s -w" -o pj${{ matrix.ext }} .
+          go build -ldflags="-s -w" -o alab${{ matrix.ext }} ./cmd/alab
 
       - name: Create archive (Unix)
         if: matrix.os != 'windows'
         run: |
-          tar -czvf pj-${{ matrix.os }}-${{ matrix.arch }}.tar.gz pj${{ matrix.ext }}
+          tar -czvf alab-${{ matrix.os }}-${{ matrix.arch }}.tar.gz alab${{ matrix.ext }}
 
       - name: Create archive (Windows)
         if: matrix.os == 'windows'
         run: |
-          zip pj-${{ matrix.os }}-${{ matrix.arch }}.zip pj${{ matrix.ext }}
+          zip alab-${{ matrix.os }}-${{ matrix.arch }}.zip alab${{ matrix.ext }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pj-${{ matrix.os }}-${{ matrix.arch }}
-          path: pj-${{ matrix.os }}-${{ matrix.arch }}.*
+          name: alab-${{ matrix.os }}-${{ matrix.arch }}
+          path: alab-${{ matrix.os }}-${{ matrix.arch }}.*
 
   release:
     name: Create Release
