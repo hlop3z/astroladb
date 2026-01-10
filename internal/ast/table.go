@@ -1,0 +1,332 @@
+package ast
+
+import (
+	"github.com/hlop3z/astroladb/internal/alerr"
+)
+
+// -----------------------------------------------------------------------------
+// TableDef - complete table definition
+// -----------------------------------------------------------------------------
+
+// TableDef represents a complete table definition with columns, indexes, and constraints.
+// This is the result of evaluating a schema file or building a table in a migration.
+type TableDef struct {
+	Namespace   string           // Logical grouping (e.g., "auth", "billing")
+	Name        string           // Table name (snake_case)
+	Columns     []*ColumnDef     // Column definitions in order
+	Indexes     []*IndexDef      // Index definitions
+	ForeignKeys []*ForeignKeyDef // Foreign key constraints
+	Checks      []*CheckDef      // CHECK constraints
+
+	// Documentation (-> SQL COMMENT + OpenAPI)
+	Docs       string // Description for the table
+	Deprecated string // Deprecation notice (if table is deprecated)
+
+	// Table-level metadata for x-db extensions
+	Auditable  bool     // Has created_by/updated_by columns (adapters manage these)
+	SortBy     []string // Default ordering (e.g., ["-created_at", "name"])
+	Searchable []string // Columns for fulltext search
+	Filterable []string // Columns allowed in WHERE clauses
+}
+
+// FullName returns the full table name in namespace_tablename format.
+func (t *TableDef) FullName() string {
+	if t.Namespace != "" {
+		return t.Namespace + "_" + t.Name
+	}
+	return t.Name
+}
+
+// SQLName returns the flat SQL table name (namespace_table).
+// Alias for FullName for compatibility.
+func (t *TableDef) SQLName() string {
+	return t.FullName()
+}
+
+// QualifiedName returns the fully qualified reference (namespace.table).
+func (t *TableDef) QualifiedName() string {
+	if t.Namespace == "" {
+		return t.Name
+	}
+	return t.Namespace + "." + t.Name
+}
+
+// GetColumn returns the column with the given name, or nil if not found.
+func (t *TableDef) GetColumn(name string) *ColumnDef {
+	for _, col := range t.Columns {
+		if col.Name == name {
+			return col
+		}
+	}
+	return nil
+}
+
+// HasColumn returns true if the table has a column with the given name.
+func (t *TableDef) HasColumn(name string) bool {
+	return t.GetColumn(name) != nil
+}
+
+// PrimaryKey returns the primary key column, or nil if none.
+// Tables created with id() will have a single-column UUID primary key.
+func (t *TableDef) PrimaryKey() *ColumnDef {
+	for _, col := range t.Columns {
+		if col.PrimaryKey {
+			return col
+		}
+	}
+	return nil
+}
+
+// Validate checks that the table definition is well-formed.
+func (t *TableDef) Validate() error {
+	if t.Name == "" {
+		return alerr.New(alerr.ErrSchemaInvalid, "table name is required")
+	}
+	if len(t.Columns) == 0 {
+		return alerr.New(alerr.ErrSchemaInvalid, "table must have at least one column").
+			WithTable(t.Namespace, t.Name)
+	}
+	// Check for duplicate column names
+	seen := make(map[string]bool)
+	for _, col := range t.Columns {
+		if seen[col.Name] {
+			return alerr.New(alerr.ErrSchemaInvalid, "duplicate column name").
+				WithTable(t.Namespace, t.Name).
+				WithColumn(col.Name)
+		}
+		seen[col.Name] = true
+		if err := col.Validate(); err != nil {
+			return alerr.Wrap(alerr.ErrSchemaInvalid, err, "invalid column").
+				WithTable(t.Namespace, t.Name).
+				WithColumn(col.Name)
+		}
+	}
+	// Validate indexes
+	for _, idx := range t.Indexes {
+		if err := idx.Validate(); err != nil {
+			return alerr.Wrap(alerr.ErrSchemaInvalid, err, "invalid index").
+				WithTable(t.Namespace, t.Name)
+		}
+	}
+	// Validate foreign keys
+	for _, fk := range t.ForeignKeys {
+		if err := fk.Validate(); err != nil {
+			return alerr.Wrap(alerr.ErrSchemaInvalid, err, "invalid foreign key").
+				WithTable(t.Namespace, t.Name)
+		}
+	}
+	return nil
+}
+
+// -----------------------------------------------------------------------------
+// ColumnDef - complete column definition
+// -----------------------------------------------------------------------------
+
+// ColumnDef represents a complete column definition with type, constraints, and metadata.
+type ColumnDef struct {
+	Name     string // Column name (snake_case)
+	Type     string // Type name (id, string, integer, etc.)
+	TypeArgs []any  // Type arguments (e.g., length for string, precision/scale for decimal)
+
+	// Nullability
+	Nullable    bool // True if column allows NULL (default is NOT NULL)
+	NullableSet bool // True if Nullable was explicitly set (vs inferred default)
+
+	// Constraints
+	Unique     bool // UNIQUE constraint
+	PrimaryKey bool // PRIMARY KEY constraint
+
+	// Default values
+	Default       any    // Default value for new rows (Go value or SQLExpr)
+	DefaultSet    bool   // True if Default was explicitly set
+	ServerDefault string // Raw SQL expression for server-side default (deprecated: use SQLExpr)
+
+	// Reference (for belongs_to, one_to_one)
+	Reference *Reference // Foreign key reference
+
+	// Migration-only: backfill value for existing rows
+	Backfill    any  // Value or SQLExpr for existing rows (used when adding NOT NULL column)
+	BackfillSet bool // Track if backfill was explicitly set
+
+	// Validation constraints (-> DB CHECK + OpenAPI)
+	Min     *int   // string: minLength, number: minimum
+	Max     *int   // string: maxLength, number: maximum
+	Pattern string // Regex pattern for validation
+	Format  string // OpenAPI format (email, uri, uuid, etc.)
+
+	// Documentation (-> SQL COMMENT + OpenAPI)
+	Docs       string // Description for the column
+	Deprecated string // Deprecation notice (if column is deprecated)
+
+	// Computed columns (virtual, database-computed)
+	Computed any // fn.* expression or raw SQL map for computed columns
+}
+
+// Validate checks that the column definition is well-formed.
+func (c *ColumnDef) Validate() error {
+	if c.Name == "" {
+		return alerr.New(alerr.ErrSchemaInvalid, "column name is required")
+	}
+	if c.Type == "" {
+		return alerr.New(alerr.ErrSchemaInvalid, "column type is required").
+			WithColumn(c.Name)
+	}
+	// Validate min/max constraints make sense
+	if c.Min != nil && c.Max != nil && *c.Min > *c.Max {
+		return alerr.New(alerr.ErrSchemaInvalid, "min cannot be greater than max").
+			WithColumn(c.Name).
+			With("min", *c.Min).
+			With("max", *c.Max)
+	}
+	return nil
+}
+
+// IsNullable returns whether the column allows NULL values.
+// If NullableSet is false, returns the default (false = NOT NULL).
+func (c *ColumnDef) IsNullable() bool {
+	return c.Nullable
+}
+
+// HasDefault returns whether the column has any kind of default value.
+func (c *ColumnDef) HasDefault() bool {
+	return c.DefaultSet || c.ServerDefault != ""
+}
+
+// HasBackfill returns whether the column has a backfill value for existing rows.
+func (c *ColumnDef) HasBackfill() bool {
+	return c.BackfillSet || c.Backfill != nil
+}
+
+// -----------------------------------------------------------------------------
+// SQLExpr - marks raw SQL expressions
+// -----------------------------------------------------------------------------
+
+// SQLExpr marks a string as a raw SQL expression.
+// Used with the sql() helper in JS to indicate a value should be passed through
+// to the database without escaping.
+//
+// Examples:
+//   - sql("NOW()") -> current timestamp
+//   - sql("gen_random_uuid()") -> generate UUID
+//   - sql("CURRENT_USER") -> current database user
+type SQLExpr struct {
+	Expr string
+}
+
+// NewSQLExpr creates a new SQLExpr with the given expression.
+func NewSQLExpr(expr string) *SQLExpr {
+	return &SQLExpr{Expr: expr}
+}
+
+// IsSQLExpr checks if the given value is a SQLExpr.
+func IsSQLExpr(v any) bool {
+	_, ok := v.(*SQLExpr)
+	return ok
+}
+
+// AsSQLExpr converts a value to SQLExpr if it is one.
+func AsSQLExpr(v any) (*SQLExpr, bool) {
+	expr, ok := v.(*SQLExpr)
+	return expr, ok
+}
+
+// -----------------------------------------------------------------------------
+// IndexDef - index definition
+// -----------------------------------------------------------------------------
+
+// IndexDef represents an index definition.
+type IndexDef struct {
+	Name    string   // Index name (auto-generated if empty)
+	Columns []string // Columns to index (in order)
+	Unique  bool     // UNIQUE index
+	Where   string   // Partial index condition (if supported by dialect)
+}
+
+// Validate checks that the index definition is well-formed.
+func (i *IndexDef) Validate() error {
+	if len(i.Columns) == 0 {
+		return alerr.New(alerr.ErrSchemaInvalid, "index must have at least one column")
+	}
+	return nil
+}
+
+// -----------------------------------------------------------------------------
+// ForeignKeyDef - foreign key constraint definition
+// -----------------------------------------------------------------------------
+
+// ForeignKeyDef represents a foreign key constraint.
+type ForeignKeyDef struct {
+	Name       string   // Constraint name (auto-generated if empty)
+	Columns    []string // Local columns
+	RefTable   string   // Referenced table (namespace_tablename format)
+	RefColumns []string // Referenced columns (usually just "id")
+	OnDelete   string   // CASCADE, SET NULL, RESTRICT, NO ACTION (default: NO ACTION)
+	OnUpdate   string   // CASCADE, SET NULL, RESTRICT, NO ACTION (default: NO ACTION)
+}
+
+// Validate checks that the foreign key definition is well-formed.
+func (fk *ForeignKeyDef) Validate() error {
+	if len(fk.Columns) == 0 {
+		return alerr.New(alerr.ErrSchemaInvalid, "foreign key must have at least one column")
+	}
+	if fk.RefTable == "" {
+		return alerr.New(alerr.ErrSchemaInvalid, "foreign key must reference a table")
+	}
+	if len(fk.RefColumns) == 0 {
+		return alerr.New(alerr.ErrSchemaInvalid, "foreign key must reference at least one column")
+	}
+	if len(fk.Columns) != len(fk.RefColumns) {
+		return alerr.New(alerr.ErrSchemaInvalid, "foreign key column count must match referenced column count").
+			With("columns", len(fk.Columns)).
+			With("ref_columns", len(fk.RefColumns))
+	}
+	return nil
+}
+
+// -----------------------------------------------------------------------------
+// CheckDef - CHECK constraint definition
+// -----------------------------------------------------------------------------
+
+// CheckDef represents a CHECK constraint.
+type CheckDef struct {
+	Name       string // Constraint name (auto-generated if empty)
+	Expression string // SQL expression for the check
+}
+
+// Validate checks that the check constraint is well-formed.
+func (c *CheckDef) Validate() error {
+	if c.Expression == "" {
+		return alerr.New(alerr.ErrSchemaInvalid, "check constraint requires an expression")
+	}
+	return nil
+}
+
+// -----------------------------------------------------------------------------
+// Reference - column reference (for belongs_to, one_to_one)
+// -----------------------------------------------------------------------------
+
+// Reference represents a foreign key reference from a column.
+// This is the structured representation of belongs_to() or one_to_one().
+type Reference struct {
+	Table    string // Referenced table (can be "ns.table", ".table", or "table")
+	Column   string // Referenced column (default: "id")
+	OnDelete string // CASCADE, SET NULL, RESTRICT, NO ACTION
+	OnUpdate string // CASCADE, SET NULL, RESTRICT, NO ACTION
+}
+
+// TargetColumn returns the referenced column, defaulting to "id".
+func (r *Reference) TargetColumn() string {
+	if r.Column != "" {
+		return r.Column
+	}
+	return "id"
+}
+
+// Validate checks that the reference is well-formed.
+func (r *Reference) Validate() error {
+	if r.Table == "" {
+		return alerr.New(alerr.ErrSchemaInvalid, "reference must specify a table")
+	}
+	// Column defaults to "id" if not specified, so no validation needed
+	return nil
+}
