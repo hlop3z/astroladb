@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Schema",
+  "type": "object",
+  "definitions": {
+  "BlogComment": {
+    "additionalProperties": false,
+    "properties": {
+      "author_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "body": {
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "type": "string"
+      },
+      "id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "post_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "post_id",
+      "author_id",
+      "body",
+      "created_at",
+      "updated_at"
+    ],
+    "type": "object",
+    "x-namespace": "blog",
+    "x-table": "blog_comment"
+  },
+  "BlogPost": {
+    "additionalProperties": false,
+    "properties": {
+      "author_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "content": {
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "type": "string"
+      },
+      "featured": {
+        "type": "boolean"
+      },
+      "id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "slug": {
+        "type": "string"
+      },
+      "status": {
+        "type": "string"
+      },
+      "title": {
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "author_id",
+      "title",
+      "slug",
+      "content",
+      "status",
+      "featured",
+      "created_at",
+      "updated_at"
+    ],
+    "type": "object",
+    "x-namespace": "blog",
+    "x-table": "blog_post"
+  },
+  "BlogUser": {
+    "additionalProperties": false,
+    "properties": {
+      "balance": {
+        "type": "number"
+      },
+      "bio": {
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "type": "string"
+      },
+      "display_name": {
+        "type": "string"
+      },
+      "email": {
+        "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+        "type": "string"
+      },
+      "id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "level": {
+        "type": "integer"
+      },
+      "money": {
+        "pattern": "^-?\\d+(\\.\\d+)?$",
+        "type": "string"
+      },
+      "the_date": {
+        "format": "date",
+        "type": "string"
+      },
+      "the_day": {
+        "format": "date-time",
+        "type": "string"
+      },
+      "the_file": {
+        "contentEncoding": "base64",
+        "type": "string"
+      },
+      "the_object": {
+        "type": "object"
+      },
+      "the_time": {
+        "format": "time",
+        "type": "string"
+      },
+      "updated_at": {
+        "format": "date-time",
+        "type": "string"
+      },
+      "username": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "username",
+      "email",
+      "display_name",
+      "level",
+      "balance",
+      "money",
+      "the_date",
+      "the_time",
+      "the_day",
+      "the_object",
+      "the_file",
+      "created_at",
+      "updated_at"
+    ],
+    "type": "object",
+    "x-namespace": "blog",
+    "x-table": "blog_user"
+  }
+},
+  "properties": {
+    "BlogUser": { "$ref": "#/definitions/BlogUser" },
+    "BlogPost": { "$ref": "#/definitions/BlogPost" },
+    "BlogComment": { "$ref": "#/definitions/BlogComment" }
+  }
+}

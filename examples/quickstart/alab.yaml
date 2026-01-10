@@ -1,0 +1,4 @@
+# Alab configuration
+database_url: ${DATABASE_URL}
+schemas_dir: ./schemas
+migrations_dir: ./migrations

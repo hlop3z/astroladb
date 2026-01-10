@@ -1,0 +1,5 @@
+# Alab configuration - Many-to-Many Example
+database_url: sqlite://example.db
+schemas_dir: ./schemas
+migrations_dir: ./migrations
+dialect: sqlite
