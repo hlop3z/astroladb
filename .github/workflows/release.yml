@@ -6,21 +6,20 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      major:
-        description: "Major version"
+      bump:
+        description: "Version bump type"
         required: true
-        default: "0"
-        type: string
-      minor:
-        description: "Minor version"
-        required: true
-        default: "0"
-        type: string
-      patch:
-        description: "Patch version"
-        required: true
-        default: "1"
-        type: string
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      dry_run:
+        description: "Dry run (skip actual publish)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -32,6 +31,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -104,6 +105,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -115,13 +118,41 @@ jobs:
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "VERSION=v${{ github.event.inputs.major }}.${{ github.event.inputs.minor }}.${{ github.event.inputs.patch }}" >> $GITHUB_OUTPUT
+            # Get latest tag
+            LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            echo "Latest tag: $LATEST"
+
+            # Parse version numbers
+            VERSION=${LATEST#v}
+            MAJOR=$(echo $VERSION | cut -d. -f1)
+            MINOR=$(echo $VERSION | cut -d. -f2)
+            PATCH=$(echo $VERSION | cut -d. -f3)
+
+            # Bump based on input
+            case "${{ github.event.inputs.bump }}" in
+              major)
+                MAJOR=$((MAJOR + 1))
+                MINOR=0
+                PATCH=0
+                ;;
+              minor)
+                MINOR=$((MINOR + 1))
+                PATCH=0
+                ;;
+              patch)
+                PATCH=$((PATCH + 1))
+                ;;
+            esac
+
+            echo "VERSION=v${MAJOR}.${MINOR}.${PATCH}" >> $GITHUB_OUTPUT
           else
             echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
 
+          echo "New version: $(grep VERSION $GITHUB_OUTPUT | cut -d= -f2)"
+
       - name: Create tag
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -129,6 +160,7 @@ jobs:
           git push origin ${{ steps.version.outputs.VERSION }}
 
       - name: Create Release
+        if: github.event.inputs.dry_run != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.VERSION }}
@@ -138,3 +170,11 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/*
+
+      - name: Dry run summary
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "🏃 Dry run complete!"
+          echo "Would release: ${{ steps.version.outputs.VERSION }}"
+          echo "Artifacts:"
+          ls -la artifacts/
