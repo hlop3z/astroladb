@@ -6,9 +6,20 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version to release (e.g., v1.0.0)"
+      major:
+        description: "Major version"
         required: true
+        default: "0"
+        type: string
+      minor:
+        description: "Minor version"
+        required: true
+        default: "0"
+        type: string
+      patch:
+        description: "Patch version"
+        required: true
+        default: "1"
         type: string
 
 permissions:
@@ -91,6 +102,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -101,10 +115,18 @@ jobs:
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "VERSION=v${{ github.event.inputs.major }}.${{ github.event.inputs.minor }}.${{ github.event.inputs.patch }}" >> $GITHUB_OUTPUT
           else
             echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
+
+      - name: Create tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ steps.version.outputs.VERSION }}
+          git push origin ${{ steps.version.outputs.VERSION }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
