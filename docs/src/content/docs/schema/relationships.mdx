@@ -1,0 +1,66 @@
+---
+title: Relationships
+---
+
+## belongs_to (Foreign Keys)
+
+Creates a foreign key reference to another table:
+
+```js
+author: col.belongs_to("auth.user");
+// Creates: author_id (UUID, FK)
+```
+
+## one_to_one
+
+Creates a unique foreign key for 1:1 relationships:
+
+```js
+profile: col.one_to_one("auth.user");
+// Creates: profile_id (UUID, FK, UNIQUE)
+```
+
+## many_to_many
+
+Define M2M relationships at the table level:
+
+```js
+table({
+  name: col.string(),
+  email: col.email(),
+}).many_to_many("auth.role");
+// Auto-creates join table
+```
+
+## Self-Referential
+
+Reference the same table for hierarchical data:
+
+```js
+parent: col.belongs_to("self").optional();
+```
+
+## Polymorphic
+
+Reference multiple possible tables:
+
+```js
+target: col.belongs_to_any(["blog.post", "blog.comment"]);
+// Creates: target_id + target_type columns
+```
+
+## on_delete Options
+
+Control referential integrity behavior:
+
+```js
+author: col.belongs_to("auth.user").on_delete("cascade");
+category: col.belongs_to("blog.category").on_delete("set_null");
+owner: col.belongs_to("auth.user").on_delete("restrict");
+```
+
+| Option       | Behavior                                  |
+| ------------ | ----------------------------------------- |
+| `"cascade"`  | Delete child when parent is deleted       |
+| `"set_null"` | Set FK to null when parent is deleted     |
+| `"restrict"` | Prevent parent deletion if children exist |

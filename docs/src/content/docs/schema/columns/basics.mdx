@@ -1,0 +1,53 @@
+---
+title: Column Basics
+---
+
+Columns define the structure of your tables. Every column has a type and
+optional modifiers.
+
+## Required vs Optional
+
+By default, all columns are required (NOT NULL). Use `.optional()` to allow NULL
+values.
+
+```js
+export const users = table("users", {
+  name: col.string(100), // Required - NOT NULL
+  bio: col.text().optional(), // Optional - allows NULL
+});
+```
+
+## Default Values
+
+Use `.default()` to set a value for new rows when no value is provided.
+
+```js
+export const posts = table("posts", {
+  title: col.string(200),
+  status: col.string(20).default("draft"),
+  createdAt: col.datetime().default("now()"),
+});
+```
+
+## Unique Constraints
+
+Use `.unique()` to ensure no duplicate values exist in a column.
+
+```js
+export const accounts = table("accounts", {
+  email: col.email().unique(),
+  username: col.string(50).unique(),
+  displayName: col.string(100), // Not unique - duplicates allowed
+});
+```
+
+## Combining Modifiers
+
+Chain modifiers together for precise column definitions.
+
+```js
+export const profiles = table("profiles", {
+  website: col.url().optional().unique(),
+  nickname: col.string(30).optional().default("Anonymous"),
+});
+```

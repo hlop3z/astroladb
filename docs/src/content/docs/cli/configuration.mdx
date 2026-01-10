@@ -1,0 +1,63 @@
+---
+title: Configuration
+description: Configure Astroladb using alab.yaml and environment variables
+---
+
+## Configuration File
+
+Create `alab.yaml` in your project root:
+
+```yaml
+database:
+  dialect: postgres # or sqlite
+  url: postgres://user:pass@localhost:5432/mydb
+
+schemas: ./schemas
+migrations: ./migrations
+```
+
+| Option             | Description                            | Default        |
+| ------------------ | -------------------------------------- | -------------- |
+| `database.dialect` | Database type (`postgres` or `sqlite`) | `postgres`     |
+| `database.url`     | Connection string                      | —              |
+| `schemas`          | Path to schema files                   | `./schemas`    |
+| `migrations`       | Path to migration files                | `./migrations` |
+
+## Environment Variables
+
+| Variable            | Description                          |
+| ------------------- | ------------------------------------ |
+| `ALAB_DATABASE_URL` | Overrides `database.url` from config |
+
+```bash
+# Use environment variable instead of config file
+export ALAB_DATABASE_URL="postgres://user:pass@localhost:5432/mydb"
+alab migrate
+```
+
+## Connection Strings
+
+**PostgreSQL:**
+
+```
+postgres://username:password@hostname:5432/database_name
+postgres://user:pass@localhost:5432/mydb?sslmode=require
+```
+
+**SQLite:**
+
+```yaml
+database:
+  dialect: sqlite
+  url: ./data/local.db        # Relative path
+  # or
+  url: /absolute/path/app.db  # Absolute path
+```
+
+For in-memory SQLite (testing only):
+
+```yaml
+database:
+  dialect: sqlite
+  url: ":memory:"
+```

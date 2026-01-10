@@ -1,0 +1,44 @@
+---
+title: Flag Types
+description: Boolean flag types in AstrolaDB
+---
+
+Flag types provide boolean columns with sensible defaults.
+
+## Reference
+
+| Type             | Expands To                   |
+| ---------------- | ---------------------------- |
+| `col.flag()`     | `boolean` + `default(false)` |
+| `col.flag(true)` | `boolean` + `default(true)`  |
+
+## Example
+
+```yaml
+schema:
+  users:
+    columns:
+      id: col.id()
+      is_active: col.flag(true)
+      is_admin: col.flag()
+      email_verified: col.flag()
+      accepts_marketing: col.flag()
+```
+
+## Default Behavior
+
+Without an argument, flags default to `false`:
+
+```yaml
+is_featured: col.flag() # defaults to false
+is_published: col.flag(true) # defaults to true
+```
+
+## Common Patterns
+
+| Use Case      | Recommended Default |
+| ------------- | ------------------- |
+| `is_active`   | `true`              |
+| `is_deleted`  | `false`             |
+| `is_verified` | `false`             |
+| `is_public`   | `false`             |

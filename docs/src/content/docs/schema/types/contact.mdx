@@ -1,0 +1,49 @@
+---
+title: Contact Types
+description: Email, phone, and URL types in AstrolaDB
+---
+
+Contact types handle validated communication fields.
+
+## Reference
+
+| Type          | Expands To                     |
+| ------------- | ------------------------------ |
+| `col.email()` | `string(255)` + `email` format |
+| `col.phone()` | `string(50)` + E.164 format    |
+| `col.url()`   | `string(2048)` + `uri` format  |
+
+## Example
+
+```yaml
+schema:
+  contacts:
+    columns:
+      id: col.id()
+      email: col.email()
+      phone: col.phone()
+      website: col.url()
+```
+
+## Validation
+
+**Email** - RFC 5322 compliant validation:
+
+```
+user@example.com ✓
+invalid-email   ✗
+```
+
+**Phone** - E.164 international format:
+
+```
++14155551234  ✓
+555-1234      ✗
+```
+
+**URL** - Full URI with scheme:
+
+```
+https://example.com  ✓
+example.com          ✗
+```

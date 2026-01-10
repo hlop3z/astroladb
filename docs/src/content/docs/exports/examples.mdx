@@ -1,0 +1,66 @@
+---
+title: Export Examples
+description: Sample output for each supported language
+---
+
+Given a simple User table in your schema:
+
+```yaml
+tables:
+  User:
+    columns:
+      id: uuid primarykey
+      email: string unique
+      name: string
+      created_at: timestamp
+```
+
+## TypeScript
+
+```typescript
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  created_at: Date;
+}
+```
+
+## Go
+
+```go
+type User struct {
+    ID        string    `json:"id"`
+    Email     string    `json:"email"`
+    Name      string    `json:"name"`
+    CreatedAt time.Time `json:"created_at"`
+}
+```
+
+## Python
+
+```python
+from dataclasses import dataclass
+from datetime import datetime
+
+@dataclass
+class User:
+    id: str
+    email: str
+    name: str
+    created_at: datetime
+```
+
+## Rust
+
+```rust
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct User {
+    pub id: String,
+    pub email: String,
+    pub name: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+```

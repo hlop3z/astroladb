@@ -1,0 +1,54 @@
+---
+title: Tables
+---
+
+## Basic Table Syntax
+
+Define tables using the `table({})` function with column definitions:
+
+```js
+export const posts = table({
+  title: col.string(),
+  body: col.text(),
+  published: col.boolean().default(false),
+  author: col.belongs_to("auth.user"),
+});
+```
+
+## Table Modifiers
+
+Chain modifiers to add common functionality:
+
+```js
+export const articles = table({
+  title: col.string(),
+  content: col.text(),
+})
+  .timestamps()
+  .soft_delete()
+  .searchable(["title", "content"]);
+```
+
+| Modifier                       | What it does                    |
+| ------------------------------ | ------------------------------- |
+| `.timestamps()`                | Adds `created_at`, `updated_at` |
+| `.auditable()`                 | Adds `created_by`, `updated_by` |
+| `.soft_delete()`               | Adds `deleted_at`               |
+| `.sort_by([...])`              | Default ORDER BY                |
+| `.searchable([...])`           | Text search columns             |
+| `.filterable([...])`           | Filter columns                  |
+| `.unique("col1", "col2")`      | Composite unique                |
+| `.index("col1", "col2")`       | Composite index                 |
+| `.many_to_many("other.table")` | M2M relationship                |
+
+## Composite Constraints Example
+
+```js
+export const order_items = table({
+  order: col.belongs_to("sales.order"),
+  product: col.belongs_to("catalog.product"),
+  quantity: col.integer(),
+})
+  .unique("order", "product")
+  .index("product", "quantity");
+```

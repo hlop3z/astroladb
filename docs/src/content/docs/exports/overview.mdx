@@ -1,0 +1,40 @@
+---
+title: Export Overview
+description: Generate type-safe code and API specifications from your schema
+---
+
+Astroladb exports your schema definitions to multiple languages and API
+specifications, keeping your types synchronized across your entire stack.
+
+## What Gets Exported
+
+- **Language Types**: Strongly-typed definitions for TypeScript, Go, Python, and
+  Rust
+- **API Specs**: OpenAPI 3.0 and GraphQL schema definitions
+
+## Export Commands
+
+```bash
+# Export everything
+alab export -f all
+
+# Export specific format
+alab export -f typescript
+alab export -f openapi
+
+# Merge into single files per format
+alab export -f all --merge
+```
+
+## Supported Formats
+
+| Format     | Output                 |
+| ---------- | ---------------------- |
+| typescript | Interfaces, enums      |
+| go         | Structs with json tags |
+| python     | Dataclasses            |
+| rust       | Structs with serde     |
+| openapi    | OpenAPI 3.0 spec       |
+| graphql    | GraphQL types          |
+
+Output files are written to `./generated/<format>/` by default.

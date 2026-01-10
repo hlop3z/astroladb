@@ -1,0 +1,42 @@
+---
+title: Text Types
+description: String and text semantic types in AstrolaDB
+---
+
+Text types provide pre-configured string columns for common use cases.
+
+## Reference
+
+| Type            | Expands To                           |
+| --------------- | ------------------------------------ |
+| `col.name()`    | `string(100)`                        |
+| `col.title()`   | `string(200)`                        |
+| `col.slug()`    | `string(255)` + `unique` + `pattern` |
+| `col.body()`    | `text` (unlimited)                   |
+| `col.summary()` | `string(500)`                        |
+| `col.code()`    | `string(20)` for SKUs/codes          |
+
+## Example
+
+```yaml
+schema:
+  articles:
+    columns:
+      id: col.id()
+      title: col.title()
+      slug: col.slug()
+      summary: col.summary()
+      body: col.body()
+      sku: col.code()
+```
+
+## Slug Pattern
+
+The `col.slug()` type enforces URL-safe strings:
+
+```
+^[a-z0-9]+(?:-[a-z0-9]+)*$
+```
+
+Valid: `my-article`, `post-123`, `hello` Invalid: `My Article`, `post--double`,
+`-leading`

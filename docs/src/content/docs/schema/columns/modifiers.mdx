@@ -1,0 +1,57 @@
+---
+title: Column Modifiers
+---
+
+Modifiers customize column behavior, validation, and documentation.
+
+## Modifier Reference
+
+| Modifier           | What it does                      |
+| ------------------ | --------------------------------- |
+| `.optional()`      | Allow NULL                        |
+| `.unique()`        | Unique constraint                 |
+| `.default(value)`  | Default for new rows              |
+| `.backfill(value)` | Fill existing rows in migrations  |
+| `.min(n)`          | Minimum value/length              |
+| `.max(n)`          | Maximum value/length              |
+| `.pattern(regex)`  | Regex validation                  |
+| `.docs(text)`      | SQL comment + OpenAPI description |
+
+## Validation Modifiers
+
+```js
+export const products = table("products", {
+  sku: col.string(20).pattern(/^[A-Z]{3}-\d{4}$/),
+  price: col.decimal(10, 2).min(0),
+  name: col.string(100).min(3).max(100),
+});
+```
+
+## Migration Helpers
+
+Use `.backfill()` when adding required columns to existing tables.
+
+```js
+export const users = table("users", {
+  // New required column - backfill sets value for existing rows
+  tier: col.string(20).default("free").backfill("free"),
+});
+```
+
+## Documentation
+
+The `.docs()` modifier adds SQL comments and OpenAPI descriptions.
+
+```js
+export const orders = table("orders", {
+  total: col.decimal(12, 2).docs("Order total in USD"),
+});
+```
+
+## Chaining Example
+
+Combine multiple modifiers in any order.
+
+```js
+col.email().optional().unique().docs("User email address");
+```

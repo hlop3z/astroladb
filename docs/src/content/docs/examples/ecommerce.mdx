@@ -1,0 +1,121 @@
+---
+title: E-Commerce Schema
+description:
+  Complete e-commerce schema with products, categories, orders, and line items.
+---
+
+A full e-commerce schema demonstrating product catalog and order management.
+
+## Category Table
+
+Self-referential parent allows nested category hierarchies.
+
+```js
+// schemas/catalog/category.js
+export default table({
+  id: col.id(),
+  name: col.name(),
+  slug: col.slug().unique(),
+  parent: col.belongs_to("catalog.category").optional(),
+  description: col.text().optional(),
+}).timestamps();
+```
+
+## Product Table
+
+```js
+// schemas/catalog/product.js
+export default table({
+  id: col.id(),
+  name: col.name(),
+  slug: col.slug().unique(),
+  description: col.text().optional(),
+  price: col.money(),
+  stock: col.quantity(),
+  category: col.belongs_to("catalog.category"),
+  is_active: col.flag(true),
+})
+  .timestamps()
+  .soft_delete();
+```
+
+## Order Table
+
+```js
+// schemas/orders/order.js
+export default table({
+  id: col.id(),
+  user: col.belongs_to("auth.user"),
+  status: col
+    .enum(["pending", "paid", "shipped", "delivered", "cancelled"])
+    .default("pending"),
+  total: col.money(),
+  shipping_address: col.text(),
+  notes: col.text().optional(),
+}).timestamps();
+```
+
+## Order Item Table
+
+Line items join orders and products with quantity and price snapshot.
+
+```js
+// schemas/orders/order_item.js
+export default table({
+  id: col.id(),
+  order: col.belongs_to("orders.order"),
+  product: col.belongs_to("catalog.product"),
+  quantity: col.quantity(),
+  unit_price: col.money(),
+  subtotal: col.money(),
+}).timestamps();
+```
+
+## Usage
+
+```js
+// Create category hierarchy
+const electronics = await db.catalog.category.create({
+  name: "Electronics",
+  slug: "electronics",
+});
+
+const phones = await db.catalog.category.create({
+  name: "Phones",
+  slug: "phones",
+  parent: electronics.id,
+});
+
+// Create a product
+const product = await db.catalog.product.create({
+  name: "Smartphone X",
+  slug: "smartphone-x",
+  description: "Latest model with advanced features",
+  price: 999.99,
+  stock: 50,
+  category: phones.id,
+});
+
+// Create an order
+const order = await db.orders.order.create({
+  user: userId,
+  status: "pending",
+  total: 999.99,
+  shipping_address: "123 Main St, City, Country",
+});
+
+// Add line item
+await db.orders.order_item.create({
+  order: order.id,
+  product: product.id,
+  quantity: 1,
+  unit_price: 999.99,
+  subtotal: 999.99,
+});
+
+// Update order status
+await order.update({ status: "paid" });
+
+// Decrement stock
+await product.update({ stock: product.stock - 1 });
+```

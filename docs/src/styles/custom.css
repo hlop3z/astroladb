@@ -1,0 +1,69 @@
+/* Custom styles for WASM Runtime docs */
+
+:root {
+	--sl-color-accent-low: #1e1b4b;
+	--sl-color-accent: #6366f1;
+	--sl-color-accent-high: #c7d2fe;
+	--sl-color-white: #ffffff;
+	--sl-color-gray-1: #eceef2;
+	--sl-color-gray-2: #c0c2c7;
+	--sl-color-gray-3: #888b96;
+	--sl-color-gray-4: #545861;
+	--sl-color-gray-5: #353841;
+	--sl-color-gray-6: #24272f;
+	--sl-color-black: #17181c;
+}
+
+:root[data-theme='light'] {
+	--sl-color-accent-low: #c7d2fe;
+	--sl-color-accent: #4f46e5;
+	--sl-color-accent-high: #1e1b4b;
+}
+
+/* Code block styling */
+.expressive-code {
+	border-radius: 0.5rem;
+}
+
+/* API endpoint styling */
+.api-endpoint {
+	background: var(--sl-color-gray-6);
+	border-left: 4px solid var(--sl-color-accent);
+	padding: 1rem;
+	margin: 1rem 0;
+	border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.api-endpoint code {
+	background: transparent;
+}
+
+/* Method badges */
+.method-badge {
+	display: inline-block;
+	padding: 0.25rem 0.5rem;
+	border-radius: 0.25rem;
+	font-weight: 600;
+	font-size: 0.75rem;
+	text-transform: uppercase;
+}
+
+.method-get {
+	background: #059669;
+	color: white;
+}
+
+.method-post {
+	background: #2563eb;
+	color: white;
+}
+
+.method-delete {
+	background: #dc2626;
+	color: white;
+}
+
+.method-any {
+	background: #7c3aed;
+	color: white;
+}

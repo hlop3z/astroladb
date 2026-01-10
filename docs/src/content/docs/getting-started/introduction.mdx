@@ -1,0 +1,37 @@
+---
+title: Introduction
+description:
+  Learn what Astroladb is and how it solves common database schema management
+  problems.
+---
+
+Astroladb is a **language-agnostic database migration tool** that lets you
+define your schema in JavaScript and automatically generates migrations, API
+specs, and types. No ORM. No framework lock-in. Just clean migrations and type
+exports.
+
+## The Problem It Solves
+
+| Problem                                 | Astroladb Solution                           |
+| --------------------------------------- | -------------------------------------------- |
+| ORMs tie you to one language            | Define schema once, export to any language   |
+| Manual migration writing is error-prone | Auto-generate migrations from schema changes |
+| Keeping API docs in sync is tedious     | OpenAPI/GraphQL generated from your schema   |
+| Type definitions drift from database    | Types always match your actual schema        |
+
+## What You Can Generate
+
+From a single schema definition, Astroladb exports:
+
+- **Database migrations** (PostgreSQL & SQLite)
+- **OpenAPI specifications**
+- **GraphQL schemas**
+- **TypeScript types**
+- **Go structs**
+- **Python dataclasses**
+- **Rust structs**
+
+```bash
+# Export everything with one command
+alab export -f all
+```

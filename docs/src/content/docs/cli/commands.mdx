@@ -1,0 +1,61 @@
+---
+title: CLI Commands
+description: Complete reference for all Astroladb CLI commands
+---
+
+import { Code } from "@astrojs/starlight/components";
+
+## Command Reference
+
+| Command             | Description                                         |
+| ------------------- | --------------------------------------------------- |
+| `alab init`         | Initialize new project                              |
+| `alab new <name>`   | Generate migration from schema changes              |
+| `alab migrate`      | Apply pending migrations                            |
+| `alab rollback [n]` | Rollback last n migrations (default: 1)             |
+| `alab status`       | Show migration status                               |
+| `alab diff`         | Show schema vs database diff                        |
+| `alab check`        | Validate schema files                               |
+| `alab export`       | Export to OpenAPI/GraphQL/TypeScript/Go/Python/Rust |
+| `alab http`         | Start live documentation server                     |
+| `alab types`        | Regenerate IDE autocomplete definitions             |
+
+## Usage Examples
+
+```bash
+# Initialize a new project
+alab init
+
+# Create a migration after schema changes
+alab new add_users_table
+
+# Apply all pending migrations
+alab migrate
+
+# Rollback the last 3 migrations
+alab rollback 3
+
+# Check current migration status
+alab status
+
+# Validate schema files before committing
+alab check
+```
+
+## Common Flags
+
+| Flag        | Command   | Description                     |
+| ----------- | --------- | ------------------------------- |
+| `--dry-run` | `migrate` | Preview SQL without executing   |
+| `--json`    | `status`  | JSON output for CI/CD pipelines |
+| `-f all`    | `export`  | Export all formats              |
+| `--merge`   | `export`  | Single file per format          |
+| `-p <port>` | `http`    | Custom port (default: 8080)     |
+
+```bash
+alab migrate --dry-run      # Preview SQL without executing
+alab status --json          # JSON output for CI/CD
+alab export -f all          # Export all formats
+alab export -f all --merge  # Single file per format
+alab http -p 3000           # Custom port
+```

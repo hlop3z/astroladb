@@ -1,0 +1,33 @@
+---
+title: Astroladb
+description: Schema-first database migrations. Write once, export everywhere.
+---
+
+**Language-agnostic database migration tool with JavaScript DSL.** Define your
+schema once, generate migrations and type exports for any language.
+
+## Quick Example
+
+```js
+// schemas/auth/user.js
+export default table({
+  id: col.id(),
+  email: col.email().unique(),
+  username: col.username().unique(),
+  password: col.password_hash(),
+  is_active: col.flag(true),
+}).timestamps();
+```
+
+```bash
+alab new create_users  # Generate migration
+alab migrate           # Apply to database
+alab export -f all     # Export types for all languages
+```
+
+## Supported Databases
+
+| Database       | Use Case                       |
+| -------------- | ------------------------------ |
+| **PostgreSQL** | Production                     |
+| **SQLite**     | Development, testing, embedded |

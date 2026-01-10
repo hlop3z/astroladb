@@ -1,0 +1,44 @@
+---
+title: Auth Types
+description: Authentication and authorization types in AstrolaDB
+---
+
+Auth types provide secure handling of credentials and tokens.
+
+## Reference
+
+| Type                  | Expands To                          |
+| --------------------- | ----------------------------------- |
+| `col.username()`      | `string(50)` + `pattern` + `min(3)` |
+| `col.password_hash()` | `string(255)`, hidden from API      |
+| `col.token()`         | `string(64)`, for API keys          |
+
+## Example
+
+```yaml
+schema:
+  users:
+    columns:
+      id: col.id()
+      username: col.username()
+      password_hash: col.password_hash()
+      api_token: col.token()
+```
+
+## Username Pattern
+
+Usernames must be 3-50 characters, alphanumeric with underscores:
+
+```
+^[a-zA-Z][a-zA-Z0-9_]{2,49}$
+```
+
+## Password Hash
+
+The `password_hash` column is automatically excluded from API responses. Always
+hash passwords before storage—never store plaintext.
+
+## Token
+
+64-character string suitable for API keys and session tokens. Generate using
+cryptographically secure random functions.

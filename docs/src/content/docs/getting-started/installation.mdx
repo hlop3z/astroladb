@@ -1,0 +1,35 @@
+---
+title: Installation
+description: Install Astroladb on Linux, macOS, or via Go.
+---
+
+## Quick Install (Linux/macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh | sh
+```
+
+## Go Install
+
+If you have Go installed:
+
+```bash
+go install github.com/hlop3z/astroladb/cmd/alab@latest
+```
+
+## Verify Installation
+
+```bash
+alab --version
+```
+
+## System Requirements
+
+| Requirement   | Details                              |
+| ------------- | ------------------------------------ |
+| OS            | Linux, macOS, Windows (WSL)          |
+| Database      | PostgreSQL 12+ or SQLite 3.35+       |
+| Go (optional) | 1.21+ (only for `go install` method) |
+
+:::tip The quick install script automatically detects your architecture and
+places the binary in `/usr/local/bin`. :::

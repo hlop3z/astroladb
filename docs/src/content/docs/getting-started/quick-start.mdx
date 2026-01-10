@@ -1,0 +1,45 @@
+---
+title: Quick Start
+description: Initialize your first Astroladb project in under a minute.
+---
+
+## Create Your Project
+
+```bash
+mkdir myapp && cd myapp
+alab init
+```
+
+## Project Structure
+
+After running `alab init`, you'll have:
+
+```
+myapp/
+├── alab.yaml        # Configuration file
+├── schemas/         # Your schema definitions
+├── migrations/      # Generated SQL migrations
+└── types/           # TypeScript definitions for IDE support
+```
+
+| File/Folder   | Purpose                                                   |
+| ------------- | --------------------------------------------------------- |
+| `alab.yaml`   | Database connection and project settings                  |
+| `schemas/`    | JavaScript files defining your tables                     |
+| `migrations/` | Auto-generated SQL migration files                        |
+| `types/`      | TypeScript definitions for `col` and `table` autocomplete |
+
+## Configure Your Database
+
+Edit `alab.yaml` with your database connection:
+
+```yaml
+database:
+  dialect: postgres # or sqlite
+  url: postgres://user:pass@localhost:5432/mydb
+
+schemas: ./schemas
+migrations: ./migrations
+```
+
+You're ready to define your first schema.

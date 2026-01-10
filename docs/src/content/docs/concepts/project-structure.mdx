@@ -1,0 +1,77 @@
+---
+title: Project Structure
+description: Understanding the folder layout and file conventions in Astroladb
+---
+
+After running `alab init`, you get this structure:
+
+```
+myapp/
+├── alab.yaml        # Configuration
+├── schemas/         # Schema definitions
+├── migrations/      # Generated migrations
+└── types/           # IDE support files
+```
+
+## Directory Reference
+
+| Path          | Purpose                                 | Editable? |
+| ------------- | --------------------------------------- | --------- |
+| `alab.yaml`   | Project config (database, output paths) | Yes       |
+| `schemas/`    | Your schema definitions                 | Yes       |
+| `migrations/` | Generated SQL files                     | No\*      |
+| `types/`      | Generated TypeScript types              | No        |
+
+\*Migrations can be edited for custom SQL, but regenerating will overwrite.
+
+## File Naming = Namespaces
+
+Folders inside `schemas/` become namespaces:
+
+```
+schemas/
+├── auth/
+│   ├── user.js      → auth.user
+│   └── session.js   → auth.session
+├── blog/
+│   └── post.js      → blog.post
+└── core.js          → core (root namespace)
+```
+
+## Schema File Anatomy
+
+A `.js` schema file exports a table definition:
+
+```js
+// schemas/auth/user.js
+export default table({
+  id: col.id(),
+  email: col.email().unique(),
+  name: col.name().optional(),
+  role: col.enum(["admin", "user"]).default("user"),
+}).timestamps();
+```
+
+Key elements:
+
+| Element    | Syntax            | Example                     |
+| ---------- | ----------------- | --------------------------- |
+| Table      | `table({ })`      | `table({ id: col.id() })`   |
+| Column     | `col.type()`      | `col.email().unique()`      |
+| Nullable   | `.optional()`     | `col.name().optional()`     |
+| Default    | `.default(value)` | `.default("user")`          |
+| Timestamps | `.timestamps()`   | Adds created_at, updated_at |
+
+## Config File
+
+The `alab.yaml` configures your project:
+
+```yaml
+# alab.yaml
+database:
+  dialect: postgres
+  url: postgres://user:pass@localhost:5432/mydb
+
+schemas: ./schemas
+migrations: ./migrations
+```
