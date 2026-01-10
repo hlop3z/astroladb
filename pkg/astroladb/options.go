@@ -1,0 +1,270 @@
+package astroladb
+
+import (
+	"io"
+	"time"
+
+	"github.com/hlop3z/astroladb/internal/metadata"
+)
+
+// Config holds all configuration options for the Client.
+type Config struct {
+	// DatabaseURL is the connection string for the database.
+	// Format depends on the dialect:
+	//   - PostgreSQL: postgres://user:pass@host:port/dbname
+	//   - SQLite: sqlite://path/to/db.db or file:path/to/db.db
+	DatabaseURL string
+
+	// SchemasDir is the path to the directory containing schema files.
+	// Default: ./schemas
+	SchemasDir string
+
+	// MigrationsDir is the path to the directory containing migration files.
+	// Default: ./migrations
+	MigrationsDir string
+
+	// Dialect specifies the database dialect to use.
+	// If empty, it will be auto-detected from the DatabaseURL.
+	// Valid values: "postgres", "sqlite"
+	Dialect string
+
+	// Timeout is the maximum duration for database operations.
+	// Default: 30s
+	Timeout time.Duration
+
+	// Logger is used for logging operations.
+	// If nil, no logging is performed.
+	Logger Logger
+
+	// SchemaOnly when true, skips database connection.
+	// Use for operations that only read schema files (export, check).
+	SchemaOnly bool
+}
+
+// Logger is the interface for logging operations.
+// It's compatible with the standard library's log.Logger.
+type Logger interface {
+	// Printf writes a formatted message to the log.
+	Printf(format string, v ...any)
+}
+
+// Option is a functional option for configuring the Client.
+type Option func(*Config)
+
+// WithDatabaseURL sets the database connection URL.
+//
+// Examples:
+//   - PostgreSQL: postgres://user:pass@localhost:5432/mydb
+//   - SQLite: sqlite://./mydb.db or file:./mydb.db
+func WithDatabaseURL(url string) Option {
+	return func(c *Config) {
+		c.DatabaseURL = url
+	}
+}
+
+// WithSchemasDir sets the path to the schemas directory.
+// Default: ./schemas
+func WithSchemasDir(dir string) Option {
+	return func(c *Config) {
+		c.SchemasDir = dir
+	}
+}
+
+// WithMigrationsDir sets the path to the migrations directory.
+// Default: ./migrations
+func WithMigrationsDir(dir string) Option {
+	return func(c *Config) {
+		c.MigrationsDir = dir
+	}
+}
+
+// WithDialect explicitly sets the database dialect.
+// If not set, it will be auto-detected from the database URL.
+// Valid values: "postgres", "sqlite"
+func WithDialect(dialect string) Option {
+	return func(c *Config) {
+		c.Dialect = dialect
+	}
+}
+
+// WithLogger sets the logger for the client.
+// If not set, no logging is performed.
+func WithLogger(l Logger) Option {
+	return func(c *Config) {
+		c.Logger = l
+	}
+}
+
+// WithTimeout sets the timeout for database operations.
+// Default: 30s
+func WithTimeout(d time.Duration) Option {
+	return func(c *Config) {
+		c.Timeout = d
+	}
+}
+
+// WithSchemaOnly enables schema-only mode, which skips database connection.
+// Use this for operations that only read schema files, such as:
+//   - SchemaExport (export to OpenAPI, TypeScript, etc.)
+//   - SchemaCheck (validate schema files)
+//
+// Operations that require a database connection will return an error.
+func WithSchemaOnly() Option {
+	return func(c *Config) {
+		c.SchemaOnly = true
+	}
+}
+
+// MigrationConfig holds options for migration operations.
+type MigrationConfig struct {
+	// DryRun if true, shows SQL without executing it.
+	DryRun bool
+
+	// Target is the target revision to migrate to.
+	// Empty means latest (for up) or none (for down).
+	Target string
+
+	// Steps is the number of migrations to apply/rollback.
+	// 0 means all pending (for up) or 1 (for down).
+	Steps int
+
+	// Output is where to write dry-run SQL output.
+	// Defaults to io.Discard if nil.
+	Output io.Writer
+
+	// Force skips chain integrity verification.
+	// Use with caution - this can lead to inconsistent state.
+	Force bool
+}
+
+// MigrationOption is a functional option for migration operations.
+type MigrationOption func(*MigrationConfig)
+
+// DryRun enables dry-run mode, which shows the SQL that would be
+// executed without actually executing it.
+func DryRun() MigrationOption {
+	return func(c *MigrationConfig) {
+		c.DryRun = true
+	}
+}
+
+// DryRunTo enables dry-run mode and writes output to the given writer.
+func DryRunTo(w io.Writer) MigrationOption {
+	return func(c *MigrationConfig) {
+		c.DryRun = true
+		c.Output = w
+	}
+}
+
+// Target sets the target revision to migrate to.
+// For MigrationRun: stops at this revision.
+// For MigrationRollback: rolls back to this revision (exclusive).
+func Target(revision string) MigrationOption {
+	return func(c *MigrationConfig) {
+		c.Target = revision
+	}
+}
+
+// Steps sets the number of migrations to apply or rollback.
+// For MigrationRun: applies up to n migrations.
+// For MigrationRollback: rolls back n migrations.
+func Steps(n int) MigrationOption {
+	return func(c *MigrationConfig) {
+		c.Steps = n
+	}
+}
+
+// Force skips chain integrity verification.
+// Use with caution - this can lead to inconsistent migration state.
+func Force() MigrationOption {
+	return func(c *MigrationConfig) {
+		c.Force = true
+	}
+}
+
+// applyMigrationOptions applies all migration options to a config.
+func applyMigrationOptions(opts []MigrationOption) *MigrationConfig {
+	cfg := &MigrationConfig{
+		Steps: 0, // 0 = all for up, 1 for down
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	return cfg
+}
+
+// ExportConfig holds options for schema export operations.
+type ExportConfig struct {
+	// Pretty enables pretty-printed output (for JSON formats).
+	Pretty bool
+
+	// IncludeDescriptions includes field descriptions in the output.
+	IncludeDescriptions bool
+
+	// Namespace filters output to a specific namespace.
+	// Empty means all namespaces.
+	Namespace string
+
+	// UseChrono enables chrono types for Rust date/time fields.
+	// When false (default), date/time fields use String.
+	UseChrono bool
+
+	// UseMik enables mik_sdk style for Rust exports.
+	// Uses #[derive(Type)] and imports mik_sdk::prelude::*.
+	UseMik bool
+
+	// Metadata contains schema metadata for many_to_many and polymorphic relationships.
+	// This is set internally by SchemaExport and should not be set by callers.
+	Metadata *metadata.Metadata
+}
+
+// ExportOption is a functional option for export operations.
+type ExportOption func(*ExportConfig)
+
+// WithPrettyPrint enables pretty-printed output.
+func WithPrettyPrint() ExportOption {
+	return func(c *ExportConfig) {
+		c.Pretty = true
+	}
+}
+
+// WithDescriptions includes field descriptions in the output.
+func WithDescriptions() ExportOption {
+	return func(c *ExportConfig) {
+		c.IncludeDescriptions = true
+	}
+}
+
+// WithNamespace filters output to a specific namespace.
+func WithNamespace(ns string) ExportOption {
+	return func(c *ExportConfig) {
+		c.Namespace = ns
+	}
+}
+
+// WithChrono enables chrono types for Rust date/time fields.
+func WithChrono() ExportOption {
+	return func(c *ExportConfig) {
+		c.UseChrono = true
+	}
+}
+
+// WithMik enables mik_sdk style for Rust exports.
+// Uses #[derive(Type)] and imports mik_sdk::prelude::*.
+func WithMik() ExportOption {
+	return func(c *ExportConfig) {
+		c.UseMik = true
+	}
+}
+
+// applyExportOptions applies all export options to a config.
+func applyExportOptions(opts []ExportOption) *ExportConfig {
+	cfg := &ExportConfig{
+		Pretty:              true, // Default to pretty output
+		IncludeDescriptions: true, // Default to include descriptions
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	return cfg
+}
