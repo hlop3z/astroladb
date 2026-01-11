@@ -34,7 +34,7 @@ var helpMessages = map[string]HelpMessage{
 			"",
 			"Supported URL formats:",
 			"  PostgreSQL: postgres://user:pass@localhost:5432/dbname",
-			"  SQLite:     sqlite://./mydb.db  or  ./mydb.db",
+			"  SQLite:     ./mydb.db  or  /absolute/path/to/mydb.db",
 		},
 	},
 	"schemas_dir_not_found": {
@@ -186,8 +186,8 @@ var connectionHelpSQLite = map[string][]string{
 	},
 	"default": {
 		"- Verify the file path is correct",
-		"- Check your connection URL format:",
-		"  sqlite://./path/to/database.db",
+		"- Check your database URL format:",
+		"  ./path/to/database.db",
 	},
 }
 

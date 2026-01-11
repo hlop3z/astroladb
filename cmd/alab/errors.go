@@ -54,8 +54,8 @@ func printConnectionError(connErr *astroladb.ConnectionError) {
 			fmt.Fprintln(os.Stderr, "  - Permission denied. Check file/directory permissions")
 		} else {
 			fmt.Fprintln(os.Stderr, "  - Verify the file path is correct")
-			fmt.Fprintln(os.Stderr, "  - Check your connection URL format:")
-			fmt.Fprintln(os.Stderr, "    sqlite://./path/to/database.db")
+			fmt.Fprintln(os.Stderr, "  - Check your database URL format:")
+			fmt.Fprintln(os.Stderr, "    ./path/to/database.db")
 		}
 
 	default:
