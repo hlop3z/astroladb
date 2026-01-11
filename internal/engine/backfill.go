@@ -74,7 +74,7 @@ func SuggestDefault(colType string) string {
 		return `"1970-01-01"`
 	case "time":
 		return `"00:00:00"`
-	case "date_time":
+	case "datetime":
 		return `"1970-01-01T00:00:00Z"`
 	case "uuid":
 		return `sql("gen_random_uuid()")` // PostgreSQL

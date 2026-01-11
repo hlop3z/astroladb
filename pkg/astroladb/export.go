@@ -374,7 +374,7 @@ func generateColumnExample(col *ast.ColumnDef) any {
 		return "2024-01-15"
 	case "time":
 		return "10:30:00"
-	case "datetime", "date_time":
+	case "datetime":
 		return "2024-01-15T10:30:00Z"
 	case "json":
 		return map[string]any{"key": "value"}
@@ -1469,7 +1469,7 @@ func columnToPythonType(col *ast.ColumnDef, table *ast.TableDef) string {
 		return "date"
 	case "time":
 		return "time"
-	case "date_time":
+	case "datetime":
 		return "datetime"
 	case "json":
 		return "Any"
@@ -1634,7 +1634,7 @@ func columnToRustType(col *ast.ColumnDef, table *ast.TableDef, cfg *ExportConfig
 			} else {
 				baseType = "String"
 			}
-		case "date_time":
+		case "datetime":
 			if cfg.UseChrono {
 				baseType = "DateTime<Utc>"
 			} else {
@@ -1801,7 +1801,7 @@ func columnToGraphQLType(col *ast.ColumnDef, table *ast.TableDef, cfg *ExportCon
 			baseType = "String" // Decimal as string for precision
 		case "boolean":
 			baseType = "Boolean"
-		case "date", "time", "date_time":
+		case "date", "time", "datetime":
 			baseType = "DateTime"
 		case "json":
 			baseType = "JSON"

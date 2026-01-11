@@ -385,7 +385,7 @@ func mapTypeToSQL(typ string, args []any) string {
 		return "DATE"
 	case "time":
 		return "TIME"
-	case "date_time":
+	case "datetime":
 		return "TIMESTAMP"
 	case "json":
 		return "JSONB"

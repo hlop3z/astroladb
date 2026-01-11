@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -485,8 +486,8 @@ func (c *Client) LintPendingMigrations() ([]string, error) {
 func (c *Client) MigrationGenerate(name string) (string, error) {
 	c.log("Generating migration: %s", name)
 
-	// Get schema diff
-	ops, err := c.SchemaDiff()
+	// Get schema diff against last migration state (not database state)
+	ops, err := c.SchemaDiffFromMigrations()
 	if err != nil {
 		return "", err
 	}
@@ -533,7 +534,7 @@ func (c *Client) MigrationGenerate(name string) (string, error) {
 // DetectRenames analyzes schema diff and returns potential rename candidates.
 // These candidates should be confirmed by the user before generating the migration.
 func (c *Client) DetectRenames() ([]engine.RenameCandidate, error) {
-	ops, err := c.SchemaDiff()
+	ops, err := c.SchemaDiffFromMigrations()
 	if err != nil {
 		return nil, err
 	}
@@ -545,8 +546,8 @@ func (c *Client) DetectRenames() ([]engine.RenameCandidate, error) {
 func (c *Client) MigrationGenerateWithRenames(name string, confirmedRenames []engine.RenameCandidate) (string, error) {
 	c.log("Generating migration with renames: %s", name)
 
-	// Get schema diff
-	ops, err := c.SchemaDiff()
+	// Get schema diff against last migration state (not database state)
+	ops, err := c.SchemaDiffFromMigrations()
 	if err != nil {
 		return "", err
 	}
@@ -596,7 +597,7 @@ func (c *Client) MigrationGenerateWithRenames(name string, confirmedRenames []en
 // DetectMissingBackfills finds NOT NULL columns being added without defaults.
 // Returns candidates that should be prompted to the user for backfill values.
 func (c *Client) DetectMissingBackfills() ([]engine.BackfillCandidate, error) {
-	ops, err := c.SchemaDiff()
+	ops, err := c.SchemaDiffFromMigrations()
 	if err != nil {
 		return nil, err
 	}
@@ -608,8 +609,8 @@ func (c *Client) DetectMissingBackfills() ([]engine.BackfillCandidate, error) {
 func (c *Client) MigrationGenerateInteractive(name string, renames []engine.RenameCandidate, backfills map[string]string) (string, error) {
 	c.log("Generating interactive migration: %s", name)
 
-	// Get schema diff
-	ops, err := c.SchemaDiff()
+	// Get schema diff against last migration state (not database state)
+	ops, err := c.SchemaDiffFromMigrations()
 	if err != nil {
 		return "", err
 	}
@@ -664,7 +665,7 @@ func (c *Client) MigrationGenerateInteractive(name string, renames []engine.Rena
 }
 
 // loadMigrationFiles loads migration files from the migrations directory.
-// This version computes file-only checksums (legacy).
+// Computes the migration chain with checksums for integrity verification.
 func (c *Client) loadMigrationFiles() ([]engine.Migration, error) {
 	// Compute the chain first
 	migrationChain, err := chain.ComputeFromDir(c.config.MigrationsDir)
@@ -766,10 +767,16 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 			c.writeDropColumn(&sb, o)
 		case *ast.RenameColumn:
 			c.writeRenameColumn(&sb, o)
+		case *ast.AlterColumn:
+			c.writeAlterColumn(&sb, o)
 		case *ast.CreateIndex:
 			c.writeCreateIndex(&sb, o)
 		case *ast.DropIndex:
 			c.writeDropIndex(&sb, o)
+		case *ast.AddForeignKey:
+			c.writeAddForeignKey(&sb, o)
+		case *ast.DropForeignKey:
+			c.writeDropForeignKey(&sb, o)
 		default:
 			sb.WriteString("  // Unsupported operation\n")
 		}
@@ -811,6 +818,12 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 				ref = o.Namespace + "." + o.Table_
 			}
 			sb.WriteString(fmt.Sprintf("  m.rename_column(\"%s\", \"%s\", \"%s\")\n", ref, o.NewName, o.OldName))
+		case *ast.AlterColumn:
+			ref := o.Table_
+			if o.Namespace != "" {
+				ref = o.Namespace + "." + o.Table_
+			}
+			sb.WriteString(fmt.Sprintf("  // TODO: Reverse alter_column on %s.%s\n", ref, o.Name))
 		case *ast.CreateIndex:
 			indexName := o.Name
 			if indexName == "" {
@@ -819,6 +832,18 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 			sb.WriteString(fmt.Sprintf("  m.drop_index(\"%s\")\n", indexName))
 		case *ast.DropIndex:
 			sb.WriteString(fmt.Sprintf("  // TODO: Recreate index %s\n", o.Name))
+		case *ast.AddForeignKey:
+			fkName := o.Name
+			if fkName == "" {
+				fkName = fmt.Sprintf("fk_%s_%s", o.Table_, strings.Join(o.Columns, "_"))
+			}
+			ref := o.Table_
+			if o.Namespace != "" {
+				ref = o.Namespace + "." + o.Table_
+			}
+			sb.WriteString(fmt.Sprintf("  m.drop_foreign_key(\"%s\", \"%s\")\n", ref, fkName))
+		case *ast.DropForeignKey:
+			sb.WriteString(fmt.Sprintf("  // TODO: Recreate foreign key %s\n", o.Name))
 		}
 	}
 	sb.WriteString("}\n")
@@ -835,29 +860,36 @@ func (c *Client) writeCreateTable(sb *strings.Builder, op *ast.CreateTable) {
 
 	sb.WriteString(fmt.Sprintf("  m.create_table(\"%s\", t => {\n", ref))
 
+	// Sort columns: id first, timestamps last, others alphabetically
+	sortedColumns := c.sortColumnsForDisplay(op.Columns)
+
 	// Track which columns to skip (for timestamps detection)
 	skip := make(map[int]bool)
+	timestampIndex := -1
 
-	// Detect timestamps() pattern: created_at and updated_at date_time columns
-	for i := 0; i < len(op.Columns)-1; i++ {
-		col1 := op.Columns[i]
-		col2 := op.Columns[i+1]
-		if col1.Name == "created_at" && col1.Type == "date_time" &&
-			col2.Name == "updated_at" && col2.Type == "date_time" {
+	// Detect timestamps() pattern: created_at and updated_at datetime columns
+	for i := 0; i < len(sortedColumns)-1; i++ {
+		col1 := sortedColumns[i]
+		col2 := sortedColumns[i+1]
+		if col1.Name == "created_at" && col1.Type == "datetime" &&
+			col2.Name == "updated_at" && col2.Type == "datetime" {
 			skip[i] = true
 			skip[i+1] = true
+			timestampIndex = i
 		}
 	}
 
-	for i, col := range op.Columns {
+	// Write columns
+	for i, col := range sortedColumns {
 		if skip[i] {
-			// Write timestamps() once when we hit created_at
-			if col.Name == "created_at" {
-				sb.WriteString("    t.timestamps()\n")
-			}
 			continue
 		}
 		c.writeColumn(sb, col)
+	}
+
+	// Write timestamps() at the end if detected
+	if timestampIndex >= 0 {
+		sb.WriteString("    t.timestamps()\n")
 	}
 
 	sb.WriteString("  })\n")
@@ -869,18 +901,72 @@ func (c *Client) writeCreateTable(sb *strings.Builder, op *ast.CreateTable) {
 				Namespace: op.Namespace,
 				Table_:    op.Name,
 			},
-			Name:    idx.Name,
-			Columns: idx.Columns,
-			Unique:  idx.Unique,
+			Name:        idx.Name,
+			Columns:     idx.Columns,
+			Unique:      idx.Unique,
+			IfNotExists: true,
 		})
 	}
+}
+
+// sortColumnsForDisplay sorts columns for migration display:
+// 1. id/primary key first
+// 2. Other columns alphabetically
+// 3. timestamps (created_at, updated_at) last
+func (c *Client) sortColumnsForDisplay(columns []*ast.ColumnDef) []*ast.ColumnDef {
+	if len(columns) == 0 {
+		return columns
+	}
+
+	// Make a copy to avoid modifying the original
+	sorted := make([]*ast.ColumnDef, len(columns))
+	copy(sorted, columns)
+
+	// Sort using custom ordering
+	sort.SliceStable(sorted, func(i, j int) bool {
+		col1, col2 := sorted[i], sorted[j]
+
+		// Priority 1: id/primary key columns first
+		if col1.PrimaryKey && !col2.PrimaryKey {
+			return true
+		}
+		if !col1.PrimaryKey && col2.PrimaryKey {
+			return false
+		}
+
+		// Priority 2: timestamp columns last
+		isTimestamp1 := col1.Name == "created_at" || col1.Name == "updated_at" || col1.Name == "deleted_at"
+		isTimestamp2 := col2.Name == "created_at" || col2.Name == "updated_at" || col2.Name == "deleted_at"
+
+		if isTimestamp1 && !isTimestamp2 {
+			return false
+		}
+		if !isTimestamp1 && isTimestamp2 {
+			return true
+		}
+
+		// Priority 3: created_at before updated_at before deleted_at
+		if isTimestamp1 && isTimestamp2 {
+			order := map[string]int{
+				"created_at": 1,
+				"updated_at": 2,
+				"deleted_at": 3,
+			}
+			return order[col1.Name] < order[col2.Name]
+		}
+
+		// Priority 4: alphabetically by name
+		return col1.Name < col2.Name
+	})
+
+	return sorted
 }
 
 // typeToDSLMethod converts internal type names to DSL method names.
 // Some internal types have different names than their DSL methods.
 func typeToDSLMethod(internalType string) string {
 	switch internalType {
-	case "date_time":
+	case "datetime":
 		return "datetime"
 	default:
 		return internalType
@@ -894,6 +980,12 @@ func (c *Client) writeColumn(sb *strings.Builder, col *ast.ColumnDef) {
 	// Detect t.id() pattern: uuid primary key named "id"
 	if col.Type == "uuid" && col.Name == "id" && col.PrimaryKey {
 		sb.WriteString("    t.id()\n")
+		return
+	}
+
+	// Detect belongs_to pattern: uuid column with a Reference
+	if col.Reference != nil {
+		c.writeBelongsTo(sb, col)
 		return
 	}
 
@@ -960,6 +1052,41 @@ func (c *Client) writeColumn(sb *strings.Builder, col *ast.ColumnDef) {
 
 	call.WriteString("\n")
 	sb.WriteString(call.String())
+}
+
+// writeBelongsTo writes a belongs_to relationship column.
+func (c *Client) writeBelongsTo(sb *strings.Builder, col *ast.ColumnDef) {
+	var call strings.Builder
+	call.WriteString(fmt.Sprintf("    t.belongs_to(\"%s\")", col.Reference.Table))
+
+	// Determine if an alias is needed by checking if column name differs from default
+	// Default column name for belongs_to("ns.table") is "table_id"
+	expectedColName := extractTableName(col.Reference.Table) + "_id"
+	if col.Name != expectedColName {
+		// Extract alias from column name (remove _id suffix)
+		alias := strings.TrimSuffix(col.Name, "_id")
+		call.WriteString(fmt.Sprintf(".as(\"%s\")", alias))
+	}
+
+	// Add modifiers
+	if col.Nullable {
+		call.WriteString(".optional()")
+	}
+	if col.Reference.OnDelete != "" {
+		call.WriteString(fmt.Sprintf(".on_delete(\"%s\")", strings.ToLower(col.Reference.OnDelete)))
+	}
+	if col.Reference.OnUpdate != "" {
+		call.WriteString(fmt.Sprintf(".on_update(\"%s\")", strings.ToLower(col.Reference.OnUpdate)))
+	}
+
+	call.WriteString("\n")
+	sb.WriteString(call.String())
+}
+
+// extractTableName extracts the table name from a reference like "ns.table" or "table".
+func extractTableName(ref string) string {
+	parts := strings.Split(ref, ".")
+	return parts[len(parts)-1]
 }
 
 // writeDropTable writes a drop_table DSL call.
@@ -1097,6 +1224,105 @@ func (c *Client) writeCreateIndex(sb *strings.Builder, op *ast.CreateIndex) {
 // writeDropIndex writes a drop_index DSL call.
 func (c *Client) writeDropIndex(sb *strings.Builder, op *ast.DropIndex) {
 	sb.WriteString(fmt.Sprintf("  m.drop_index(\"%s\")\n", op.Name))
+}
+
+// writeAlterColumn writes an alter_column DSL call.
+func (c *Client) writeAlterColumn(sb *strings.Builder, op *ast.AlterColumn) {
+	ref := op.Table_
+	if op.Namespace != "" {
+		ref = op.Namespace + "." + op.Table_
+	}
+
+	sb.WriteString(fmt.Sprintf("  m.alter_column(\"%s\", \"%s\", c => c", ref, op.Name))
+
+	if op.NewType != "" {
+		dslMethod := typeToDSLMethod(op.NewType)
+		sb.WriteString(fmt.Sprintf(".set_type(\"%s\"", dslMethod))
+		for _, arg := range op.NewTypeArgs {
+			switch v := arg.(type) {
+			case int:
+				sb.WriteString(fmt.Sprintf(", %d", v))
+			case float64:
+				sb.WriteString(fmt.Sprintf(", %v", v))
+			}
+		}
+		sb.WriteString(")")
+	}
+	if op.SetNullable != nil {
+		if *op.SetNullable {
+			sb.WriteString(".set_nullable()")
+		} else {
+			sb.WriteString(".set_not_null()")
+		}
+	}
+	if op.DropDefault {
+		sb.WriteString(".drop_default()")
+	} else if op.SetDefault != nil {
+		switch v := op.SetDefault.(type) {
+		case bool:
+			sb.WriteString(fmt.Sprintf(".set_default(%t)", v))
+		case int:
+			sb.WriteString(fmt.Sprintf(".set_default(%d)", v))
+		case float64:
+			sb.WriteString(fmt.Sprintf(".set_default(%v)", v))
+		case string:
+			sb.WriteString(fmt.Sprintf(".set_default(\"%s\")", v))
+		}
+	}
+	if op.ServerDefault != "" {
+		sb.WriteString(fmt.Sprintf(".set_server_default(\"%s\")", op.ServerDefault))
+	}
+
+	sb.WriteString(")\n")
+}
+
+// writeAddForeignKey writes an add_foreign_key DSL call.
+func (c *Client) writeAddForeignKey(sb *strings.Builder, op *ast.AddForeignKey) {
+	ref := op.Table_
+	if op.Namespace != "" {
+		ref = op.Namespace + "." + op.Table_
+	}
+
+	// Format columns
+	cols := make([]string, len(op.Columns))
+	for i, col := range op.Columns {
+		cols[i] = fmt.Sprintf("\"%s\"", col)
+	}
+
+	// Format ref columns
+	refCols := make([]string, len(op.RefColumns))
+	for i, col := range op.RefColumns {
+		refCols[i] = fmt.Sprintf("\"%s\"", col)
+	}
+
+	sb.WriteString(fmt.Sprintf("  m.add_foreign_key(\"%s\", [%s], \"%s\", [%s]",
+		ref, strings.Join(cols, ", "), op.RefTable, strings.Join(refCols, ", ")))
+
+	// Add options if present
+	opts := []string{}
+	if op.Name != "" {
+		opts = append(opts, fmt.Sprintf("name: \"%s\"", op.Name))
+	}
+	if op.OnDelete != "" {
+		opts = append(opts, fmt.Sprintf("on_delete: \"%s\"", strings.ToLower(op.OnDelete)))
+	}
+	if op.OnUpdate != "" {
+		opts = append(opts, fmt.Sprintf("on_update: \"%s\"", strings.ToLower(op.OnUpdate)))
+	}
+	if len(opts) > 0 {
+		sb.WriteString(fmt.Sprintf(", {%s}", strings.Join(opts, ", ")))
+	}
+
+	sb.WriteString(")\n")
+}
+
+// writeDropForeignKey writes a drop_foreign_key DSL call.
+func (c *Client) writeDropForeignKey(sb *strings.Builder, op *ast.DropForeignKey) {
+	ref := op.Table_
+	if op.Namespace != "" {
+		ref = op.Namespace + "." + op.Table_
+	}
+	sb.WriteString(fmt.Sprintf("  m.drop_foreign_key(\"%s\", \"%s\")\n", ref, op.Name))
 }
 
 // dryRunMigrations outputs the SQL that would be executed without running it.
