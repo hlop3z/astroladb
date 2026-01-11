@@ -397,7 +397,7 @@ func startServer(port int) error {
 		}
 		defer freshClient.Close()
 
-		data, err := freshClient.SchemaExport("openapi", astroladb.WithPrettyPrint())
+		data, err := freshClient.SchemaExport("openapi")
 		if err != nil {
 			handleSchemaError(w, err, "/openapi.json")
 			return

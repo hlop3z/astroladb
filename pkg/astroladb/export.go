@@ -433,10 +433,7 @@ func exportOpenAPI(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 		},
 	}
 
-	if cfg.Pretty {
-		return json.MarshalIndent(spec, "", "  ")
-	}
-	return json.Marshal(spec)
+	return json.MarshalIndent(spec, "", "  ")
 }
 
 // generateOpenAPIPaths generates a single /schemas endpoint with all models.
@@ -810,7 +807,7 @@ func tableToOpenAPISchema(table *ast.TableDef, allTables []*ast.TableDef, cfg *E
 		schema["required"] = required
 	}
 
-	if cfg.IncludeDescriptions && table.Docs != "" {
+	if table.Docs != "" {
 		schema["description"] = table.Docs
 	}
 
@@ -1220,7 +1217,7 @@ func columnToOpenAPIProperty(col *ast.ColumnDef, table *ast.TableDef, cfg *Expor
 	}
 
 	// Description
-	if cfg.IncludeDescriptions && col.Docs != "" {
+	if col.Docs != "" {
 		prop["description"] = col.Docs
 	}
 
@@ -1538,7 +1535,7 @@ func tableToTypeScript(table *ast.TableDef, cfg *ExportConfig) string {
 	name := strutil.ToPascalCase(table.FullName())
 
 	// Add JSDoc comment
-	if cfg.IncludeDescriptions && table.Docs != "" {
+	if table.Docs != "" {
 		sb.WriteString("/**\n")
 		sb.WriteString(fmt.Sprintf(" * %s\n", table.Docs))
 		if table.Deprecated != "" {
@@ -1551,7 +1548,7 @@ func tableToTypeScript(table *ast.TableDef, cfg *ExportConfig) string {
 
 	for _, col := range table.Columns {
 		// Add JSDoc for column
-		if cfg.IncludeDescriptions && col.Docs != "" {
+		if col.Docs != "" {
 			sb.WriteString(fmt.Sprintf("  /** %s */\n", col.Docs))
 		}
 
@@ -1616,7 +1613,7 @@ func generateGoStruct(buf *bytes.Buffer, table *ast.TableDef, cfg *ExportConfig)
 	name := strutil.ToPascalCase(table.FullName())
 
 	// Add doc comment if present
-	if cfg.IncludeDescriptions && table.Docs != "" {
+	if table.Docs != "" {
 		fmt.Fprintf(buf, "// %s %s\n", name, table.Docs)
 	}
 	if table.Deprecated != "" {
@@ -1634,7 +1631,7 @@ func generateGoStruct(buf *bytes.Buffer, table *ast.TableDef, cfg *ExportConfig)
 		jsonTag += "\"`"
 
 		// Add doc comment if present
-		if cfg.IncludeDescriptions && col.Docs != "" {
+		if col.Docs != "" {
 			fmt.Fprintf(buf, "\t// %s\n", col.Docs)
 		}
 		fmt.Fprintf(buf, "\t%s %s %s\n", strutil.ToPascalCase(col.Name), goType, jsonTag)
@@ -1707,7 +1704,7 @@ func generatePythonDataclass(sb *strings.Builder, table *ast.TableDef, cfg *Expo
 	name := strutil.ToPascalCase(table.FullName())
 
 	// Add docstring if present
-	if cfg.IncludeDescriptions && table.Docs != "" {
+	if table.Docs != "" {
 		sb.WriteString(fmt.Sprintf("\"\"\"%s\"\"\"\n", table.Docs))
 	}
 
@@ -1723,7 +1720,7 @@ func generatePythonDataclass(sb *strings.Builder, table *ast.TableDef, cfg *Expo
 		pyType := columnToPythonType(col, table)
 
 		// Add comment if present
-		if cfg.IncludeDescriptions && col.Docs != "" {
+		if col.Docs != "" {
 			sb.WriteString(fmt.Sprintf("    # %s\n", col.Docs))
 		}
 
@@ -1739,7 +1736,7 @@ func generatePythonDataclass(sb *strings.Builder, table *ast.TableDef, cfg *Expo
 		pyType = fmt.Sprintf("Optional[%s]", pyType)
 
 		// Add comment if present
-		if cfg.IncludeDescriptions && col.Docs != "" {
+		if col.Docs != "" {
 			sb.WriteString(fmt.Sprintf("    # %s\n", col.Docs))
 		}
 
@@ -1825,7 +1822,7 @@ func generateRustStruct(sb *strings.Builder, table *ast.TableDef, cfg *ExportCon
 	name := strutil.ToPascalCase(table.FullName())
 
 	// Add doc comment if present
-	if cfg.IncludeDescriptions && table.Docs != "" {
+	if table.Docs != "" {
 		sb.WriteString(fmt.Sprintf("/// %s\n", table.Docs))
 	}
 
@@ -1840,7 +1837,7 @@ func generateRustStruct(sb *strings.Builder, table *ast.TableDef, cfg *ExportCon
 		rustType := columnToRustType(col, table, cfg)
 
 		// Add doc comment if present
-		if cfg.IncludeDescriptions && col.Docs != "" {
+		if col.Docs != "" {
 			sb.WriteString(fmt.Sprintf("    /// %s\n", col.Docs))
 		}
 
@@ -1947,7 +1944,7 @@ func exportGraphQL(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 		for _, col := range table.Columns {
 			if col.Type == "enum" && len(col.TypeArgs) > 0 {
 				enumName := strutil.ToPascalCase(table.FullName()) + strutil.ToPascalCase(col.Name)
-				if cfg.IncludeDescriptions && col.Docs != "" {
+				if col.Docs != "" {
 					sb.WriteString(fmt.Sprintf("\"\"\"%s\"\"\"\n", col.Docs))
 				}
 				sb.WriteString(fmt.Sprintf("enum %s {\n", enumName))
@@ -1993,7 +1990,7 @@ func generateGraphQLType(sb *strings.Builder, table *ast.TableDef, cfg *ExportCo
 	name := strutil.ToPascalCase(table.FullName())
 
 	// Add doc comment if present
-	if cfg.IncludeDescriptions && table.Docs != "" {
+	if table.Docs != "" {
 		sb.WriteString(fmt.Sprintf("\"\"\"%s\"\"\"\n", table.Docs))
 	}
 
@@ -2003,7 +2000,7 @@ func generateGraphQLType(sb *strings.Builder, table *ast.TableDef, cfg *ExportCo
 		gqlType := columnToGraphQLType(col, table, cfg)
 
 		// Add doc comment if present
-		if cfg.IncludeDescriptions && col.Docs != "" {
+		if col.Docs != "" {
 			sb.WriteString(fmt.Sprintf("  \"\"\"%s\"\"\"\n", col.Docs))
 		}
 

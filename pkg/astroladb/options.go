@@ -195,12 +195,6 @@ func applyMigrationOptions(opts []MigrationOption) *MigrationConfig {
 
 // ExportConfig holds options for schema export operations.
 type ExportConfig struct {
-	// Pretty enables pretty-printed output (for JSON formats).
-	Pretty bool
-
-	// IncludeDescriptions includes field descriptions in the output.
-	IncludeDescriptions bool
-
 	// Namespace filters output to a specific namespace.
 	// Empty means all namespaces.
 	Namespace string
@@ -220,20 +214,6 @@ type ExportConfig struct {
 
 // ExportOption is a functional option for export operations.
 type ExportOption func(*ExportConfig)
-
-// WithPrettyPrint enables pretty-printed output.
-func WithPrettyPrint() ExportOption {
-	return func(c *ExportConfig) {
-		c.Pretty = true
-	}
-}
-
-// WithDescriptions includes field descriptions in the output.
-func WithDescriptions() ExportOption {
-	return func(c *ExportConfig) {
-		c.IncludeDescriptions = true
-	}
-}
 
 // WithNamespace filters output to a specific namespace.
 func WithNamespace(ns string) ExportOption {
@@ -259,10 +239,7 @@ func WithMik() ExportOption {
 
 // applyExportOptions applies all export options to a config.
 func applyExportOptions(opts []ExportOption) *ExportConfig {
-	cfg := &ExportConfig{
-		Pretty:              true, // Default to pretty output
-		IncludeDescriptions: true, // Default to include descriptions
-	}
+	cfg := &ExportConfig{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
