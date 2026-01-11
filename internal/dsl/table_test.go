@@ -169,8 +169,8 @@ func TestTableBuilder_DateTime(t *testing.T) {
 	got := tb.Build()
 
 	col := got.Columns[0]
-	if col.Type != "date_time" {
-		t.Errorf("Column type = %q, want %q", col.Type, "date_time")
+	if col.Type != "datetime" {
+		t.Errorf("Column type = %q, want %q", col.Type, "datetime")
 	}
 }
 
@@ -243,8 +243,8 @@ func TestTableBuilder_Timestamps(t *testing.T) {
 	if createdAt.Name != "created_at" {
 		t.Errorf("First column name = %q, want %q", createdAt.Name, "created_at")
 	}
-	if createdAt.Type != "date_time" {
-		t.Errorf("First column type = %q, want %q", createdAt.Type, "date_time")
+	if createdAt.Type != "datetime" {
+		t.Errorf("First column type = %q, want %q", createdAt.Type, "datetime")
 	}
 	if !createdAt.DefaultSet {
 		t.Error("created_at should have default set")
@@ -255,8 +255,8 @@ func TestTableBuilder_Timestamps(t *testing.T) {
 	if updatedAt.Name != "updated_at" {
 		t.Errorf("Second column name = %q, want %q", updatedAt.Name, "updated_at")
 	}
-	if updatedAt.Type != "date_time" {
-		t.Errorf("Second column type = %q, want %q", updatedAt.Type, "date_time")
+	if updatedAt.Type != "datetime" {
+		t.Errorf("Second column type = %q, want %q", updatedAt.Type, "datetime")
 	}
 	if !updatedAt.DefaultSet {
 		t.Error("updated_at should have default set")
@@ -276,8 +276,8 @@ func TestTableBuilder_SoftDelete(t *testing.T) {
 	if col.Name != "deleted_at" {
 		t.Errorf("Column name = %q, want %q", col.Name, "deleted_at")
 	}
-	if col.Type != "date_time" {
-		t.Errorf("Column type = %q, want %q", col.Type, "date_time")
+	if col.Type != "datetime" {
+		t.Errorf("Column type = %q, want %q", col.Type, "datetime")
 	}
 	if !col.Nullable {
 		t.Error("deleted_at should be nullable")

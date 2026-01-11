@@ -26,7 +26,7 @@ func TestGet(t *testing.T) {
 		{"boolean", "boolean", false},
 		{"date", "date", false},
 		{"time", "time", false},
-		{"date_time", "date_time", false},
+		{"datetime", "datetime", false},
 		{"uuid", "uuid", false},
 		{"json", "json", false},
 		{"base64", "base64", false},
@@ -91,7 +91,7 @@ func TestAll(t *testing.T) {
 	// Check that we have the expected minimum number of types
 	expectedTypes := []string{
 		"id", "string", "text", "integer", "float", "decimal",
-		"boolean", "date", "time", "date_time", "uuid", "json", "base64", "enum",
+		"boolean", "date", "time", "datetime", "uuid", "json", "base64", "enum",
 	}
 
 	typeMap := make(map[string]bool)
@@ -188,8 +188,8 @@ func TestBuiltInTypeDefinitions(t *testing.T) {
 		},
 		// DateTime
 		{
-			name:        "date_time",
-			wantJSName:  "date_time",
+			name:        "datetime",
+			wantJSName:  "datetime",
 			wantGoType:  "string",
 			wantHasArgs: false,
 		},
@@ -418,7 +418,7 @@ func TestOpenAPITypeMappings(t *testing.T) {
 		// Date/Time types (all serialized as strings)
 		{"date", "string", "date"},
 		{"time", "string", "time"},
-		{"date_time", "string", "date-time"},
+		{"datetime", "string", "date-time"},
 
 		// JSON
 		{"json", "object", ""},
@@ -460,7 +460,7 @@ func TestGetFormat(t *testing.T) {
 		{"uuid", "uuid", "RFC 4122", true},
 		{"date", "date", "ISO 8601", true},
 		{"time", "time", "RFC 3339", true},
-		{"date_time", "date-time", "RFC 3339", true},
+		{"datetime", "date-time", "RFC 3339", true},
 		{"hostname", "hostname", "RFC 1123", true},
 		{"ipv4", "ipv4", "RFC 791", true},
 		{"ipv6", "ipv6", "RFC 4291", true},
@@ -499,7 +499,7 @@ func TestGetFormatUnknown(t *testing.T) {
 
 func TestStandardFormats(t *testing.T) {
 	expectedFormats := []string{
-		"email", "uri", "uuid", "date", "time", "date_time",
+		"email", "uri", "uuid", "date", "time", "datetime",
 		"hostname", "ipv4", "ipv6", "password",
 	}
 
@@ -544,7 +544,7 @@ func TestJSSafeTypes(t *testing.T) {
 
 func TestTypeArgumentValidation(t *testing.T) {
 	// Types that don't accept arguments
-	noArgsTypes := []string{"id", "text", "integer", "float", "boolean", "date", "time", "date_time", "uuid", "json", "base64"}
+	noArgsTypes := []string{"id", "text", "integer", "float", "boolean", "date", "time", "datetime", "uuid", "json", "base64"}
 	for _, typeName := range noArgsTypes {
 		t.Run(typeName+"_no_args", func(t *testing.T) {
 			td := Get(typeName)

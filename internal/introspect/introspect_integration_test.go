@@ -90,7 +90,7 @@ func TestIntrospectColumns_Postgres(t *testing.T) {
 		{"is_active column", "is_active", "boolean", false, false, true},
 		{"bio column", "bio", "text", true, false, false},
 		{"metadata column", "metadata", "json", true, false, false},
-		{"created_at column", "created_at", "date_time", false, false, true},
+		{"created_at column", "created_at", "datetime", false, false, true},
 	}
 
 	for _, tt := range tests {
@@ -403,7 +403,7 @@ func TestIntrospectColumns_SQLite(t *testing.T) {
 		{"balance column", "balance", "decimal", true, false},
 		{"is_active column", "is_active", "boolean", false, false},
 		{"bio column", "bio", "text", true, false},
-		{"created_at column", "created_at", "date_time", false, false},
+		{"created_at column", "created_at", "datetime", false, false},
 	}
 
 	for _, tt := range tests {

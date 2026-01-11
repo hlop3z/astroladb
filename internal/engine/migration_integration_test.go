@@ -214,7 +214,7 @@ func TestMigration_CreateTable_AllDialects(t *testing.T) {
 					{Name: "id", Type: "uuid", PrimaryKey: true},
 					{Name: "email", Type: "string", TypeArgs: []any{255}, Unique: true, Nullable: false},
 					{Name: "name", Type: "string", TypeArgs: []any{100}, Nullable: false},
-					{Name: "created_at", Type: "date_time", Nullable: false},
+					{Name: "created_at", Type: "datetime", Nullable: false},
 				},
 			}
 
@@ -282,8 +282,8 @@ func TestMigration_CreateTable_WithTimestamps_AllDialects(t *testing.T) {
 				Columns: []*ast.ColumnDef{
 					{Name: "id", Type: "uuid", PrimaryKey: true},
 					{Name: "title", Type: "string", TypeArgs: []any{200}, Nullable: false},
-					{Name: "created_at", Type: "date_time", Nullable: false},
-					{Name: "updated_at", Type: "date_time", Nullable: false},
+					{Name: "created_at", Type: "datetime", Nullable: false},
+					{Name: "updated_at", Type: "datetime", Nullable: false},
 				},
 			}
 
@@ -306,7 +306,7 @@ func TestMigration_CreateTable_WithSoftDelete_AllDialects(t *testing.T) {
 				Columns: []*ast.ColumnDef{
 					{Name: "id", Type: "uuid", PrimaryKey: true},
 					{Name: "title", Type: "string", TypeArgs: []any{200}, Nullable: false},
-					{Name: "deleted_at", Type: "date_time", Nullable: true},
+					{Name: "deleted_at", Type: "datetime", Nullable: true},
 				},
 			}
 
@@ -646,7 +646,7 @@ func TestMigration_MultipleMigrations_InOrder_AllDialects(t *testing.T) {
 					TableRef: ast.TableRef{Namespace: "auth", Table_: "user"},
 					Column: &ast.ColumnDef{
 						Name:     "created_at",
-						Type:     "date_time",
+						Type:     "datetime",
 						Nullable: true,
 					},
 				},
@@ -863,7 +863,7 @@ func TestMigration_AllColumnTypes_AllDialects(t *testing.T) {
 					{Name: "boolean_col", Type: "boolean", Nullable: true},
 					{Name: "date_col", Type: "date", Nullable: true},
 					{Name: "time_col", Type: "time", Nullable: true},
-					{Name: "datetime_col", Type: "date_time", Nullable: true},
+					{Name: "datetime_col", Type: "datetime", Nullable: true},
 					{Name: "uuid_col", Type: "uuid", Nullable: true},
 					{Name: "json_col", Type: "json", Nullable: true},
 				},

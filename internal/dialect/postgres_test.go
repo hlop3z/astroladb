@@ -209,7 +209,7 @@ func TestPostgresCreateTableSQL(t *testing.T) {
 					{Name: "id", Type: "id", PrimaryKey: true},
 					{Name: "title", Type: "string", TypeArgs: []any{255}},
 					{Name: "views", Type: "integer", Default: 0, DefaultSet: true},
-					{Name: "deleted_at", Type: "date_time", Nullable: true, NullableSet: true},
+					{Name: "deleted_at", Type: "datetime", Nullable: true, NullableSet: true},
 				},
 			},
 			contains: []string{

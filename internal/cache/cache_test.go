@@ -55,7 +55,7 @@ func TestSchemaSnapshot(t *testing.T) {
 		Columns: []*ast.ColumnDef{
 			{Name: "id", Type: "uuid", PrimaryKey: true},
 			{Name: "email", Type: "string", TypeArgs: []any{255}},
-			{Name: "created_at", Type: "date_time"},
+			{Name: "created_at", Type: "datetime"},
 		},
 		Indexes: []*ast.IndexDef{
 			{Name: "idx_user_email", Columns: []string{"email"}, Unique: true},
@@ -448,7 +448,7 @@ func TestSQLExprSerialization(t *testing.T) {
 		Name:      "table",
 		Columns: []*ast.ColumnDef{
 			{Name: "id", Type: "uuid", PrimaryKey: true},
-			{Name: "created_at", Type: "date_time", Default: ast.NewSQLExpr("NOW()"), DefaultSet: true},
+			{Name: "created_at", Type: "datetime", Default: ast.NewSQLExpr("NOW()"), DefaultSet: true},
 		},
 	}
 

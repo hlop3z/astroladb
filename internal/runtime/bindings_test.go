@@ -63,7 +63,7 @@ func TestTableBuilder_TypeMethods(t *testing.T) {
 		{"boolean", "t.boolean('active')", "boolean"},
 		{"date", "t.date('birth_date')", "date"},
 		{"time", "t.time('start_time')", "time"},
-		{"datetime", "t.datetime('created')", "date_time"},
+		{"datetime", "t.datetime('created')", "datetime"},
 		{"uuid", "t.uuid('token')", "uuid"},
 		{"json", "t.json('data')", "json"},
 		{"base64", "t.base64('binary')", "base64"},
@@ -495,8 +495,8 @@ func TestTableBuilder_SemanticTypes(t *testing.T) {
 			t.Fatalf("Error: %v", err)
 		}
 		resultStr := result.String()
-		if !strings.Contains(resultStr, `"type":"date_time"`) {
-			t.Error("type should be 'date_time'")
+		if !strings.Contains(resultStr, `"type":"datetime"`) {
+			t.Error("type should be 'datetime'")
 		}
 	})
 

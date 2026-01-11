@@ -28,8 +28,8 @@ func testTable() *ast.TableDef {
 			{Name: "avatar", Type: "base64", Nullable: true},
 			{Name: "birth_date", Type: "date", Nullable: true},
 			{Name: "login_time", Type: "time", Nullable: true},
-			{Name: "created_at", Type: "date_time", Default: &ast.SQLExpr{Expr: "NOW()"}},
-			{Name: "updated_at", Type: "date_time", Default: &ast.SQLExpr{Expr: "NOW()"}},
+			{Name: "created_at", Type: "datetime", Default: &ast.SQLExpr{Expr: "NOW()"}},
+			{Name: "updated_at", Type: "datetime", Default: &ast.SQLExpr{Expr: "NOW()"}},
 		},
 		Docs: "User account table",
 	}
@@ -46,7 +46,7 @@ func testTableWithFK() *ast.TableDef {
 			{Name: "body", Type: "text"},
 			{Name: "author_id", Type: "uuid", Reference: &ast.Reference{Table: "auth.user", Column: "id"}},
 			{Name: "status", Type: "enum", TypeArgs: []any{[]string{"draft", "published"}}},
-			{Name: "created_at", Type: "date_time"},
+			{Name: "created_at", Type: "datetime"},
 		},
 	}
 }

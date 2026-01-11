@@ -49,7 +49,7 @@ func TestFormatDefinitions(t *testing.T) {
 			hasPattern: true,
 		},
 		{
-			name:       "date_time",
+			name:       "datetime",
 			format:     FormatDateTime,
 			wantFormat: "date-time",
 			wantRFC:    "RFC 3339 / ISO 8601",
@@ -114,7 +114,7 @@ func TestGetFormat(t *testing.T) {
 		{"uuid", "uuid", &FormatUUID},
 		{"date", "date", &FormatDate},
 		{"time", "time", &FormatTime},
-		{"date_time", "date_time", &FormatDateTime},
+		{"datetime", "datetime", &FormatDateTime},
 		{"hostname", "hostname", &FormatHostname},
 		{"ipv4", "ipv4", &FormatIPv4},
 		{"ipv6", "ipv6", &FormatIPv6},
@@ -144,7 +144,7 @@ func TestGetFormat(t *testing.T) {
 func TestFormatsMap(t *testing.T) {
 	expectedFormats := []string{
 		"email", "uri", "uuid", "date", "time",
-		"date_time", "hostname", "ipv4", "ipv6", "password",
+		"datetime", "hostname", "ipv4", "ipv6", "password",
 	}
 
 	for _, name := range expectedFormats {

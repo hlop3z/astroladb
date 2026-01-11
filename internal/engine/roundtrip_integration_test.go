@@ -211,7 +211,7 @@ func isSQLiteTypeEquivalent(actual, expected string) bool {
 	// SQLite uses TEXT for many types
 	textTypes := map[string]bool{
 		"string": true, "text": true, "uuid": true, "id": true,
-		"date": true, "time": true, "date_time": true, "json": true, "decimal": true,
+		"date": true, "time": true, "datetime": true, "json": true, "decimal": true,
 	}
 	if actual == "text" && textTypes[expected] {
 		return true
@@ -345,7 +345,7 @@ func TestRoundTrip_SimpleTable_Postgres(t *testing.T) {
 			{Name: "id", Type: "id", PrimaryKey: true},
 			{Name: "email", Type: "string", TypeArgs: []any{255}},
 			{Name: "name", Type: "string", TypeArgs: []any{100}},
-			{Name: "created_at", Type: "date_time"},
+			{Name: "created_at", Type: "datetime"},
 		},
 	}
 
@@ -367,7 +367,7 @@ func TestRoundTrip_SimpleTable_SQLite(t *testing.T) {
 			{Name: "id", Type: "id", PrimaryKey: true},
 			{Name: "email", Type: "string", TypeArgs: []any{255}},
 			{Name: "name", Type: "string", TypeArgs: []any{100}},
-			{Name: "created_at", Type: "date_time"},
+			{Name: "created_at", Type: "datetime"},
 		},
 	}
 
@@ -396,7 +396,7 @@ func TestRoundTrip_AllColumnTypes_Postgres(t *testing.T) {
 			{Name: "bool_col", Type: "boolean"},
 			{Name: "date_col", Type: "date"},
 			{Name: "time_col", Type: "time"},
-			{Name: "datetime_col", Type: "date_time"},
+			{Name: "datetime_col", Type: "datetime"},
 			{Name: "uuid_col", Type: "uuid"},
 			{Name: "json_col", Type: "json"},
 			{Name: "bytes_col", Type: "base64"},
@@ -424,7 +424,7 @@ func TestRoundTrip_AllColumnTypes_SQLite(t *testing.T) {
 			{Name: "bool_col", Type: "boolean"},
 			{Name: "date_col", Type: "date"},
 			{Name: "time_col", Type: "time"},
-			{Name: "datetime_col", Type: "date_time"},
+			{Name: "datetime_col", Type: "datetime"},
 			{Name: "uuid_col", Type: "uuid"},
 			{Name: "json_col", Type: "json"},
 			{Name: "bytes_col", Type: "base64"},
@@ -494,7 +494,7 @@ func TestRoundTrip_WithIndexes_Postgres(t *testing.T) {
 			{Name: "id", Type: "id", PrimaryKey: true},
 			{Name: "email", Type: "string", TypeArgs: []any{255}},
 			{Name: "username", Type: "string", TypeArgs: []any{50}},
-			{Name: "created_at", Type: "date_time"},
+			{Name: "created_at", Type: "datetime"},
 		},
 		Indexes: []*ast.IndexDef{
 			{Name: "idx_test_indexed_email", Columns: []string{"email"}, Unique: true},
@@ -523,7 +523,7 @@ func TestRoundTrip_WithIndexes_SQLite(t *testing.T) {
 			{Name: "id", Type: "id", PrimaryKey: true},
 			{Name: "email", Type: "string", TypeArgs: []any{255}},
 			{Name: "username", Type: "string", TypeArgs: []any{50}},
-			{Name: "created_at", Type: "date_time"},
+			{Name: "created_at", Type: "datetime"},
 		},
 		Indexes: []*ast.IndexDef{
 			{Name: "idx_test_indexed_email", Columns: []string{"email"}, Unique: true},
@@ -785,9 +785,9 @@ func TestRoundTrip_ComplexSchema_Postgres(t *testing.T) {
 			{Name: "notes", Type: "text", Nullable: true, NullableSet: true},
 			{Name: "metadata", Type: "json", Nullable: true, NullableSet: true},
 			{Name: "is_paid", Type: "boolean"},
-			{Name: "shipped_at", Type: "date_time", Nullable: true, NullableSet: true},
-			{Name: "created_at", Type: "date_time"},
-			{Name: "updated_at", Type: "date_time"},
+			{Name: "shipped_at", Type: "datetime", Nullable: true, NullableSet: true},
+			{Name: "created_at", Type: "datetime"},
+			{Name: "updated_at", Type: "datetime"},
 		},
 		Indexes: []*ast.IndexDef{
 			{Name: "idx_ecommerce_order_customer_email", Columns: []string{"customer_email"}},
@@ -821,9 +821,9 @@ func TestRoundTrip_ComplexSchema_SQLite(t *testing.T) {
 			{Name: "notes", Type: "text", Nullable: true, NullableSet: true},
 			{Name: "metadata", Type: "json", Nullable: true, NullableSet: true},
 			{Name: "is_paid", Type: "boolean"},
-			{Name: "shipped_at", Type: "date_time", Nullable: true, NullableSet: true},
-			{Name: "created_at", Type: "date_time"},
-			{Name: "updated_at", Type: "date_time"},
+			{Name: "shipped_at", Type: "datetime", Nullable: true, NullableSet: true},
+			{Name: "created_at", Type: "datetime"},
+			{Name: "updated_at", Type: "datetime"},
 		},
 		Indexes: []*ast.IndexDef{
 			{Name: "idx_ecommerce_order_customer_email", Columns: []string{"customer_email"}},
@@ -877,7 +877,7 @@ func TestRoundTrip_SchemaDiff_Postgres(t *testing.T) {
 			{Name: "id", Type: "id", PrimaryKey: true},
 			{Name: "email", Type: "string", TypeArgs: []any{255}},
 			{Name: "name", Type: "string", TypeArgs: []any{100}},
-			{Name: "created_at", Type: "date_time", Nullable: true, NullableSet: true},
+			{Name: "created_at", Type: "datetime", Nullable: true, NullableSet: true},
 		},
 	}
 

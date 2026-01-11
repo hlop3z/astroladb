@@ -134,7 +134,7 @@ func TestSuggestDefault(t *testing.T) {
 		{"boolean", "false"},
 		{"date", `"1970-01-01"`},
 		{"time", `"00:00:00"`},
-		{"date_time", `"1970-01-01T00:00:00Z"`},
+		{"datetime", `"1970-01-01T00:00:00Z"`},
 		{"json", `{}`},
 		{"unknown", `""`},
 	}

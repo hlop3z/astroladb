@@ -32,7 +32,7 @@ func TestComputeSchemaHash_SingleTable(t *testing.T) {
 		Columns: []*ast.ColumnDef{
 			{Name: "id", Type: "uuid", PrimaryKey: true},
 			{Name: "email", Type: "string", TypeArgs: []any{255}, Unique: true},
-			{Name: "created_at", Type: "date_time"},
+			{Name: "created_at", Type: "datetime"},
 		},
 		Indexes: []*ast.IndexDef{
 			{Name: "idx_user_email", Columns: []string{"email"}, Unique: true},

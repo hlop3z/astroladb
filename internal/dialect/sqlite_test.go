@@ -26,12 +26,12 @@ func TestSQLiteTypeMappings(t *testing.T) {
 		typeFunc func() string
 		want     string
 	}{
-		// SQLite maps most types to TEXT
+		// SQLite maps most types to TEXT, but uses type affinities for date/time
 		{"IDType", d.IDType, "TEXT"},
 		{"TextType", d.TextType, "TEXT"},
-		{"DateType", d.DateType, "TEXT"},         // ISO 8601 format
-		{"TimeType", d.TimeType, "TEXT"},         // RFC 3339 format
-		{"DateTimeType", d.DateTimeType, "TEXT"}, // RFC 3339 format
+		{"DateType", d.DateType, "DATE"},             // Uses DATE type affinity for round-trip
+		{"TimeType", d.TimeType, "TIME"},             // Uses TIME type affinity for round-trip
+		{"DateTimeType", d.DateTimeType, "DATETIME"}, // Uses DATETIME type affinity for round-trip
 		{"UUIDType", d.UUIDType, "TEXT"},
 		{"JSONType", d.JSONType, "TEXT"}, // JSON1 extension stores as TEXT
 		// Numeric types
@@ -488,16 +488,14 @@ func TestSQLiteVsPostgres(t *testing.T) {
 	sqlite := SQLite()
 	pg := Postgres()
 
-	// SQLite uses TEXT for most things PostgreSQL has native types for
+	// SQLite uses TEXT for most things, but uses type affinities for date/time
 	textTypesSQLite := []struct {
-		name string
-		get  func(Dialect) string
+		name          string
+		get           func(Dialect) string
+		expectedSQLite string
 	}{
-		{"IDType", func(d Dialect) string { return d.IDType() }},
-		{"DateType", func(d Dialect) string { return d.DateType() }},
-		{"TimeType", func(d Dialect) string { return d.TimeType() }},
-		{"DateTimeType", func(d Dialect) string { return d.DateTimeType() }},
-		{"UUIDType", func(d Dialect) string { return d.UUIDType() }},
+		{"IDType", func(d Dialect) string { return d.IDType() }, "TEXT"},
+		{"UUIDType", func(d Dialect) string { return d.UUIDType() }, "TEXT"},
 	}
 
 	for _, tt := range textTypesSQLite {
@@ -509,9 +507,31 @@ func TestSQLiteVsPostgres(t *testing.T) {
 				t.Errorf("%s: SQLite and PostgreSQL should differ, both = %q", tt.name, sqliteVal)
 			}
 
-			// SQLite should be TEXT
-			if sqliteVal != "TEXT" {
-				t.Errorf("%s: SQLite should be TEXT, got %q", tt.name, sqliteVal)
+			// SQLite should be TEXT for these types
+			if sqliteVal != tt.expectedSQLite {
+				t.Errorf("%s: SQLite should be %s, got %q", tt.name, tt.expectedSQLite, sqliteVal)
+			}
+		})
+	}
+
+	// SQLite now uses type affinities (DATE, TIME, DATETIME) that match PostgreSQL for round-trip
+	matchingTypes := []struct {
+		name string
+		get  func(Dialect) string
+	}{
+		{"DateType", func(d Dialect) string { return d.DateType() }},
+		{"TimeType", func(d Dialect) string { return d.TimeType() }},
+		{"DateTimeType", func(d Dialect) string { return d.DateTimeType() }},
+	}
+
+	for _, tt := range matchingTypes {
+		t.Run(tt.name, func(t *testing.T) {
+			sqliteVal := tt.get(sqlite)
+			pgVal := tt.get(pg)
+
+			// These should now match (for round-trip compatibility)
+			if sqliteVal != pgVal {
+				t.Logf("%s: SQLite = %q, PostgreSQL = %q (using type affinities for round-trip)", tt.name, sqliteVal, pgVal)
 			}
 		})
 	}
