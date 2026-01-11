@@ -34,6 +34,7 @@ func (m *MigrationBuilder) CreateTable(ref string, fn func(*TableBuilder)) {
 		Columns:     def.Columns,
 		Indexes:     def.Indexes,
 		ForeignKeys: make([]*ast.ForeignKeyDef, 0),
+		IfNotExists: true,
 	}
 
 	// Extract foreign keys from columns with references
@@ -63,7 +64,8 @@ func (m *MigrationBuilder) CreateTable(ref string, fn func(*TableBuilder)) {
 func (m *MigrationBuilder) DropTable(ref string) {
 	ns, table, _ := parseRefParts(ref)
 	m.operations = append(m.operations, &ast.DropTable{
-		TableOp: ast.TableOp{Namespace: ns, Name: table},
+		TableOp:  ast.TableOp{Namespace: ns, Name: table},
+		IfExists: true,
 	})
 }
 
@@ -129,8 +131,9 @@ func (m *MigrationBuilder) CreateIndex(ref string, columns []string, opts ...Ind
 	ns, table, _ := parseRefParts(ref)
 
 	op := &ast.CreateIndex{
-		TableRef: ast.TableRef{Namespace: ns, Table_: table},
-		Columns:  columns,
+		TableRef:    ast.TableRef{Namespace: ns, Table_: table},
+		Columns:     columns,
+		IfNotExists: true,
 	}
 
 	for _, opt := range opts {
@@ -143,7 +146,8 @@ func (m *MigrationBuilder) CreateIndex(ref string, columns []string, opts ...Ind
 // DropIndex drops an index.
 func (m *MigrationBuilder) DropIndex(name string) {
 	m.operations = append(m.operations, &ast.DropIndex{
-		Name: name,
+		Name:     name,
+		IfExists: true,
 	})
 }
 
