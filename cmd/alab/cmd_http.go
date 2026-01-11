@@ -12,7 +12,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/hlop3z/astroladb/internal/alerr"
-	"github.com/hlop3z/astroladb/internal/cli"
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
 	"github.com/spf13/cobra"
 )
@@ -187,7 +187,7 @@ func handleSchemaError(w http.ResponseWriter, err error, endpoint string) {
 
 	if !alreadyShown {
 		// Log to console with colors
-		fmt.Printf("\n  %s\n", cli.Error("Schema error"))
+		fmt.Printf("\n  %s\n", ui.Error("Schema error"))
 		fmt.Printf("  %s\n\n", errMsg)
 	}
 

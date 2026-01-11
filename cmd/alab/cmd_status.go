@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	alabcli "github.com/hlop3z/astroladb/internal/cli"
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -80,7 +80,7 @@ func statusCmd() *cobra.Command {
 
 			// Human-readable output
 			if len(statuses) == 0 {
-				fmt.Println(alabcli.Info("No migrations found."))
+				fmt.Println(ui.Info("No migrations found."))
 				return nil
 			}
 
@@ -95,20 +95,20 @@ func statusCmd() *cobra.Command {
 			}
 
 			// Print title and summary
-			fmt.Println(alabcli.RenderTitle("Migration Status"))
+			fmt.Println(ui.RenderTitle("Migration Status"))
 			fmt.Println()
 
 			if pendingCount > 0 {
 				fmt.Printf("  %s  %s\n\n",
-					alabcli.Green(fmt.Sprintf("%d applied", appliedCount)),
-					alabcli.Yellow(fmt.Sprintf("%d pending", pendingCount)))
+					ui.Green(fmt.Sprintf("%d applied", appliedCount)),
+					ui.Yellow(fmt.Sprintf("%d pending", pendingCount)))
 			} else {
 				fmt.Printf("  %s\n\n",
-					alabcli.Green(fmt.Sprintf("%d applied", appliedCount)))
+					ui.Green(fmt.Sprintf("%d applied", appliedCount)))
 			}
 
 			// Build styled table with borders
-			table := alabcli.NewStyledTable("REVISION", "NAME", "STATUS", "APPLIED AT")
+			table := ui.NewStyledTable("REVISION", "NAME", "STATUS", "APPLIED AT")
 			for _, s := range statuses {
 				appliedAt := ""
 				if s.AppliedAt != nil {
@@ -118,9 +118,9 @@ func statusCmd() *cobra.Command {
 				// Use styled badges for status
 				var statusBadge string
 				if s.Status == "applied" {
-					statusBadge = alabcli.RenderAppliedBadge()
+					statusBadge = ui.RenderAppliedBadge()
 				} else {
-					statusBadge = alabcli.RenderPendingBadge()
+					statusBadge = ui.RenderPendingBadge()
 				}
 
 				table.AddRow(s.Revision, s.Name, statusBadge, appliedAt)

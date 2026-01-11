@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	alabcli "github.com/hlop3z/astroladb/internal/cli"
 	"github.com/hlop3z/astroladb/internal/git"
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
 	"github.com/spf13/cobra"
 )
@@ -58,14 +58,14 @@ func migrateCmd() *cobra.Command {
 					return err
 				}
 				if len(warnings) > 0 && !confirmDestroy {
-					fmt.Fprintln(os.Stderr, alabcli.Warning("warning")+": destructive operations detected")
+					fmt.Fprintln(os.Stderr, ui.Warning("warning")+": destructive operations detected")
 					fmt.Fprintln(os.Stderr, "")
 					for _, w := range warnings {
-						fmt.Fprintf(os.Stderr, "  %s %s\n", alabcli.Failed("•"), w)
+						fmt.Fprintf(os.Stderr, "  %s %s\n", ui.Failed("•"), w)
 					}
 					fmt.Fprintln(os.Stderr, "")
-					fmt.Fprintln(os.Stderr, alabcli.Note("note")+": these operations will permanently delete data")
-					fmt.Fprintln(os.Stderr, alabcli.Help("help")+": run with --confirm-destroy to proceed")
+					fmt.Fprintln(os.Stderr, ui.Note("note")+": these operations will permanently delete data")
+					fmt.Fprintln(os.Stderr, ui.Help("help")+": run with --confirm-destroy to proceed")
 					os.Exit(1)
 				}
 			}
@@ -80,7 +80,7 @@ func migrateCmd() *cobra.Command {
 			}
 
 			if err := client.MigrationRun(opts...); err != nil {
-				fmt.Fprint(os.Stderr, alabcli.FormatError(err))
+				fmt.Fprint(os.Stderr, ui.FormatError(err))
 				os.Exit(1)
 			}
 

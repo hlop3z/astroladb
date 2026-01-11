@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hlop3z/astroladb/internal/cli"
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
 	"github.com/spf13/cobra"
 )
@@ -129,7 +129,7 @@ func exportFormat(client *astroladb.Client, format, dir string, stdout bool, opt
 	if err := os.WriteFile(outputPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
-	fmt.Printf("  %s %s → %s\n", cli.Success("Exported"), cli.Dim(format), cli.FilePath(outputPath))
+	fmt.Printf("  %s %s → %s\n", ui.Success("Exported"), ui.Dim(format), ui.FilePath(outputPath))
 
 	return nil
 }

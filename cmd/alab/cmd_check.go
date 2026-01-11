@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	alabcli "github.com/hlop3z/astroladb/internal/cli"
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
 	"github.com/spf13/cobra"
 )
@@ -40,7 +40,7 @@ func checkCmd() *cobra.Command {
 						"error": err.Error(),
 					})
 				} else {
-					fmt.Fprint(os.Stderr, alabcli.FormatError(err))
+					fmt.Fprint(os.Stderr, ui.FormatError(err))
 				}
 				os.Exit(1)
 			}
@@ -56,7 +56,7 @@ func checkCmd() *cobra.Command {
 						"error": err.Error(),
 					})
 				} else {
-					fmt.Fprintln(os.Stderr, alabcli.Error("error")+": drift check failed")
+					fmt.Fprintln(os.Stderr, ui.Error("error")+": drift check failed")
 					fmt.Fprintf(os.Stderr, "  %v\n", err)
 				}
 				os.Exit(1)
@@ -76,7 +76,7 @@ func checkCmd() *cobra.Command {
 					content := fmt.Sprintf("Expected: %s\nActual:   %s",
 						truncateHash(result.ExpectedHash),
 						truncateHash(result.ActualHash))
-					fmt.Println(alabcli.RenderWarningPanel("Schema drift detected", content))
+					fmt.Println(ui.RenderWarningPanel("Schema drift detected", content))
 					fmt.Println()
 					printDriftDetails(result)
 					os.Exit(1)
@@ -89,7 +89,7 @@ func checkCmd() *cobra.Command {
 					} else {
 						content = fmt.Sprintf("Hash: %s", truncateHash(result.ExpectedHash))
 					}
-					fmt.Println(alabcli.RenderSuccessPanel("Schema check passed", content))
+					fmt.Println(ui.RenderSuccessPanel("Schema check passed", content))
 				}
 			}
 
@@ -111,37 +111,37 @@ func outputJSON(data map[string]any) {
 
 // printDriftDetails prints colored drift details.
 func printDriftDetails(result *astroladb.DriftResult) {
-	fmt.Printf("  Expected: %s\n", alabcli.Dim(truncateHash(result.ExpectedHash)))
-	fmt.Printf("  Actual:   %s\n", alabcli.Dim(truncateHash(result.ActualHash)))
+	fmt.Printf("  Expected: %s\n", ui.Dim(truncateHash(result.ExpectedHash)))
+	fmt.Printf("  Actual:   %s\n", ui.Dim(truncateHash(result.ActualHash)))
 	fmt.Println()
 
-	printDriftSection(alabcli.Error("Missing tables")+" (in migrations but not in database)", "-", result.MissingTables, alabcli.Failed)
-	printDriftSection(alabcli.Warning("Extra tables")+" (in database but not in migrations)", "+", result.ExtraTables, alabcli.Warning)
+	printDriftSection(ui.Error("Missing tables")+" (in migrations but not in database)", "-", result.MissingTables, ui.Failed)
+	printDriftSection(ui.Warning("Extra tables")+" (in database but not in migrations)", "+", result.ExtraTables, ui.Warning)
 
 	if len(result.TableDiffs) > 0 {
-		fmt.Println("  " + alabcli.Info("Modified tables") + ":")
+		fmt.Println("  " + ui.Info("Modified tables") + ":")
 		for name, diff := range result.TableDiffs {
-			fmt.Printf("\n    %s:\n", alabcli.Header(name))
+			fmt.Printf("\n    %s:\n", ui.Header(name))
 			printTableDiffItems("column", diff.MissingColumns, diff.ExtraColumns, diff.ModifiedColumns)
 			printTableDiffItems("index", diff.MissingIndexes, diff.ExtraIndexes, nil)
 		}
 		fmt.Println()
 	}
 
-	fmt.Println(alabcli.Help("help") + ": create a migration to reconcile differences:")
+	fmt.Println(ui.Help("help") + ": create a migration to reconcile differences:")
 	fmt.Println("  alab new reconcile_drift")
 }
 
 // printTableDiffItems prints missing/extra/modified items for a table diff.
 func printTableDiffItems(itemType string, missing, extra, modified []string) {
 	for _, item := range missing {
-		fmt.Printf("      %s %s %s\n", alabcli.Failed("-"), itemType, item)
+		fmt.Printf("      %s %s %s\n", ui.Failed("-"), itemType, item)
 	}
 	for _, item := range extra {
-		fmt.Printf("      %s %s %s\n", alabcli.Warning("+"), itemType, item)
+		fmt.Printf("      %s %s %s\n", ui.Warning("+"), itemType, item)
 	}
 	for _, item := range modified {
-		fmt.Printf("      %s %s %s\n", alabcli.Info("~"), itemType, item)
+		fmt.Printf("      %s %s %s\n", ui.Info("~"), itemType, item)
 	}
 }
 

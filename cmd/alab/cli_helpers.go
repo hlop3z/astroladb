@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	alabcli "github.com/hlop3z/astroladb/internal/cli"
 	"github.com/hlop3z/astroladb/internal/git"
+	"github.com/hlop3z/astroladb/internal/ui"
 )
 
 // printDriftSection prints a section of drift results with consistent formatting.
@@ -26,7 +26,7 @@ func printDriftSection(title, symbol string, items []string, styleFn func(string
 	fmt.Println()
 }
 
-// OptionalSpinner wraps alabcli.Spinner with optional enable/disable support.
+// OptionalSpinner wraps ui.Spinner with optional enable/disable support.
 // This reduces boilerplate for commands that conditionally use spinners.
 //
 // Usage:
@@ -36,7 +36,7 @@ func printDriftSection(title, symbol string, items []string, styleFn func(string
 //	// ... do work ...
 //	spinner.Update("Still loading...")
 type OptionalSpinner struct {
-	spinner *alabcli.Spinner
+	spinner *ui.Spinner
 	enabled bool
 }
 
@@ -46,7 +46,7 @@ func NewOptionalSpinner(message string, enabled bool) *OptionalSpinner {
 	if !enabled {
 		return &OptionalSpinner{enabled: false}
 	}
-	s := alabcli.NewSpinner(message)
+	s := ui.NewSpinner(message)
 	s.Start()
 	return &OptionalSpinner{spinner: s, enabled: true}
 }

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	alabcli "github.com/hlop3z/astroladb/internal/cli"
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
 )
 
@@ -170,12 +170,12 @@ func handleClientError(err error) bool {
 	// Check for schema errors
 	var schemaErr *astroladb.SchemaError
 	if errors.As(err, &schemaErr) {
-		fmt.Fprintln(os.Stderr, alabcli.Error("error")+": schema validation failed")
+		fmt.Fprintln(os.Stderr, ui.Error("error")+": schema validation failed")
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintf(os.Stderr, "  %v\n", err)
 		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, alabcli.Note("note")+": check the syntax of your schema file")
-		fmt.Fprintln(os.Stderr, alabcli.Help("help")+": run `alab check --schema-only` to validate schemas")
+		fmt.Fprintln(os.Stderr, ui.Note("note")+": check the syntax of your schema file")
+		fmt.Fprintln(os.Stderr, ui.Help("help")+": run `alab check --schema-only` to validate schemas")
 		return true
 	}
 

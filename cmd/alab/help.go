@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	alabcli "github.com/hlop3z/astroladb/internal/cli"
+	"github.com/hlop3z/astroladb/internal/ui"
 )
 
 // HelpMessage represents a structured help message for error conditions.
@@ -121,7 +121,7 @@ func printHelp(key string, args ...any) {
 		return
 	}
 
-	fmt.Fprintln(os.Stderr, alabcli.Error("Error")+": "+msg.Title)
+	fmt.Fprintln(os.Stderr, ui.Error("Error")+": "+msg.Title)
 	fmt.Fprintln(os.Stderr)
 
 	for _, line := range msg.Lines {

@@ -78,7 +78,7 @@ export * from "./migration";
 import { SQLExpr } from "./globals";
 import { TableBuilder, ColBuilder } from "./column";
 import { SchemaBuilder, TableDefinition, TableChain, ColumnDefinitions } from "./schema";
-import { MigrationBuilder, MigrationOptions } from "./migration";
+import { MigrationBuilder } from "./migration";
 
 declare global {
   /** Wraps a string as a raw SQL expression. */
@@ -105,9 +105,6 @@ declare global {
 
   /** Defines a single table using an object (preferred API). */
   function table(columns: ColumnDefinitions): TableChain;
-
-  /** Defines a migration with schema change operations. */
-  function migration(fn: (m: MigrationBuilder) => void, opts?: MigrationOptions): void;
 }
 `
 
@@ -2083,16 +2080,6 @@ const typeMigrationDTS = `/**
 import { TableBuilder, ColumnBuilder, ColumnFactory, AlterColumnBuilder } from "./column";
 
 /**
- * Options for the migration function.
- */
-export interface MigrationOptions {
-  /** Human-readable description of the migration */
-  description?: string;
-  /** Whether this migration is reversible (default: true) */
-  reversible?: boolean;
-}
-
-/**
  * Options for creating indexes.
  */
 export interface IndexOptions {
@@ -2106,14 +2093,21 @@ export interface IndexOptions {
  * Builder for defining migration operations.
  * Provides imperative methods for schema changes.
  *
+ * Migrations use ES module exports with up() and down() functions:
+ *
  * @example
- * migration(m => {
- *   m.create_table("blog.post", t => {
+ * // migrations/001_create_users.js
+ * export function up(m) {
+ *   m.create_table("auth.user", t => {
  *     t.id()
- *     t.string("title", 200)
+ *     t.email("email").unique()
  *     t.timestamps()
  *   })
- * })
+ * }
+ *
+ * export function down(m) {
+ *   m.drop_table("auth.user")
+ * }
  */
 export interface MigrationBuilder {
   /**
@@ -2258,37 +2252,36 @@ export interface MigrationBuilder {
 }
 
 /**
- * Defines a migration with schema change operations.
+ * Migration up function - applies schema changes.
  *
- * @param fn - Callback receiving a MigrationBuilder
- * @param opts - Optional migration configuration
+ * @param m - MigrationBuilder for defining operations
  *
  * @example
  * // migrations/001_create_users.js
- * migration(m => {
+ * export function up(m) {
  *   m.create_table("auth.user", t => {
  *     t.id()
  *     t.email("email").unique()
- *     t.password_hash("password_hash")
+ *     t.password_hash("password")
  *     t.timestamps()
  *   })
- * }, { description: "Create users table" })
+ * }
+ */
+declare function up(m: MigrationBuilder): void;
+
+/**
+ * Migration down function - reverses schema changes.
+ *
+ * Should undo the operations in up() in reverse order.
+ *
+ * @param m - MigrationBuilder for defining operations
  *
  * @example
- * // migrations/002_add_user_profile.js
- * migration(m => {
- *   m.add_column("auth.user", c =>
- *     c.string("display_name", 100).optional()
- *   )
- *   m.add_column("auth.user", c =>
- *     c.text("bio").optional()
- *   )
- * })
+ * export function down(m) {
+ *   m.drop_table("auth.user")
+ * }
  */
-declare function migration(
-  fn: (m: MigrationBuilder) => void,
-  opts?: MigrationOptions
-): void;
+declare function down(m: MigrationBuilder): void;
 
-export { migration, MigrationBuilder, MigrationOptions, IndexOptions };
+export { up, down, MigrationBuilder, IndexOptions };
 `

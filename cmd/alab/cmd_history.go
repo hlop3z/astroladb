@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	alabcli "github.com/hlop3z/astroladb/internal/cli"
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -82,20 +82,20 @@ func historyCmd() *cobra.Command {
 			}
 
 			// Human-readable styled table output
-			fmt.Println(alabcli.RenderTitle("Migration History"))
+			fmt.Println(ui.RenderTitle("Migration History"))
 			fmt.Println()
-			fmt.Printf("  %s\n\n", alabcli.Muted(fmt.Sprintf("%d migrations applied", len(history))))
+			fmt.Printf("  %s\n\n", ui.Muted(fmt.Sprintf("%d migrations applied", len(history))))
 
-			table := alabcli.NewStyledTable("REVISION", "NAME", "APPLIED AT", "EXEC TIME", "CHECKSUM")
+			table := ui.NewStyledTable("REVISION", "NAME", "APPLIED AT", "EXEC TIME", "CHECKSUM")
 
 			var totalExecTime int64
 			for _, h := range history {
-				execTime := alabcli.Muted("-")
+				execTime := ui.Muted("-")
 				if h.ExecTimeMs > 0 {
 					if h.ExecTimeMs >= 1000 {
-						execTime = alabcli.Yellow(fmt.Sprintf("%.2fs", float64(h.ExecTimeMs)/1000))
+						execTime = ui.Yellow(fmt.Sprintf("%.2fs", float64(h.ExecTimeMs)/1000))
 					} else {
-						execTime = alabcli.Green(fmt.Sprintf("%dms", h.ExecTimeMs))
+						execTime = ui.Green(fmt.Sprintf("%dms", h.ExecTimeMs))
 					}
 					totalExecTime += int64(h.ExecTimeMs)
 				}
@@ -111,7 +111,7 @@ func historyCmd() *cobra.Command {
 					h.Name,
 					h.AppliedAt.Format(TimeDisplay),
 					execTime,
-					alabcli.Muted(checksum),
+					ui.Muted(checksum),
 				)
 			}
 
@@ -124,7 +124,7 @@ func historyCmd() *cobra.Command {
 				} else {
 					execTimeStr = fmt.Sprintf("%dms", totalExecTime)
 				}
-				fmt.Printf("\n  Total execution time: %s\n", alabcli.Cyan(execTimeStr))
+				fmt.Printf("\n  Total execution time: %s\n", ui.Cyan(execTimeStr))
 			}
 
 			return nil
