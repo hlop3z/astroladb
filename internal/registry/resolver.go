@@ -138,7 +138,7 @@ func (r *ModelRegistry) SQLNameChecked(ref string, currentNS string) (string, er
 	if err != nil {
 		return "", err
 	}
-	return def.SQLName(), nil
+	return def.FullName(), nil
 }
 
 // ValidateReferences validates all references in a table definition.

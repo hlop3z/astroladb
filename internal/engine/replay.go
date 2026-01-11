@@ -336,7 +336,7 @@ func applyCreateIndex(schema *Schema, op *ast.CreateIndex) error {
 
 	// Auto-generate name if not provided
 	if idx.Name == "" {
-		idx.Name = "idx_" + table.SQLName() + "_" + strings.Join(op.Columns, "_")
+		idx.Name = "idx_" + table.FullName() + "_" + strings.Join(op.Columns, "_")
 	}
 
 	table.Indexes = append(table.Indexes, idx)

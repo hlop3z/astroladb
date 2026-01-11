@@ -128,7 +128,7 @@ func TestTableDefFullName(t *testing.T) {
 
 func TestTableDefSQLName(t *testing.T) {
 	table := &TableDef{Namespace: "auth", Name: "user"}
-	got := table.SQLName()
+	got := table.FullName()
 	want := "auth_user"
 	if got != want {
 		t.Errorf("SQLName() = %q, want %q", got, want)

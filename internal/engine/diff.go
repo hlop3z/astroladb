@@ -343,7 +343,7 @@ func extractFKsFromColumns(table *ast.TableDef) map[string]*fkInfo {
 		}
 
 		// Generate FK name
-		fkName := "fk_" + table.SQLName() + "_" + col.Name
+		fkName := "fk_" + table.FullName() + "_" + col.Name
 
 		// Create key for deduplication
 		key := col.Name + "->" + col.Reference.Table
@@ -384,7 +384,7 @@ func diffCheckConstraints(oldTable, newTable *ast.TableDef) []ast.Operation {
 			// Generate name if not provided
 			name := newCheck.Name
 			if name == "" {
-				name = "chk_" + newTable.SQLName() + "_" + sanitizeCheckName(newCheck.Expression)
+				name = "chk_" + newTable.FullName() + "_" + sanitizeCheckName(newCheck.Expression)
 			}
 			ops = append(ops, &ast.AddCheck{
 				TableRef: ast.TableRef{
@@ -403,7 +403,7 @@ func diffCheckConstraints(oldTable, newTable *ast.TableDef) []ast.Operation {
 			// Use existing name or generate one
 			name := oldCheck.Name
 			if name == "" {
-				name = "chk_" + oldTable.SQLName() + "_" + sanitizeCheckName(oldCheck.Expression)
+				name = "chk_" + oldTable.FullName() + "_" + sanitizeCheckName(oldCheck.Expression)
 			}
 			ops = append(ops, &ast.DropCheck{
 				TableRef: ast.TableRef{
@@ -680,7 +680,7 @@ func tableColumnsToFKDefs(table *ast.TableDef) []*ast.ForeignKeyDef {
 		}
 
 		fks = append(fks, &ast.ForeignKeyDef{
-			Name:       "fk_" + table.SQLName() + "_" + col.Name,
+			Name:       "fk_" + table.FullName() + "_" + col.Name,
 			Columns:    []string{col.Name},
 			RefTable:   col.Reference.Table,
 			RefColumns: []string{col.Reference.TargetColumn()},

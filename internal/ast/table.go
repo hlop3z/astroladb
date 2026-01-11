@@ -1,6 +1,9 @@
 package ast
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/hlop3z/astroladb/internal/alerr"
 )
 
@@ -35,12 +38,6 @@ func (t *TableDef) FullName() string {
 		return t.Namespace + "_" + t.Name
 	}
 	return t.Name
-}
-
-// SQLName returns the flat SQL table name (namespace_table).
-// Semantic alias for FullName to provide clearer context when used in SQL contexts.
-func (t *TableDef) SQLName() string {
-	return t.FullName()
 }
 
 // QualifiedName returns the fully qualified reference (namespace.table).
@@ -187,9 +184,47 @@ func (c *ColumnDef) IsNullable() bool {
 	return c.Nullable
 }
 
-// HasDefault returns whether the column has any kind of default value.
+// GetDefaultSQL returns the SQL representation of the default value.
+// It handles both ServerDefault (from introspection) and Default (from DSL).
+// Returns empty string if no default is set.
+func (c *ColumnDef) GetDefaultSQL() string {
+	// Introspected defaults take precedence (already in SQL form)
+	if c.ServerDefault != "" {
+		return c.ServerDefault
+	}
+
+	// DSL defaults need formatting
+	if c.DefaultSet && c.Default != nil {
+		return formatDefaultValue(c.Default)
+	}
+
+	return ""
+}
+
+// HasDefault returns true if any default value is set.
 func (c *ColumnDef) HasDefault() bool {
-	return c.DefaultSet || c.ServerDefault != ""
+	return c.ServerDefault != "" || (c.DefaultSet && c.Default != nil)
+}
+
+// formatDefaultValue converts Default field to SQL string.
+func formatDefaultValue(val any) string {
+	if sqlExpr, ok := val.(*SQLExpr); ok {
+		return sqlExpr.Expr
+	}
+
+	switch v := val.(type) {
+	case string:
+		return fmt.Sprintf("'%s'", strings.ReplaceAll(v, "'", "''"))
+	case bool:
+		if v {
+			return "TRUE"
+		}
+		return "FALSE"
+	case int, int32, int64, float32, float64:
+		return fmt.Sprintf("%v", v)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // HasBackfill returns whether the column has a backfill value for existing rows.
