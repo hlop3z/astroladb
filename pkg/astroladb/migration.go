@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hlop3z/astroladb/internal/alerr"
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/chain"
 	"github.com/hlop3z/astroladb/internal/engine"
@@ -730,11 +731,12 @@ func (c *Client) nextRevision() (string, error) {
 	// Get the last revision
 	lastRevision := migrations[len(migrations)-1].Revision
 
-	// Parse as integer and increment
+	// Parse as integer and increment (fail fast for determinism)
 	num, err := strconv.Atoi(lastRevision)
 	if err != nil {
-		// If not a number, use timestamp format
-		return time.Now().Format("20060102150405"), nil
+		return "", alerr.New(alerr.ErrMigrationFailed, "migration revisions must be sequential numbers").
+			With("last_revision", lastRevision).
+			With("expected", "numeric revision (e.g., 001, 002, 003)")
 	}
 
 	return fmt.Sprintf("%03d", num+1), nil
@@ -746,8 +748,6 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 
 	sb.WriteString("// Migration: ")
 	sb.WriteString(name)
-	sb.WriteString("\n// Generated at: ")
-	sb.WriteString(time.Now().Format(time.RFC3339))
 	sb.WriteString("\n\n")
 
 	// Write up function
