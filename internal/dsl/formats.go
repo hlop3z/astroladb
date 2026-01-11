@@ -95,7 +95,7 @@ var Formats = map[string]FormatDef{
 	"uuid":      FormatUUID,
 	"date":      FormatDate,
 	"time":      FormatTime,
-	"date_time": FormatDateTime,
+	"datetime": FormatDateTime,
 	"hostname":  FormatHostname,
 	"ipv4":      FormatIPv4,
 	"ipv6":      FormatIPv6,

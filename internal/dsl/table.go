@@ -118,7 +118,7 @@ func (t *TableBuilder) Time(name string) *ColumnBuilder {
 
 // DateTime adds a timestamp with timezone column.
 func (t *TableBuilder) DateTime(name string) *ColumnBuilder {
-	col := NewColumnBuilder(name, "date_time")
+	col := NewColumnBuilder(name, "datetime")
 	t.AddColumn(col.Build())
 	return col
 }
@@ -157,18 +157,18 @@ func (t *TableBuilder) Enum(name string, values []string) *ColumnBuilder {
 
 // Timestamps adds created_at and updated_at columns.
 func (t *TableBuilder) Timestamps() {
-	createdAt := NewColumnBuilder("created_at", "date_time")
+	createdAt := NewColumnBuilder("created_at", "datetime")
 	createdAt.Default(&ast.SQLExpr{Expr: "NOW()"})
 	t.AddColumn(createdAt.Build())
 
-	updatedAt := NewColumnBuilder("updated_at", "date_time")
+	updatedAt := NewColumnBuilder("updated_at", "datetime")
 	updatedAt.Default(&ast.SQLExpr{Expr: "NOW()"})
 	t.AddColumn(updatedAt.Build())
 }
 
 // SoftDelete adds a deleted_at column for soft deletion.
 func (t *TableBuilder) SoftDelete() {
-	deletedAt := NewColumnBuilder("deleted_at", "date_time")
+	deletedAt := NewColumnBuilder("deleted_at", "datetime")
 	deletedAt.Nullable()
 	t.AddColumn(deletedAt.Build())
 }

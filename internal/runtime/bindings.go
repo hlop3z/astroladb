@@ -438,7 +438,7 @@ func (s *Sandbox) createColumnBuilderObject(col map[string]any) *goja.Object {
 	_ = obj.Set("boolean", typeMethod("boolean", false))
 	_ = obj.Set("date", typeMethod("date", false))
 	_ = obj.Set("time", typeMethod("time", false))
-	_ = obj.Set("datetime", typeMethod("date_time", false))
+	_ = obj.Set("datetime", typeMethod("datetime", false))
 	_ = obj.Set("uuid", typeMethod("uuid", false))
 	_ = obj.Set("json", typeMethod("json", false))
 	_ = obj.Set("base64", typeMethod("base64", false))

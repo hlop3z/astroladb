@@ -207,7 +207,7 @@ func (tb *TableBuilder) ToObject() *goja.Object {
 	_ = obj.Set("time", func(name string) *goja.Object { return tb.addColumn(name, "time") })
 
 	// datetime(name) - timestamp column
-	_ = obj.Set("datetime", func(name string) *goja.Object { return tb.addColumn(name, "date_time") })
+	_ = obj.Set("datetime", func(name string) *goja.Object { return tb.addColumn(name, "datetime") })
 
 	// uuid(name)
 	_ = obj.Set("uuid", func(name string) *goja.Object { return tb.addColumn(name, "uuid") })
@@ -261,12 +261,12 @@ func (tb *TableBuilder) ToObject() *goja.Object {
 	_ = obj.Set("timestamps", func() {
 		tb.columns = append(tb.columns, &ColumnDef{
 			Name:    "created_at",
-			Type:    "date_time",
+			Type:    "datetime",
 			Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
 		})
 		tb.columns = append(tb.columns, &ColumnDef{
 			Name:    "updated_at",
-			Type:    "date_time",
+			Type:    "datetime",
 			Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
 		})
 	})
@@ -275,7 +275,7 @@ func (tb *TableBuilder) ToObject() *goja.Object {
 	_ = obj.Set("soft_delete", func() {
 		tb.columns = append(tb.columns, &ColumnDef{
 			Name:     "deleted_at",
-			Type:     "date_time",
+			Type:     "datetime",
 			Nullable: true,
 		})
 	})
@@ -696,7 +696,7 @@ func NewColBuilder(vm *goja.Runtime) *ColBuilder {
 // colOpt is an alias for ColOpt since ColDef = ColumnDef.
 type colOpt = ColOpt
 
-// Aliases for backward compatibility - use the shared with* functions.
+// Internal convenience aliases that reference the shared with* functions.
 var (
 	colWithLength     = withLength
 	colWithArgs       = withArgs
@@ -782,7 +782,7 @@ func (cb *ColBuilder) ToObject() *goja.Object {
 	_ = obj.Set("time", func() *goja.Object { return cb.createColDef("time") })
 
 	// datetime()
-	_ = obj.Set("datetime", func() *goja.Object { return cb.createColDef("date_time") })
+	_ = obj.Set("datetime", func() *goja.Object { return cb.createColDef("datetime") })
 
 	// uuid()
 	_ = obj.Set("uuid", func() *goja.Object { return cb.createColDef("uuid") })
@@ -972,12 +972,12 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 	_ = obj.Set("timestamps", func() *goja.Object {
 		tc.columns = append(tc.columns, &ColumnDef{
 			Name:    "created_at",
-			Type:    "date_time",
+			Type:    "datetime",
 			Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
 		})
 		tc.columns = append(tc.columns, &ColumnDef{
 			Name:    "updated_at",
-			Type:    "date_time",
+			Type:    "datetime",
 			Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
 		})
 		return obj
@@ -987,7 +987,7 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 	_ = obj.Set("soft_delete", func() *goja.Object {
 		tc.columns = append(tc.columns, &ColumnDef{
 			Name:     "deleted_at",
-			Type:     "date_time",
+			Type:     "datetime",
 			Nullable: true,
 		})
 		return obj
