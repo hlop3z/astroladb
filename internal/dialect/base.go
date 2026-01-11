@@ -87,7 +87,7 @@ func buildColumnTypeSQL(typeName string, typeArgs []any, mapper TypeMapper) stri
 		return mapper.DateType()
 	case "time":
 		return mapper.TimeType()
-	case "date_time":
+	case "datetime":
 		return mapper.DateTimeType()
 	case "uuid":
 		return mapper.UUIDType()
@@ -363,9 +363,17 @@ func writeNullability(b *strings.Builder, col *ast.ColumnDef) {
 
 // writeDefault writes the DEFAULT clause if set.
 func writeDefault(b *strings.Builder, col *ast.ColumnDef, defaultSQL func(any) string) {
+	// Handle Default field (from migrations/schema files)
 	if col.DefaultSet && col.Default != nil {
 		b.WriteString(" DEFAULT ")
 		b.WriteString(defaultSQL(col.Default))
+		return
+	}
+
+	// Handle ServerDefault field (from introspection/normalized schemas)
+	if col.ServerDefault != "" {
+		b.WriteString(" DEFAULT ")
+		b.WriteString(col.ServerDefault)
 	}
 }
 

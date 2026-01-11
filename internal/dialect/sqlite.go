@@ -62,18 +62,19 @@ func (d *sqlite) BooleanType() string {
 }
 
 func (d *sqlite) DateType() string {
-	// SQLite has no native DATE; use TEXT with ISO 8601 format.
-	return "TEXT"
+	// SQLite stores dates as TEXT, but we use DATE type affinity for clarity
+	return "DATE"
 }
 
 func (d *sqlite) TimeType() string {
-	// SQLite has no native TIME; use TEXT with RFC 3339 format.
-	return "TEXT"
+	// SQLite stores time as TEXT, but we use TIME type affinity for clarity
+	return "TIME"
 }
 
 func (d *sqlite) DateTimeType() string {
-	// SQLite has no native TIMESTAMP; use TEXT with RFC 3339 format.
-	return "TEXT"
+	// SQLite stores datetime as TEXT, but we use DATETIME type affinity for clarity
+	// This allows round-trip: datetime -> DATETIME -> introspect -> datetime
+	return "DATETIME"
 }
 
 func (d *sqlite) UUIDType() string {
