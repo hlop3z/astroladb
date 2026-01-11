@@ -88,7 +88,7 @@ These are non-negotiable. PRs adding these will be closed without merge:
 | Request                          | Why we reject it                  |
 | -------------------------------- | --------------------------------- |
 | "Add an option for..."           | Pick a sensible default instead   |
-| "Some users might want..."       | We solve 98% of cases, not 100%   |
+| "Some users might want..."       | We solve 90% of cases, not 100%   |
 | "Can we support MySQL..."        | No. PostgreSQL and SQLite only.   |
 | "Auto-increment is simpler..."   | UUID is the standard. Period.     |
 | "For backwards compatibility..." | We design it right the first time |

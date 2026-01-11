@@ -392,8 +392,11 @@ func (c *Client) SchemaExport(format string, opts ...ExportOption) ([]byte, erro
 
 	cfg := applyExportOptions(opts)
 
-	// Attach metadata for many_to_many and polymorphic relationship info
-	cfg.Metadata = c.eval.Metadata()
+	// Create internal context with metadata
+	ctx := &exportContext{
+		ExportConfig: cfg,
+		Metadata:     c.eval.Metadata(),
+	}
 
 	// Filter by namespace if specified
 	if cfg.Namespace != "" {
@@ -408,19 +411,19 @@ func (c *Client) SchemaExport(format string, opts ...ExportOption) ([]byte, erro
 
 	switch strings.ToLower(format) {
 	case "openapi":
-		return exportOpenAPI(tables, cfg)
+		return exportOpenAPI(tables, ctx)
 	case "graphql", "gql":
-		return exportGraphQL(tables, cfg)
+		return exportGraphQL(tables, ctx)
 	case "graphql-examples":
-		return exportGraphQLExamples(tables, cfg)
+		return exportGraphQLExamples(tables, ctx)
 	case "typescript", "ts":
-		return exportTypeScript(tables, cfg)
+		return exportTypeScript(tables, ctx)
 	case "go", "golang":
-		return exportGo(tables, cfg)
+		return exportGo(tables, ctx)
 	case "python", "py":
-		return exportPython(tables, cfg)
+		return exportPython(tables, ctx)
 	case "rust", "rs":
-		return exportRust(tables, cfg)
+		return exportRust(tables, ctx)
 	default:
 		return nil, fmt.Errorf("%w: %s (valid formats: openapi, graphql, typescript, go, python, rust)", ErrExportFormatUnknown, format)
 	}

@@ -22,6 +22,13 @@ const (
 	FormatRust       = "rust"
 )
 
+// exportContext is the internal config used by export functions.
+// It combines the public ExportConfig with internal metadata.
+type exportContext struct {
+	*ExportConfig
+	Metadata *metadata.Metadata
+}
+
 // TypeConverter interface defines methods for converting Alab types to target language types.
 type TypeConverter interface {
 	ConvertType(col *ast.ColumnDef) string
@@ -398,7 +405,7 @@ func GetConverter(format string) TypeConverter {
 
 // exportOpenAPI generates an OpenAPI 3.0 specification from the schema.
 // Uses x-db extension for complete database metadata per PLAN.md.
-func exportOpenAPI(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
+func exportOpenAPI(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	spec := map[string]any{
 		"openapi": "3.0.3",
 		"info": map[string]any{
@@ -437,7 +444,7 @@ func exportOpenAPI(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 }
 
 // generateOpenAPIPaths generates a single /schemas endpoint with all models.
-func generateOpenAPIPaths(tables []*ast.TableDef, cfg *ExportConfig) map[string]any {
+func generateOpenAPIPaths(tables []*ast.TableDef, cfg *exportContext) map[string]any {
 	// Group models and relationships by namespace
 	models := make(map[string][]map[string]any)
 	relationships := make(map[string][]map[string]any)
@@ -772,7 +779,7 @@ func generateColumnExample(col *ast.ColumnDef) any {
 }
 
 // generateOpenAPISchemas generates OpenAPI schema components for all tables.
-func generateOpenAPISchemas(tables []*ast.TableDef, cfg *ExportConfig) map[string]any {
+func generateOpenAPISchemas(tables []*ast.TableDef, cfg *exportContext) map[string]any {
 	schemas := make(map[string]any)
 
 	for _, table := range tables {
@@ -784,7 +791,7 @@ func generateOpenAPISchemas(tables []*ast.TableDef, cfg *ExportConfig) map[strin
 }
 
 // tableToOpenAPISchema converts a table definition to an OpenAPI schema object.
-func tableToOpenAPISchema(table *ast.TableDef, allTables []*ast.TableDef, cfg *ExportConfig) map[string]any {
+func tableToOpenAPISchema(table *ast.TableDef, allTables []*ast.TableDef, cfg *exportContext) map[string]any {
 	properties := make(map[string]any)
 	required := []string{}
 
@@ -1133,7 +1140,7 @@ func pluralize(s string) string {
 }
 
 // columnToOpenAPIProperty converts a column definition to an OpenAPI property.
-func columnToOpenAPIProperty(col *ast.ColumnDef, table *ast.TableDef, cfg *ExportConfig) map[string]any {
+func columnToOpenAPIProperty(col *ast.ColumnDef, table *ast.TableDef, cfg *exportContext) map[string]any {
 	prop := make(map[string]any)
 
 	// Get base type from registry
@@ -1493,7 +1500,7 @@ func buildSQLType(col *ast.ColumnDef) map[string]string {
 }
 
 // exportTypeScript generates TypeScript type definitions from the schema.
-func exportTypeScript(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
+func exportTypeScript(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	var sb strings.Builder
 
 	sb.WriteString("// Auto-generated TypeScript types from database schema\n")
@@ -1529,7 +1536,7 @@ func exportTypeScript(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error)
 }
 
 // tableToTypeScript converts a table definition to TypeScript interface.
-func tableToTypeScript(table *ast.TableDef, cfg *ExportConfig) string {
+func tableToTypeScript(table *ast.TableDef, cfg *exportContext) string {
 	var sb strings.Builder
 
 	name := strutil.ToPascalCase(table.FullName())
@@ -1572,7 +1579,7 @@ func columnToTypeScriptType(col *ast.ColumnDef) string {
 }
 
 // exportGo generates Go struct definitions from the schema.
-func exportGo(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
+func exportGo(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	var buf bytes.Buffer
 
 	// Package declaration
@@ -1609,7 +1616,7 @@ func exportGo(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 }
 
 // generateGoStruct generates a Go struct for a single table.
-func generateGoStruct(buf *bytes.Buffer, table *ast.TableDef, cfg *ExportConfig) {
+func generateGoStruct(buf *bytes.Buffer, table *ast.TableDef, cfg *exportContext) {
 	name := strutil.ToPascalCase(table.FullName())
 
 	// Add doc comment if present
@@ -1646,7 +1653,7 @@ func mapToGoType(col *ast.ColumnDef) string {
 }
 
 // exportPython generates Python dataclass definitions from the schema.
-func exportPython(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
+func exportPython(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	var sb strings.Builder
 
 	sb.WriteString("# Auto-generated Python types from database schema\n")
@@ -1700,7 +1707,7 @@ func exportPython(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 }
 
 // generatePythonDataclass generates a Python dataclass for a single table.
-func generatePythonDataclass(sb *strings.Builder, table *ast.TableDef, cfg *ExportConfig) {
+func generatePythonDataclass(sb *strings.Builder, table *ast.TableDef, cfg *exportContext) {
 	name := strutil.ToPascalCase(table.FullName())
 
 	// Add docstring if present
@@ -1754,7 +1761,7 @@ func columnToPythonType(col *ast.ColumnDef, table *ast.TableDef) string {
 }
 
 // exportRust generates Rust struct definitions with serde from the schema.
-func exportRust(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
+func exportRust(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	var sb strings.Builder
 
 	sb.WriteString("// Auto-generated Rust types from database schema\n")
@@ -1818,7 +1825,7 @@ func exportRust(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 }
 
 // generateRustStruct generates a Rust struct for a single table.
-func generateRustStruct(sb *strings.Builder, table *ast.TableDef, cfg *ExportConfig) {
+func generateRustStruct(sb *strings.Builder, table *ast.TableDef, cfg *exportContext) {
 	name := strutil.ToPascalCase(table.FullName())
 
 	// Add doc comment if present
@@ -1874,7 +1881,7 @@ func isRustKeyword(name string) bool {
 }
 
 // columnToRustType converts a column type to Rust type.
-func columnToRustType(col *ast.ColumnDef, table *ast.TableDef, cfg *ExportConfig) string {
+func columnToRustType(col *ast.ColumnDef, table *ast.TableDef, cfg *exportContext) string {
 	converter := GetConverter(FormatRust).(*RustConverter)
 	converter.UseChrono = cfg.UseChrono
 	converter.TableName = table.FullName()
@@ -1907,7 +1914,7 @@ func getEnumValues(col *ast.ColumnDef) []string {
 }
 
 // exportGraphQLExamples generates example data for GraphQL types as JSON.
-func exportGraphQLExamples(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
+func exportGraphQLExamples(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	examples := make(map[string]any)
 
 	for _, table := range tables {
@@ -1922,7 +1929,7 @@ func exportGraphQLExamples(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, e
 }
 
 // exportGraphQL generates a GraphQL schema from the database schema.
-func exportGraphQL(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
+func exportGraphQL(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	var sb strings.Builder
 
 	sb.WriteString("# Auto-generated GraphQL schema from database schema\n")
@@ -1986,7 +1993,7 @@ func lowerFirst(s string) string {
 }
 
 // generateGraphQLType generates a GraphQL type for a single table.
-func generateGraphQLType(sb *strings.Builder, table *ast.TableDef, cfg *ExportConfig) {
+func generateGraphQLType(sb *strings.Builder, table *ast.TableDef, cfg *exportContext) {
 	name := strutil.ToPascalCase(table.FullName())
 
 	// Add doc comment if present
@@ -2011,7 +2018,7 @@ func generateGraphQLType(sb *strings.Builder, table *ast.TableDef, cfg *ExportCo
 }
 
 // columnToGraphQLType converts a column type to GraphQL type.
-func columnToGraphQLType(col *ast.ColumnDef, table *ast.TableDef, cfg *ExportConfig) string {
+func columnToGraphQLType(col *ast.ColumnDef, table *ast.TableDef, cfg *exportContext) string {
 	converter := GetConverter("graphql").(*GraphQLConverter)
 	converter.TableName = table.FullName()
 	baseType := converter.ConvertType(col)

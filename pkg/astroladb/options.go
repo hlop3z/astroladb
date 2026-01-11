@@ -3,8 +3,6 @@ package astroladb
 import (
 	"io"
 	"time"
-
-	"github.com/hlop3z/astroladb/internal/metadata"
 )
 
 // Config holds all configuration options for the Client.
@@ -206,10 +204,6 @@ type ExportConfig struct {
 	// UseMik enables mik_sdk style for Rust exports.
 	// Uses #[derive(Type)] and imports mik_sdk::prelude::*.
 	UseMik bool
-
-	// Metadata contains schema metadata for many_to_many and polymorphic relationships.
-	// This is set internally by SchemaExport and should not be set by callers.
-	Metadata *metadata.Metadata
 }
 
 // ExportOption is a functional option for export operations.
