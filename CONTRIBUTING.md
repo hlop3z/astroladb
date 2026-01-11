@@ -1,8 +1,8 @@
 # Contributing to Astroladb
 
-Thank you for your interest in contributing! Before you start, please read this guide carefully. Astroladb is an **opinionated tool by design** - this means we intentionally limit scope and reject certain types of contributions.
+Thank you for your interest in contributing! Before you start, please read this guide carefully. Astroladb is an **opinionated tool by design** — this means we intentionally limit scope and reject certain types of contributions.
 
-> If you're looking for a flexible, configurable migration tool, there are many great options out there. Astroladb is not that tool - and that's intentional.
+> If you're looking for a flexible, highly-configurable migration tool, there are many great options out there. Astroladb is not that tool — and that's intentional.
 
 ---
 
@@ -21,19 +21,43 @@ Astroladb follows four core principles:
 
 ## What We Accept
 
-**Bug fixes** - Always welcome. If something doesn't work as documented, please fix it.
+- **Bug fixes** — Always welcome. If something doesn't work as documented, please fix it.
+- **Documentation improvements** — Typos, clarifications, better examples.
+- **Performance improvements** — Faster is better, as long as behavior doesn't change.
+- **Test coverage** — More tests are always welcome.
+- **Better error messages** — Help users understand what went wrong.
+- **IDE/tooling support** — TypeScript definitions, editor integrations.
+- **Export format improvements** — Better OpenAPI, GraphQL, TypeScript, Go, Python, Rust output.
 
-**Documentation improvements** - Typos, clarifications, better examples.
+---
 
-**Performance improvements** - Faster is better, as long as behavior doesn't change.
+## Database Support & Custom Dialects
 
-**Test coverage** - More tests are always welcome.
+Astroladb intentionally supports a **limited set of databases** to keep the tool simple, deterministic, and JS-friendly.
 
-**Better error messages** - Help users understand what went wrong.
+- **Officially supported databases:**
 
-**IDE/tooling support** - TypeScript definitions, editor integrations.
+  - **PostgreSQL**
+  - **SQLite**
 
-**Export format improvements** - Better OpenAPI, GraphQL, TypeScript, Go, Python, Rust output.
+> Only these databases will receive long-term maintenance, bug fixes, and official support.
+
+### Custom Dialects
+
+- Contributors are **welcome to create custom dialects** for other databases.
+
+- Contributors must assume **100% responsibility** for:
+
+  - Maintenance
+  - Bug fixes
+  - Test coverage
+  - Compatibility with core Astroladb features
+
+- Contributions that add a custom dialect **must not break PostgreSQL or SQLite functionality**.
+
+- Tests for custom dialects are encouraged, but maintainers **will not fix issues or accept support requests** for unsupported databases.
+
+> Simply put: if you maintain a custom dialect yourself and ensure it works correctly, it can live in the project. Otherwise, it will not be merged.
 
 ---
 
@@ -41,28 +65,23 @@ Astroladb follows four core principles:
 
 These are non-negotiable. PRs adding these will be closed without merge:
 
-### Database Support
-
-- **No MySQL, MariaDB, SQL Server, Oracle, etc.** - PostgreSQL and SQLite only. Forever.
-- No "database abstraction layers" that add complexity for hypothetical databases.
-
 ### Type System
 
-- **No `int64` or `bigint`** - JavaScript loses precision above 2^53.
-- **No `float64` or `double`** - Precision issues in JS frontends.
-- **No auto-increment IDs** - UUID only. No ULID, Snowflake, or alternatives.
+- **No `int64` or `bigint`** — JavaScript loses precision above 2^53.
+- **No `float64` or `double`** — Precision issues in JS frontends.
+- **No auto-increment IDs** — UUID only. No ULID, Snowflake, or alternatives.
 
 ### Configuration
 
-- **No "options" for things that should have defaults** - Pick the right default.
-- **No feature flags** - Either a feature exists or it doesn't.
-- **No plugin systems** - Keep it simple.
+- **No "options" for things that should have defaults** — Pick the right default.
+- **No feature flags** — Either a feature exists or it doesn't.
+- **No plugin systems** — Keep it simple.
 
 ### Scope Creep
 
-- **No ORM features** - Astroladb is a migration tool, not an ORM.
-- **No query builders** - Use your language's database library.
-- **No "runtime" features** - Astroladb runs at dev time, not production.
+- **No ORM features** — Astroladb is a migration tool, not an ORM.
+- **No query builders** — Use your language's database library.
+- **No "runtime" features** — Astroladb runs at dev time, not production.
 
 ### Common Requests We'll Reject
 
@@ -81,8 +100,8 @@ These are non-negotiable. PRs adding these will be closed without merge:
 
 ### Requirements
 
-- **Go 1.21+** - [Install Go](https://go.dev/dl/)
-- **Docker** (for integration tests) - [Install Docker](https://docker.com)
+- **Go 1.21+** — [Install Go](https://go.dev/dl/)
+- **Docker** (for integration tests) — [Install Docker](https://docker.com)
 
 ### Clone and Build
 
@@ -188,10 +207,10 @@ test: Add integration tests for rollback
 
 ### Before Submitting
 
-1. **Read this document** - Especially "What We Do NOT Accept"
-2. **Run tests** - `go test ./...`
-3. **Format code** - `go fmt ./...`
-4. **Keep it small** - One logical change per PR
+1. **Read this document** — Especially "What We Do NOT Accept"
+2. **Run tests** — `go test ./...`
+3. **Format code** — `go fmt ./...`
+4. **Keep it small** — One logical change per PR
 
 ### PR Process
 
@@ -203,10 +222,10 @@ test: Add integration tests for rollback
 
 ### What Makes a Good PR
 
-- **Focused** - Does one thing well
-- **Tested** - Includes tests for new functionality
-- **Documented** - Updates README/docs if needed
-- **Follows conventions** - Matches existing code style
+- **Focused** — Does one thing well
+- **Tested** — Includes tests for new functionality
+- **Documented** — Updates README/docs if needed
+- **Follows conventions** — Matches existing code style
 
 ---
 
@@ -267,7 +286,7 @@ By contributing, you agree that your contributions will be licensed under the BS
 Great! Here's how to get started:
 
 1. Look at [open issues](https://github.com/hlop3z/astroladb/issues) labeled `good first issue`
-2. Read the codebase - start with `cmd/alab/main.go`
+2. Read the codebase — start with `cmd/alab/main.go`
 3. Run the tests to make sure everything works
 4. Pick something small and submit a PR
 
