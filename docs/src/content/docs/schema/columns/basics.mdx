@@ -14,8 +14,8 @@ values.
 // schemas/auth/user.js
 export default table({
   id: col.id(),
-  name: col.string(100),        // Required - NOT NULL
-  bio: col.text().optional(),   // Optional - allows NULL
+  name: col.string(100), // Required - NOT NULL
+  bio: col.text().optional(), // Optional - allows NULL
 });
 ```
 
@@ -42,7 +42,7 @@ export default table({
   id: col.id(),
   email: col.email().unique(),
   username: col.string(50).unique(),
-  display_name: col.string(100),  // Not unique - duplicates allowed
+  display_name: col.string(100), // Not unique - duplicates allowed
 });
 ```
 

@@ -7,18 +7,24 @@ import { Code } from "@astrojs/starlight/components";
 
 ## Command Reference
 
-| Command             | Description                                         |
-| ------------------- | --------------------------------------------------- |
-| `alab init`         | Initialize new project                              |
-| `alab new <name>`   | Generate migration from schema changes              |
-| `alab migrate`      | Apply pending migrations                            |
-| `alab rollback [n]` | Rollback last n migrations (default: 1)             |
-| `alab status`       | Show migration status                               |
-| `alab diff`         | Show schema vs database diff                        |
-| `alab check`        | Validate schema files                               |
-| `alab export`       | Export to OpenAPI/GraphQL/TypeScript/Go/Python/Rust |
-| `alab http`         | Start live documentation server                     |
-| `alab types`        | Regenerate IDE autocomplete definitions             |
+| Command                         | Description                                         |
+| ------------------------------- | --------------------------------------------------- |
+| `alab init`                     | Initialize new project                              |
+| `alab table <namespace> <name>` | Create a new table schema file                      |
+| `alab new <name>`               | Generate migration from schema changes              |
+| `alab migrate`                  | Apply pending migrations                            |
+| `alab rollback [n]`             | Rollback last n migrations (default: 1)             |
+| `alab status`                   | Show migration status                               |
+| `alab history`                  | Show applied migrations with execution details      |
+| `alab diff`                     | Show schema vs database diff                        |
+| `alab check`                    | Validate schema files                               |
+| `alab verify`                   | Verify migration chain integrity                    |
+| `alab export`                   | Export to OpenAPI/GraphQL/TypeScript/Go/Python/Rust |
+| `alab http`                     | Start live documentation server                     |
+| `alab types`                    | Regenerate IDE autocomplete definitions             |
+| `alab reset`                    | Drop all tables and re-run migrations (dev only)    |
+| `alab schema --at <rev>`        | Show schema at a specific migration revision        |
+| `alab rebuild-cache`            | Rebuild local cache from migration files            |
 
 ## Usage Examples
 
@@ -26,8 +32,15 @@ import { Code } from "@astrojs/starlight/components";
 # Initialize a new project
 alab init
 
+# Create a new table schema file (normalized to snake_case)
+alab table auth User          # Creates schemas/auth/user.js
+alab table Blog PostComment   # Creates schemas/blog/post_comment.js
+
 # Create a migration after schema changes
 alab new add_users_table
+
+# Preview SQL without executing
+alab migrate --dry
 
 # Apply all pending migrations
 alab migrate
@@ -40,22 +53,59 @@ alab status
 
 # Validate schema files before committing
 alab check
+
+# Verify migration chain integrity
+alab verify
 ```
 
 ## Common Flags
 
-| Flag        | Command   | Description                     |
-| ----------- | --------- | ------------------------------- |
-| `--dry-run` | `migrate` | Preview SQL without executing   |
-| `--json`    | `status`  | JSON output for CI/CD pipelines |
-| `-f all`    | `export`  | Export all formats              |
-| `--merge`   | `export`  | Single file per format          |
-| `-p <port>` | `http`    | Custom port (default: 8080)     |
+| Flag        | Command               | Description                     |
+| ----------- | --------------------- | ------------------------------- |
+| `--dry`     | `migrate`, `rollback` | Preview SQL without executing   |
+| `--force`   | `migrate`             | Skip safety warnings            |
+| `--json`    | `status`              | JSON output for CI/CD pipelines |
+| `-f all`    | `export`              | Export all formats              |
+| `--merge`   | `export`              | Single file per format          |
+| `-p <port>` | `http`                | Custom port (default: 8080)     |
 
 ```bash
-alab migrate --dry-run      # Preview SQL without executing
+alab migrate --dry          # Preview SQL without executing
+alab rollback --dry         # Preview rollback SQL
 alab status --json          # JSON output for CI/CD
 alab export -f all          # Export all formats
 alab export -f all --merge  # Single file per format
 alab http -p 3000           # Custom port
+```
+
+## Table Command
+
+The `table` command creates a new table schema file with proper directory
+structure:
+
+```bash
+alab table <namespace> <table_name>
+```
+
+Both namespace and table_name are automatically normalized to lowercase
+snake_case:
+
+| Input                        | Creates                       |
+| ---------------------------- | ----------------------------- |
+| `alab table auth User`       | `schemas/auth/user.js`        |
+| `alab table Blog post-item`  | `schemas/blog/post_item.js`   |
+| `alab table API UserProfile` | `schemas/api/user_profile.js` |
+
+The generated file includes a basic template with common fields commented out:
+
+```js
+// schemas/auth/user.js
+export default table({
+  // id: col.id(),
+  // name: col.string(100),
+  // email: col.email().unique(),
+  // is_active: col.flag(true),
+  // status: col.enum(["active", "inactive"]).default("active"),
+  // author: col.belongs_to("auth.user"),
+}).timestamps();
 ```

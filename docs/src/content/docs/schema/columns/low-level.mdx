@@ -3,26 +3,26 @@ title: Low-Level Types
 description: Direct SQL type mappings for custom column definitions
 ---
 
-Low-level types give you direct control over SQL column types when semantic types
-don't fit your needs.
+Low-level types give you direct control over SQL column types when semantic
+types don't fit your needs.
 
 ## Type Reference
 
-| Type                 | SQL Result  | Notes                    |
-| -------------------- | ----------- | ------------------------ |
-| `col.string(n)`      | VARCHAR(n)  | Fixed-length string      |
-| `col.text()`         | TEXT        | Unlimited length         |
-| `col.integer()`      | INTEGER     | 32-bit integer           |
-| `col.float()`        | FLOAT       | Floating point           |
-| `col.decimal(p,s)`   | DECIMAL     | Precise decimal          |
-| `col.boolean()`      | BOOLEAN     | True/false               |
-| `col.date()`         | DATE        | Date only                |
-| `col.time()`         | TIME        | Time only                |
-| `col.datetime()`     | TIMESTAMP   | Date and time            |
-| `col.uuid()`         | UUID        | Unique identifier        |
-| `col.json()`         | JSONB       | JSON data                |
-| `col.base64()`       | TEXT        | Base64 encoded           |
-| `col.enum([...])`    | CHECK       | Constrained values       |
+| Type               | SQL Result | Notes               |
+| ------------------ | ---------- | ------------------- |
+| `col.string(n)`    | VARCHAR(n) | Fixed-length string |
+| `col.text()`       | TEXT       | Unlimited length    |
+| `col.integer()`    | INTEGER    | 32-bit integer      |
+| `col.float()`      | FLOAT      | Floating point      |
+| `col.decimal(p,s)` | DECIMAL    | Precise decimal     |
+| `col.boolean()`    | BOOLEAN    | True/false          |
+| `col.date()`       | DATE       | Date only           |
+| `col.time()`       | TIME       | Time only           |
+| `col.datetime()`   | TIMESTAMP  | Date and time       |
+| `col.uuid()`       | UUID       | Unique identifier   |
+| `col.json()`       | JSONB      | JSON data           |
+| `col.base64()`     | TEXT       | Base64 encoded      |
+| `col.enum([...])`  | CHECK      | Constrained values  |
 
 ## Examples
 
@@ -32,7 +32,7 @@ don't fit your needs.
 // schemas/catalog/product.js
 export default table({
   id: col.id(),
-  sku: col.string(50).unique(),      // VARCHAR(50)
+  sku: col.string(50).unique(), // VARCHAR(50)
   description: col.text().optional(), // TEXT, nullable
 });
 ```
@@ -43,9 +43,9 @@ export default table({
 // schemas/finance/transaction.js
 export default table({
   id: col.id(),
-  amount: col.decimal(10, 2),  // DECIMAL(10,2)
-  count: col.integer(),        // INTEGER
-  rate: col.float(),           // FLOAT
+  amount: col.decimal(10, 2), // DECIMAL(10,2)
+  count: col.integer(), // INTEGER
+  rate: col.float(), // FLOAT
 });
 ```
 
@@ -55,9 +55,9 @@ export default table({
 // schemas/calendar/event.js
 export default table({
   id: col.id(),
-  event_date: col.date(),      // DATE
-  start_time: col.time(),      // TIME
-  created_at: col.datetime(),  // TIMESTAMP
+  event_date: col.date(), // DATE
+  start_time: col.time(), // TIME
+  created_at: col.datetime(), // TIMESTAMP
 });
 ```
 
@@ -66,9 +66,9 @@ export default table({
 ```js
 // schemas/core/settings.js
 export default table({
-  id: col.uuid(),              // UUID (use col.id() for primary key)
+  id: col.uuid(), // UUID (use col.id() for primary key)
   user: col.belongs_to("auth.user"),
-  preferences: col.json(),     // JSONB
+  preferences: col.json(), // JSONB
 });
 ```
 
@@ -78,7 +78,9 @@ export default table({
 // schemas/orders/order.js
 export default table({
   id: col.id(),
-  status: col.enum(["pending", "processing", "shipped", "delivered"]).default("pending"),
+  status: col
+    .enum(["pending", "processing", "shipped", "delivered"])
+    .default("pending"),
   priority: col.enum(["low", "normal", "high"]).default("normal"),
 }).timestamps();
 ```
@@ -88,12 +90,12 @@ export default table({
 For most cases, use semantic types instead - they include validation and
 sensible defaults:
 
-| Instead of...           | Use...             |
-| ----------------------- | ------------------ |
-| `col.string(255)`       | `col.email()`      |
-| `col.string(100)`       | `col.name()`       |
-| `col.integer()`         | `col.quantity()`   |
-| `col.decimal(19,4)`     | `col.money()`      |
-| `col.boolean()`         | `col.flag()`       |
+| Instead of...       | Use...           |
+| ------------------- | ---------------- |
+| `col.string(255)`   | `col.email()`    |
+| `col.string(100)`   | `col.name()`     |
+| `col.integer()`     | `col.quantity()` |
+| `col.decimal(19,4)` | `col.money()`    |
+| `col.boolean()`     | `col.flag()`     |
 
 See [Semantic Types](/astroladb/schema/types/identity/) for the full list.
