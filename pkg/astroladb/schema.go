@@ -3,12 +3,67 @@ package astroladb
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/devdb"
 	"github.com/hlop3z/astroladb/internal/engine"
 	"github.com/hlop3z/astroladb/internal/introspect"
 )
+
+// sortColumnsForDatabase sorts columns for database creation:
+// 1. id/primary key first
+// 2. Other columns alphabetically
+// 3. timestamps (created_at, updated_at, deleted_at) last
+func (c *Client) sortColumnsForDatabase(columns []*ast.ColumnDef) []*ast.ColumnDef {
+	if len(columns) == 0 {
+		return columns
+	}
+
+	// Make a copy to avoid modifying the original
+	sorted := make([]*ast.ColumnDef, len(columns))
+	copy(sorted, columns)
+
+	// Sort using custom ordering
+	sort.SliceStable(sorted, func(i, j int) bool {
+		col1, col2 := sorted[i], sorted[j]
+
+		// Priority 1: id/primary key columns first
+		if col1.PrimaryKey && !col2.PrimaryKey {
+			return true
+		}
+		if !col1.PrimaryKey && col2.PrimaryKey {
+			return false
+		}
+
+		// Priority 2: timestamp columns last
+		isTimestamp1 := col1.Name == "created_at" || col1.Name == "updated_at" || col1.Name == "deleted_at"
+		isTimestamp2 := col2.Name == "created_at" || col2.Name == "updated_at" || col2.Name == "deleted_at"
+
+		if isTimestamp1 && !isTimestamp2 {
+			return false
+		}
+		if !isTimestamp1 && isTimestamp2 {
+			return true
+		}
+
+		// Priority 3: created_at before updated_at before deleted_at
+		if isTimestamp1 && isTimestamp2 {
+			order := map[string]int{
+				"created_at": 1,
+				"updated_at": 2,
+				"deleted_at": 3,
+			}
+			return order[col1.Name] < order[col2.Name]
+		}
+
+		// Priority 4: alphabetically by name
+		return col1.Name < col2.Name
+	})
+
+	return sorted
+}
 
 // getCompiledSchema loads tables and compiles schema - used by multiple methods.
 // This is a DRY helper that reduces code duplication across SchemaCheck, SchemaDump, and SchemaExport.
@@ -143,15 +198,16 @@ func (c *Client) SchemaDump() (string, error) {
 			result.WriteString("\n\n")
 		}
 
-		// Convert table to CreateTable operation
+		// Convert table to CreateTable operation with sorted columns
 		createOp := &ast.CreateTable{
 			TableOp: ast.TableOp{
 				Namespace: table.Namespace,
 				Name:      table.Name,
 			},
-			Columns:     table.Columns,
+			Columns:     c.sortColumnsForDatabase(table.Columns),
 			Indexes:     table.Indexes,
 			ForeignKeys: table.ForeignKeys,
+			IfNotExists: true,
 		}
 
 		sql, err := c.dialect.CreateTableSQL(createOp)
@@ -174,17 +230,32 @@ func (c *Client) SchemaDump() (string, error) {
 // SchemaDiff compares the current schema files against the database state
 // and returns the operations needed to bring the database in sync.
 //
+// Uses dev database normalization for accurate comparison:
+// 1. Load schema files (natural form)
+// 2. Normalize through dev database (canonical form)
+// 3. Introspect production database (already canonical)
+// 4. Compare canonical forms (100% accurate)
+//
 // This is useful for understanding what migrations would be generated.
 func (c *Client) SchemaDiff() ([]ast.Operation, error) {
 	c.log("Computing schema diff")
 
-	// Load the desired schema from files
-	newSchema, err := c.getSchema()
+	// Step 1: Load the desired schema from files (natural form)
+	desiredSchema, err := c.getSchema()
 	if err != nil {
 		return nil, err
 	}
 
-	// Get the current database schema via introspection
+	// Step 2: Normalize desired schema through dev database (Atlas pattern)
+	normalizedDesired, err := c.normalizeSchema(desiredSchema)
+	if err != nil {
+		return nil, &SchemaError{
+			Message: "failed to normalize desired schema",
+			Cause:   err,
+		}
+	}
+
+	// Step 3: Get the current database schema via introspection (already canonical)
 	ctx := context.Background()
 	intro := introspect.New(c.db, c.dialect)
 	if intro == nil {
@@ -193,12 +264,45 @@ func (c *Client) SchemaDiff() ([]ast.Operation, error) {
 		}
 	}
 
-	oldSchema, err := intro.IntrospectSchema(ctx)
+	actualSchema, err := intro.IntrospectSchema(ctx)
 	if err != nil {
 		return nil, &SchemaError{
 			Message: "failed to introspect database",
 			Cause:   err,
 		}
+	}
+
+	// Step 4: Compute the diff between canonical forms
+	ops, err := engine.Diff(actualSchema, normalizedDesired)
+	if err != nil {
+		return nil, &SchemaError{
+			Message: "failed to compute diff",
+			Cause:   err,
+		}
+	}
+
+	c.log("Diff found %d operations", len(ops))
+	return ops, nil
+}
+
+// SchemaDiffFromMigrations compares the desired schema files against the schema state
+// from existing migrations (not the database). This ensures generated migrations are
+// incremental and only contain the delta from the last migration.
+//
+// This is used for migration generation to prevent recreating existing tables.
+func (c *Client) SchemaDiffFromMigrations() ([]ast.Operation, error) {
+	c.log("Computing schema diff from migrations")
+
+	// Load the desired schema from files
+	newSchema, err := c.getSchema()
+	if err != nil {
+		return nil, err
+	}
+
+	// Compute schema state from existing migration files
+	oldSchema, err := c.getSchemaFromMigrations()
+	if err != nil {
+		return nil, err
 	}
 
 	// Compute the diff
@@ -212,6 +316,61 @@ func (c *Client) SchemaDiff() ([]ast.Operation, error) {
 
 	c.log("Diff found %d operations", len(ops))
 	return ops, nil
+}
+
+// getSchemaFromMigrations replays all migration files to compute the current schema state.
+// This is used for incremental migration generation.
+func (c *Client) getSchemaFromMigrations() (*engine.Schema, error) {
+	// Load all migration files
+	migrations, err := c.loadMigrationFiles()
+	if err != nil {
+		return nil, err
+	}
+
+	// If no migrations exist, start with empty schema
+	if len(migrations) == 0 {
+		return &engine.Schema{
+			Tables: make(map[string]*ast.TableDef),
+		}, nil
+	}
+
+	// Replay all migrations to build the schema
+	schema, err := engine.ReplayMigrations(migrations)
+	if err != nil {
+		return nil, &SchemaError{
+			Message: "failed to replay migrations",
+			Cause:   err,
+		}
+	}
+
+	return schema, nil
+}
+
+// normalizeSchema normalizes a schema by applying it to a dev database.
+// This follows the Atlas pattern: apply schema to database, let the database
+// normalize it to canonical form, then introspect to get the normalized version.
+//
+// This is critical for accurate drift detection because:
+// - Schema files define things in "natural form" (how humans write it)
+// - Databases store things in "canonical form" (normalized representation)
+// - Direct comparison of natural vs canonical fails (false positives)
+// - Normalizing both sides through dev database ensures accurate comparison
+func (c *Client) normalizeSchema(schema *engine.Schema) (*engine.Schema, error) {
+	// Create ephemeral dev database
+	dev, err := devdb.New()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dev database: %w", err)
+	}
+	defer dev.Close()
+
+	// Normalize schema through dev database
+	ctx := context.Background()
+	normalized, err := dev.NormalizeSchema(ctx, schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to normalize schema: %w", err)
+	}
+
+	return normalized, nil
 }
 
 // SchemaExport exports the schema in the specified format.

@@ -12,7 +12,7 @@ type Config struct {
 	// DatabaseURL is the connection string for the database.
 	// Format depends on the dialect:
 	//   - PostgreSQL: postgres://user:pass@host:port/dbname
-	//   - SQLite: sqlite://path/to/db.db or file:path/to/db.db
+	//   - SQLite: ./path/to/db.db or /absolute/path/to/db.db
 	DatabaseURL string
 
 	// SchemasDir is the path to the directory containing schema files.
@@ -55,7 +55,7 @@ type Option func(*Config)
 //
 // Examples:
 //   - PostgreSQL: postgres://user:pass@localhost:5432/mydb
-//   - SQLite: sqlite://./mydb.db or file:./mydb.db
+//   - SQLite: ./mydb.db or /absolute/path/to/mydb.db
 func WithDatabaseURL(url string) Option {
 	return func(c *Config) {
 		c.DatabaseURL = url
