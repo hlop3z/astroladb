@@ -38,7 +38,7 @@ func (t *TableDef) FullName() string {
 }
 
 // SQLName returns the flat SQL table name (namespace_table).
-// Alias for FullName for compatibility.
+// Semantic alias for FullName to provide clearer context when used in SQL contexts.
 func (t *TableDef) SQLName() string {
 	return t.FullName()
 }
