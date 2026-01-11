@@ -63,7 +63,8 @@ LICENSE text eol=lf
 *.eot binary
 
 # Exclude from GitHub language stats
-docs/** linguist-documentation
+docs/** linguist-vendored
 testdata/** linguist-vendored
-examples/** linguist-documentation
+examples/** linguist-vendored
 types/** linguist-vendored
+tests/** linguist-vendored
