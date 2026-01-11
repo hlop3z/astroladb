@@ -15,6 +15,7 @@
 </p>
 
 hlop3z/astroladb
+
 <p align="center">
   <a href="https://hlop3z.github.io/astroladb/">Documentation</a> ·
   <a href="https://hlop3z.github.io/astroladb/examples/blog/">Examples</a>
@@ -49,7 +50,7 @@ Astroladb is a **language-agnostic database migration tool** that lets you defin
 ## Installation
 
 ```bash
-# Quick install (Linux/macOS)
+# Quick install
 curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh | sh
 
 # Or with Go
