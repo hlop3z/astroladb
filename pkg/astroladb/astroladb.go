@@ -4,12 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/hlop3z/astroladb/internal/ast"
-	"github.com/hlop3z/astroladb/internal/cache"
 	"github.com/hlop3z/astroladb/internal/dialect"
 	"github.com/hlop3z/astroladb/internal/drift"
 	"github.com/hlop3z/astroladb/internal/engine"
@@ -547,19 +545,6 @@ func FormatDriftResult(result *DriftResult) string {
 	return drift.FormatResult(internalResult)
 }
 
-// openCache opens the local cache database.
-// The cache is stored in .alab/cache.db relative to the schemas directory.
-func (c *Client) openCache() (*cache.Cache, error) {
-	// Determine project root from schemas directory
-	projectRoot := c.config.SchemasDir
-	if projectRoot == "./schemas" || projectRoot == "schemas" {
-		projectRoot = "."
-	} else if strings.HasSuffix(projectRoot, "/schemas") || strings.HasSuffix(projectRoot, "\\schemas") {
-		projectRoot = filepath.Dir(projectRoot)
-	}
-
-	return cache.Open(projectRoot)
-}
 
 // computeMerkleHash computes the merkle hash for a schema.
 func (c *Client) computeMerkleHash(schema *engine.Schema) (*drift.SchemaHash, error) {

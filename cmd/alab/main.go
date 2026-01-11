@@ -64,7 +64,6 @@ func main() {
 		rollbackCmd(),
 		resetCmd(),
 		verifyCmd(),
-		rebuildCacheCmd(),
 		httpCmd(),
 	)
 
