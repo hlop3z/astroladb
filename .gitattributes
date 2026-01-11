@@ -62,7 +62,8 @@ LICENSE text eol=lf
 *.ttf binary
 *.eot binary
 
-# Vendored dependencies - exclude from linguist stats
-docs/node_modules/** linguist-vendored
+# Exclude from GitHub language stats
+docs/** linguist-documentation
 testdata/** linguist-vendored
 examples/** linguist-documentation
+types/** linguist-vendored
