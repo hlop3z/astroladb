@@ -96,7 +96,7 @@ func migrateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print SQL without executing")
+	cmd.Flags().BoolVar(&dryRun, "dry", false, "Print SQL without executing")
 	cmd.Flags().BoolVar(&force, "force", false, "Skip safety warnings")
 	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "Confirm DROP operations")
 

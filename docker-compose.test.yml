@@ -46,4 +46,18 @@ services:
       retries: 10
       start_period: 30s
 
+  cockroachdb:
+    image: cockroachdb/cockroach:latest-v24.2
+    ports:
+      - "26257:26257"
+      - "8080:8080"   # Admin UI
+    command: start-single-node --insecure
+    tmpfs:
+      - /cockroach/cockroach-data  # RAM disk for speed
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+
 # SQLite uses :memory: or local file - no container needed

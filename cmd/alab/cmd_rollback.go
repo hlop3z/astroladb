@@ -53,7 +53,7 @@ func rollbackCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print SQL without executing")
+	cmd.Flags().BoolVar(&dryRun, "dry", false, "Print SQL without executing")
 
 	return cmd
 }

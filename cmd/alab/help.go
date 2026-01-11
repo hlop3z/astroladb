@@ -90,7 +90,7 @@ var helpMessages = map[string]HelpMessage{
 			"Usage:",
 			"  alab rollback        # Rollback 1 migration (default)",
 			"  alab rollback 3      # Rollback 3 migrations",
-			"  alab rollback --dry-run    # Preview without executing",
+			"  alab rollback --dry    # Preview without executing",
 		},
 	},
 	"schema_at_required": {

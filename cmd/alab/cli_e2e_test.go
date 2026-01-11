@@ -490,8 +490,8 @@ func TestE2E_CLI_DryRun(t *testing.T) {
 `
 	os.WriteFile(filepath.Join(migrationDir, "001_create_preview.js"), []byte(migrationContent), 0644)
 
-	// Run with dry-run (--force to bypass chain checks)
-	output, err := env.run("migrate", "--dry-run", "--force")
+	// Run with dry (--force to bypass chain checks)
+	output, err := env.run("migrate", "--dry", "--force")
 	if err != nil {
 		// Dry-run might fail for various reasons, just check output
 		t.Logf("dry-run output: %s", output)

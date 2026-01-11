@@ -5,13 +5,42 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/hlop3z/astroladb/internal/engine"
 	"github.com/spf13/cobra"
 )
+
+// toSnakeCase converts a string to lowercase snake_case.
+// Examples: "CreateUser" -> "create_user", "create-user" -> "create_user"
+func toSnakeCase(s string) string {
+	// Replace hyphens, spaces, and dots with underscores
+	s = strings.ReplaceAll(s, "-", "_")
+	s = strings.ReplaceAll(s, " ", "_")
+	s = strings.ReplaceAll(s, ".", "_")
+
+	// Insert underscore before uppercase letters (for camelCase/PascalCase)
+	var result strings.Builder
+	for i, r := range s {
+		if unicode.IsUpper(r) && i > 0 {
+			prev := rune(s[i-1])
+			if unicode.IsLower(prev) || unicode.IsDigit(prev) {
+				result.WriteRune('_')
+			}
+		}
+		result.WriteRune(unicode.ToLower(r))
+	}
+
+	// Clean up multiple underscores and trim
+	cleaned := regexp.MustCompile(`_+`).ReplaceAllString(result.String(), "_")
+	cleaned = strings.Trim(cleaned, "_")
+
+	return cleaned
+}
 
 // newCmd creates a migration file. If schema has changes, auto-generates from diff.
 func newCmd() *cobra.Command {
@@ -22,7 +51,8 @@ func newCmd() *cobra.Command {
 		Short: "Create migration (auto-generates if schema has changes)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := args[0]
+			// Normalize name to lowercase snake_case
+			name := toSnakeCase(args[0])
 
 			// If --empty flag, create empty migration without checking schema diff
 			if empty {

@@ -546,6 +546,151 @@ migration(m => {
 	t.Log("E2E SQLite Workflow test completed successfully!")
 }
 
+// TestE2E_DryRunWorkflow_MultipleTables tests dry-run with multiple tables in one migration.
+func TestE2E_DryRunWorkflow_MultipleTables(t *testing.T) {
+	_, pgURL := testutil.SetupPostgresWithURL(t)
+	env := setupTestEnv(t)
+
+	// Migration with 2 tables and an index - using export function up(m) format
+	env.writeMigration(t, "001", "relationships", `
+export function up(m) {
+  m.create_table("auth.user", t => {
+    t.id()
+    t.string("email", 255).unique()
+    t.string("username", 50).unique()
+    t.timestamps()
+  })
+  m.create_table("blog.post", t => {
+    t.id()
+    t.uuid("author_id")
+    t.string("title", 200)
+    t.text("body")
+    t.timestamps()
+  })
+  m.create_index("blog.post", ["author_id"])
+}
+
+export function down(m) {
+  m.drop_table("blog.post")
+  m.drop_table("auth.user")
+}
+`)
+
+	client := env.newClient(t, pgURL)
+
+	// Run with dry-run
+	var buf bytes.Buffer
+	if err := client.MigrationRun(astroladb.DryRunTo(&buf), astroladb.Force()); err != nil {
+		t.Fatalf("Dry-run failed: %v", err)
+	}
+
+	output := buf.String()
+	t.Logf("Dry-run output:\n%s", output)
+
+	// Should contain CREATE TABLE for both tables
+	outputUpper := strings.ToUpper(output)
+	if !strings.Contains(outputUpper, "CREATE TABLE") {
+		t.Errorf("Expected CREATE TABLE in dry-run output, got: %s", output)
+	}
+
+	// Count CREATE TABLE statements
+	createCount := strings.Count(outputUpper, "CREATE TABLE")
+	if createCount < 2 {
+		t.Errorf("Expected at least 2 CREATE TABLE statements, got %d. Output:\n%s", createCount, output)
+	}
+
+	// Should contain CREATE INDEX
+	if !strings.Contains(outputUpper, "CREATE INDEX") {
+		t.Errorf("Expected CREATE INDEX in dry-run output, got: %s", output)
+	}
+
+	t.Log("E2E Dry-Run Multiple Tables test completed!")
+}
+
+// TestE2E_DryRunWorkflow_WithRelationships tests dry-run with belongs_to relationships.
+func TestE2E_DryRunWorkflow_WithRelationships(t *testing.T) {
+	_, pgURL := testutil.SetupPostgresWithURL(t)
+	env := setupTestEnv(t)
+
+	// Migration with relationships using belongs_to
+	env.writeMigration(t, "001", "relationships", `
+export function up(m) {
+  m.create_table("auth.user", t => {
+    t.id()
+    t.email("email")
+    t.string("username", 50).unique()
+    t.boolean("is_active").default(true)
+    t.timestamps()
+  })
+
+  m.create_table("blog.post", t => {
+    t.id()
+    t.belongs_to("auth.user").as("author")
+    t.belongs_to("auth.user").as("editor").optional()
+    t.string("title", 200)
+    t.text("body")
+    t.slug("slug")
+    t.enum("status", ["draft", "published", "archived"]).default("draft")
+    t.timestamps()
+    t.soft_delete()
+  })
+
+  m.create_table("blog.comment", t => {
+    t.id()
+    t.belongs_to("blog.post")
+    t.belongs_to("auth.user").optional()
+    t.text("content")
+    t.timestamps()
+  })
+}
+
+export function down(m) {
+  m.drop_table("blog.comment")
+  m.drop_table("blog.post")
+  m.drop_table("auth.user")
+}
+`)
+
+	client := env.newClient(t, pgURL)
+
+	// Run with dry-run
+	var buf bytes.Buffer
+	if err := client.MigrationRun(astroladb.DryRunTo(&buf), astroladb.Force()); err != nil {
+		t.Fatalf("Dry-run failed: %v", err)
+	}
+
+	output := buf.String()
+	t.Logf("Dry-run output:\n%s", output)
+
+	outputUpper := strings.ToUpper(output)
+
+	// Count CREATE TABLE statements - should have 3
+	createCount := strings.Count(outputUpper, "CREATE TABLE")
+	if createCount < 3 {
+		t.Errorf("Expected at least 3 CREATE TABLE statements, got %d. Output:\n%s", createCount, output)
+	}
+
+	// Should contain FK columns
+	if !strings.Contains(output, "author_id") {
+		t.Errorf("Expected author_id column in output, got: %s", output)
+	}
+	if !strings.Contains(output, "editor_id") {
+		t.Errorf("Expected editor_id column in output, got: %s", output)
+	}
+	if !strings.Contains(output, "post_id") {
+		t.Errorf("Expected post_id column in output, got: %s", output)
+	}
+	if !strings.Contains(output, "user_id") {
+		t.Errorf("Expected user_id column in output, got: %s", output)
+	}
+
+	// editor_id should be nullable (optional relationship)
+	// Check for NULL constraint on editor_id - it should NOT have "NOT NULL"
+	// This is a bit tricky to check in SQL output, so we'll verify after applying
+
+	t.Log("E2E Dry-Run With Relationships test completed!")
+}
+
 // TestE2E_DryRunWorkflow tests dry-run functionality.
 func TestE2E_DryRunWorkflow(t *testing.T) {
 	_, pgURL := testutil.SetupPostgresWithURL(t)

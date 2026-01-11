@@ -126,7 +126,7 @@ func printRollbackStepsError(input string) {
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  alab rollback        # Rollback 1 migration (default)")
 	fmt.Fprintln(os.Stderr, "  alab rollback 3      # Rollback 3 migrations")
-	fmt.Fprintln(os.Stderr, "  alab rollback --dry-run    # Preview without executing")
+	fmt.Fprintln(os.Stderr, "  alab rollback --dry    # Preview without executing")
 }
 
 // printSchemaAtError prints a helpful error message for the schema command.

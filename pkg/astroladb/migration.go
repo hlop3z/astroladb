@@ -876,6 +876,17 @@ func (c *Client) writeCreateTable(sb *strings.Builder, op *ast.CreateTable) {
 	}
 }
 
+// typeToDSLMethod converts internal type names to DSL method names.
+// Some internal types have different names than their DSL methods.
+func typeToDSLMethod(internalType string) string {
+	switch internalType {
+	case "date_time":
+		return "datetime"
+	default:
+		return internalType
+	}
+}
+
 // writeColumn writes a column definition.
 func (c *Client) writeColumn(sb *strings.Builder, col *ast.ColumnDef) {
 	// Handle special column types
@@ -888,7 +899,8 @@ func (c *Client) writeColumn(sb *strings.Builder, col *ast.ColumnDef) {
 
 	// Build the column call
 	var call strings.Builder
-	call.WriteString(fmt.Sprintf("    t.%s(\"%s\"", col.Type, col.Name))
+	dslMethod := typeToDSLMethod(col.Type)
+	call.WriteString(fmt.Sprintf("    t.%s(\"%s\"", dslMethod, col.Name))
 
 	// Add type arguments
 	for _, arg := range col.TypeArgs {
@@ -986,7 +998,8 @@ func (c *Client) writeAddColumn(sb *strings.Builder, op *ast.AddColumn) {
 		ref = op.Namespace + "." + op.Table_
 	}
 
-	sb.WriteString(fmt.Sprintf("  m.add_column(\"%s\", c => c.%s(\"%s\"", ref, op.Column.Type, op.Column.Name))
+	dslMethod := typeToDSLMethod(op.Column.Type)
+	sb.WriteString(fmt.Sprintf("  m.add_column(\"%s\", c => c.%s(\"%s\"", ref, dslMethod, op.Column.Name))
 
 	// Add type args
 	for _, arg := range op.Column.TypeArgs {

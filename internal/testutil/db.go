@@ -21,7 +21,8 @@ import (
 
 // Default database connection strings (from docker-compose.test.yml)
 const (
-	defaultPostgresURL = "postgres://alab:alab@localhost:5432/alab_test?sslmode=disable"
+	defaultPostgresURL    = "postgres://alab:alab@localhost:5432/alab_test?sslmode=disable"
+	defaultCockroachDBURL = "postgres://root@localhost:26257/defaultdb?sslmode=disable"
 )
 
 // SetupPostgres connects to a PostgreSQL test database.
@@ -190,6 +191,168 @@ func SetupPostgresWithURL(t *testing.T) (*sql.DB, string) {
 func PostgresTestURL(t *testing.T) string {
 	t.Helper()
 	_, url := SetupPostgresWithURL(t)
+	return url
+}
+
+// SetupCockroachDB connects to a CockroachDB test database.
+// It reads the connection string from COCKROACHDB_URL environment variable,
+// or uses the default from docker-compose.test.yml.
+// The connection is automatically closed when the test completes.
+//
+// Each test gets its own CockroachDB schema to enable parallel test execution
+// across packages without interference.
+func SetupCockroachDB(t *testing.T) *sql.DB {
+	t.Helper()
+
+	url := os.Getenv("COCKROACHDB_URL")
+	if url == "" {
+		url = defaultCockroachDBURL
+	}
+
+	// First, connect to create the schema
+	setupDB, err := sql.Open("postgres", url)
+	if err != nil {
+		t.Fatalf("failed to open cockroachdb connection: %v", err)
+	}
+
+	// Verify connection works
+	if err := setupDB.Ping(); err != nil {
+		setupDB.Close()
+		t.Fatalf("failed to ping cockroachdb: %v\n\nIs CockroachDB running? Start it with:\n  docker-compose -f docker-compose.test.yml up -d", err)
+	}
+
+	// Generate a unique schema name
+	randomBytes := make([]byte, 8)
+	if _, err := rand.Read(randomBytes); err != nil {
+		setupDB.Close()
+		t.Fatalf("failed to generate random schema name: %v", err)
+	}
+	schemaName := "test_" + hex.EncodeToString(randomBytes)
+
+	// Create the schema
+	_, err = setupDB.Exec(fmt.Sprintf("CREATE SCHEMA %s", schemaName))
+	if err != nil {
+		setupDB.Close()
+		t.Fatalf("failed to create test schema: %v", err)
+	}
+	setupDB.Close()
+
+	// Now connect with ONLY the test schema in the search_path
+	separator := "&"
+	if !strings.Contains(url, "?") {
+		separator = "?"
+	}
+	urlWithSchema := fmt.Sprintf("%s%ssearch_path=%s", url, separator, schemaName)
+
+	db, err := sql.Open("postgres", urlWithSchema)
+	if err != nil {
+		t.Fatalf("failed to open cockroachdb connection with schema: %v", err)
+	}
+
+	// Limit to single connection to ensure schema consistency
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
+	if err := db.Ping(); err != nil {
+		db.Close()
+		t.Fatalf("failed to ping cockroachdb with schema: %v", err)
+	}
+
+	// Clean up when test completes
+	t.Cleanup(func() {
+		db.Close()
+		// Reconnect to drop the schema
+		cleanupDB, err := sql.Open("postgres", url)
+		if err == nil {
+			_, _ = cleanupDB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+			cleanupDB.Close()
+		}
+	})
+
+	return db
+}
+
+// SetupCockroachDBWithURL connects to a CockroachDB test database and returns both
+// the database connection and a URL that includes the test schema.
+// Use this when you need to pass a database URL to an external client that
+// should operate in the same test schema.
+func SetupCockroachDBWithURL(t *testing.T) (*sql.DB, string) {
+	t.Helper()
+
+	url := os.Getenv("COCKROACHDB_URL")
+	if url == "" {
+		url = defaultCockroachDBURL
+	}
+
+	// First, connect to create the schema
+	setupDB, err := sql.Open("postgres", url)
+	if err != nil {
+		t.Fatalf("failed to open cockroachdb connection: %v", err)
+	}
+
+	// Verify connection works
+	if err := setupDB.Ping(); err != nil {
+		setupDB.Close()
+		t.Fatalf("failed to ping cockroachdb: %v\n\nIs CockroachDB running? Start it with:\n  docker-compose -f docker-compose.test.yml up -d", err)
+	}
+
+	// Generate a unique schema name
+	randomBytes := make([]byte, 8)
+	if _, err := rand.Read(randomBytes); err != nil {
+		setupDB.Close()
+		t.Fatalf("failed to generate random schema name: %v", err)
+	}
+	schemaName := "test_" + hex.EncodeToString(randomBytes)
+
+	// Create the schema
+	_, err = setupDB.Exec(fmt.Sprintf("CREATE SCHEMA %s", schemaName))
+	if err != nil {
+		setupDB.Close()
+		t.Fatalf("failed to create test schema: %v", err)
+	}
+	setupDB.Close()
+
+	// Build URL with ONLY the test schema in search_path
+	separator := "&"
+	if !strings.Contains(url, "?") {
+		separator = "?"
+	}
+	urlWithSchema := fmt.Sprintf("%s%ssearch_path=%s", url, separator, schemaName)
+
+	db, err := sql.Open("postgres", urlWithSchema)
+	if err != nil {
+		t.Fatalf("failed to open cockroachdb connection with schema: %v", err)
+	}
+
+	// Limit to single connection to ensure schema consistency
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
+	if err := db.Ping(); err != nil {
+		db.Close()
+		t.Fatalf("failed to ping cockroachdb with schema: %v", err)
+	}
+
+	// Clean up when test completes
+	t.Cleanup(func() {
+		db.Close()
+		// Reconnect to drop the schema
+		cleanupDB, err := sql.Open("postgres", url)
+		if err == nil {
+			_, _ = cleanupDB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+			cleanupDB.Close()
+		}
+	})
+
+	return db, urlWithSchema
+}
+
+// CockroachDBTestURL returns a CockroachDB connection URL that uses an isolated test schema.
+// The schema is automatically created and cleaned up when the test completes.
+// Use this when you only need a URL (not a direct db connection) to pass to a client.
+func CockroachDBTestURL(t *testing.T) string {
+	t.Helper()
+	_, url := SetupCockroachDBWithURL(t)
 	return url
 }
 
