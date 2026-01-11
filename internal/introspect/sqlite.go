@@ -81,9 +81,8 @@ func (s *sqliteIntrospector) introspectColumns(ctx context.Context, tableName st
 			IsPrimaryKey: pk > 0,
 		}
 
-		// Map SQL type to Alab type
+		// Map SQL type to Alab type (deterministic, no heuristics)
 		typeMapping := MapSQLiteType(raw.DataType)
-		typeMapping = InferAlabTypeFromContext(raw, typeMapping)
 
 		col := &ast.ColumnDef{
 			Name:       raw.Name,
@@ -93,8 +92,8 @@ func (s *sqliteIntrospector) introspectColumns(ctx context.Context, tableName st
 			PrimaryKey: raw.IsPrimaryKey,
 		}
 
-		// Handle default - skip auto-generated defaults for id columns
-		if raw.Default.Valid && typeMapping.AlabType != "id" {
+		// Handle default values
+		if raw.Default.Valid {
 			col.DefaultSet = true
 			col.ServerDefault = raw.Default.String
 		}
@@ -110,9 +109,10 @@ func (s *sqliteIntrospector) introspectIndexes(ctx context.Context, tableName st
 	// Note: We must collect all index names first, then close the rows,
 	// before opening additional queries. SQLite in-memory mode with shared
 	// cache can have issues with concurrent queries on different connections.
+	// IMPORTANT: Include auto-generated indexes (sql IS NULL) for PRIMARY KEY and UNIQUE constraints
 	query := `
 		SELECT name FROM sqlite_master
-		WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL
+		WHERE type = 'index' AND tbl_name = ?
 		ORDER BY name
 	`
 

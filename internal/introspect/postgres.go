@@ -105,9 +105,8 @@ func (p *postgresIntrospector) introspectColumns(ctx context.Context, tableName 
 		raw.IsNullable = isNullable == "YES"
 		raw.IsPrimaryKey = isPK
 
-		// Map SQL type to Alab type
+		// Map SQL type to Alab type (deterministic, no heuristics)
 		typeMapping := MapPostgresType(raw.DataType, raw.MaxLength, raw.Precision, raw.Scale)
-		typeMapping = InferAlabTypeFromContext(raw, typeMapping)
 
 		col := &ast.ColumnDef{
 			Name:       raw.Name,
@@ -117,8 +116,8 @@ func (p *postgresIntrospector) introspectColumns(ctx context.Context, tableName 
 			PrimaryKey: raw.IsPrimaryKey,
 		}
 
-		// Handle default - filter out UUID generation for id columns
-		if raw.Default.Valid && typeMapping.AlabType != "id" {
+		// Handle default values
+		if raw.Default.Valid {
 			col.DefaultSet = true
 			col.ServerDefault = raw.Default.String
 		}
