@@ -8,12 +8,17 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DatabaseConfig represents the database section of alab.yaml.
+type DatabaseConfig struct {
+	Dialect string `yaml:"dialect"`
+	URL     string `yaml:"url"`
+}
+
 // Config represents the alab.yaml configuration file.
 type Config struct {
-	DatabaseURL   string `yaml:"database_url"`
-	SchemasDir    string `yaml:"schemas_dir"`
-	MigrationsDir string `yaml:"migrations_dir"`
-	Dialect       string `yaml:"dialect"`
+	Database      DatabaseConfig `yaml:"database"`
+	SchemasDir    string         `yaml:"schemas"`
+	MigrationsDir string         `yaml:"migrations"`
 }
 
 // loadConfig loads configuration from file, env vars, and CLI flags.
@@ -29,13 +34,13 @@ func loadConfig() (*Config, error) {
 		if err := yaml.Unmarshal(data, cfg); err != nil {
 			return nil, fmt.Errorf("failed to parse config file: %w", err)
 		}
-		// Handle env var interpolation in database_url
-		cfg.DatabaseURL = expandEnvVars(cfg.DatabaseURL)
+		// Handle env var interpolation in database url
+		cfg.Database.URL = expandEnvVars(cfg.Database.URL)
 	}
 
 	// Override with env vars
 	if envURL := os.Getenv("DATABASE_URL"); envURL != "" && databaseURL == "" {
-		cfg.DatabaseURL = envURL
+		cfg.Database.URL = envURL
 	}
 	if envSchemas := os.Getenv("ALAB_SCHEMAS_DIR"); envSchemas != "" && schemasDir == "./schemas" {
 		cfg.SchemasDir = envSchemas
@@ -46,7 +51,7 @@ func loadConfig() (*Config, error) {
 
 	// Override with CLI flags (highest priority)
 	if databaseURL != "" {
-		cfg.DatabaseURL = databaseURL
+		cfg.Database.URL = databaseURL
 	}
 	if schemasDir != "" && schemasDir != "./schemas" {
 		cfg.SchemasDir = schemasDir
@@ -71,18 +76,18 @@ func newClient() (*astroladb.Client, error) {
 		return nil, err
 	}
 
-	if cfg.DatabaseURL == "" {
+	if cfg.Database.URL == "" {
 		return nil, astroladb.ErrMissingDatabaseURL
 	}
 
 	opts := []astroladb.Option{
-		astroladb.WithDatabaseURL(cfg.DatabaseURL),
+		astroladb.WithDatabaseURL(cfg.Database.URL),
 		astroladb.WithSchemasDir(cfg.SchemasDir),
 		astroladb.WithMigrationsDir(cfg.MigrationsDir),
 	}
 
-	if cfg.Dialect != "" {
-		opts = append(opts, astroladb.WithDialect(cfg.Dialect))
+	if cfg.Database.Dialect != "" {
+		opts = append(opts, astroladb.WithDialect(cfg.Database.Dialect))
 	}
 
 	client, err := astroladb.New(opts...)

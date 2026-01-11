@@ -10,13 +10,12 @@ import (
 	"time"
 
 	"github.com/hlop3z/astroladb/internal/engine"
-	"github.com/hlop3z/astroladb/internal/git"
 	"github.com/spf13/cobra"
 )
 
 // newCmd creates a migration file. If schema has changes, auto-generates from diff.
 func newCmd() *cobra.Command {
-	var empty, noInteractive, noCommit, push bool
+	var empty, noInteractive bool
 
 	cmd := &cobra.Command{
 		Use:   "new <name>",
@@ -25,129 +24,67 @@ func newCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
-			cfg, err := loadConfig()
+			_, err := loadConfig()
 			if err != nil {
 				return err
 			}
 
-			var migrationPath string
-
 			// If --empty flag, create empty migration without checking schema diff
 			if empty {
-				if err := createEmptyMigration(name); err != nil {
-					return err
+				return createEmptyMigration(name)
+			}
+
+			// Try to auto-generate from schema diff
+			client, err := newClient()
+			if err != nil {
+				// If we can't connect to DB, fall back to empty migration
+				return createEmptyMigration(name)
+			}
+			defer client.Close()
+
+			interactive := !noInteractive
+
+			// Collect user inputs for renames and backfills
+			var confirmedRenames []engine.RenameCandidate
+			var backfills map[string]string
+
+			if interactive {
+				// Check for potential renames
+				renameCandidates, err := client.DetectRenames()
+				if err == nil && len(renameCandidates) > 0 {
+					confirmedRenames = promptForRenames(renameCandidates)
 				}
-				// Get the path (last created file)
-				revision, _ := nextRevision(cfg.MigrationsDir)
-				// Revision is next, so decrement for the one we just created
-				if rev, _ := strconv.Atoi(revision); rev > 1 {
-					revision = fmt.Sprintf("%03d", rev-1)
-				}
-				migrationPath = filepath.Join(cfg.MigrationsDir, fmt.Sprintf("%s_%s.js", revision, name))
-			} else {
-				// Try to auto-generate from schema diff
-				client, err := newClient()
-				if err != nil {
-					// If we can't connect to DB, fall back to empty migration
-					if err := createEmptyMigration(name); err != nil {
-						return err
-					}
-					revision, _ := nextRevision(cfg.MigrationsDir)
-					if rev, _ := strconv.Atoi(revision); rev > 1 {
-						revision = fmt.Sprintf("%03d", rev-1)
-					}
-					migrationPath = filepath.Join(cfg.MigrationsDir, fmt.Sprintf("%s_%s.js", revision, name))
-				} else {
-					defer client.Close()
 
-					interactive := !noInteractive
-
-					// Collect user inputs for renames and backfills
-					var confirmedRenames []engine.RenameCandidate
-					var backfills map[string]string
-
-					if interactive {
-						// Check for potential renames
-						renameCandidates, err := client.DetectRenames()
-						if err == nil && len(renameCandidates) > 0 {
-							confirmedRenames = promptForRenames(renameCandidates)
-						}
-
-						// Check for missing backfills
-						backfillCandidates, err := client.DetectMissingBackfills()
-						if err == nil && len(backfillCandidates) > 0 {
-							backfills = promptForBackfills(backfillCandidates)
-						}
-					}
-
-					// Generate migration with user inputs applied
-					if len(confirmedRenames) > 0 || len(backfills) > 0 {
-						path, err := client.MigrationGenerateInteractive(name, confirmedRenames, backfills)
-						if err != nil {
-							if err := createEmptyMigration(name); err != nil {
-								return err
-							}
-							revision, _ := nextRevision(cfg.MigrationsDir)
-							if rev, _ := strconv.Atoi(revision); rev > 1 {
-								revision = fmt.Sprintf("%03d", rev-1)
-							}
-							migrationPath = filepath.Join(cfg.MigrationsDir, fmt.Sprintf("%s_%s.js", revision, name))
-						} else {
-							fmt.Printf("Generated migration: %s\n", path)
-							migrationPath = path
-						}
-					} else {
-						// Standard generation (no interactive changes)
-						path, err := client.MigrationGenerate(name)
-						if err != nil {
-							// If generation fails (e.g., no changes), create empty migration
-							if err := createEmptyMigration(name); err != nil {
-								return err
-							}
-							revision, _ := nextRevision(cfg.MigrationsDir)
-							if rev, _ := strconv.Atoi(revision); rev > 1 {
-								revision = fmt.Sprintf("%03d", rev-1)
-							}
-							migrationPath = filepath.Join(cfg.MigrationsDir, fmt.Sprintf("%s_%s.js", revision, name))
-						} else {
-							fmt.Printf("Generated migration: %s\n", path)
-							migrationPath = path
-						}
-					}
+				// Check for missing backfills
+				backfillCandidates, err := client.DetectMissingBackfills()
+				if err == nil && len(backfillCandidates) > 0 {
+					backfills = promptForBackfills(backfillCandidates)
 				}
 			}
 
-			// Auto-commit unless disabled
-			if !noCommit && migrationPath != "" {
-				result, err := git.CommitMigration(cfg.MigrationsDir, migrationPath, name)
+			// Generate migration with user inputs applied
+			if len(confirmedRenames) > 0 || len(backfills) > 0 {
+				path, err := client.MigrationGenerateInteractive(name, confirmedRenames, backfills)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: Failed to commit: %v\n", err)
-				} else if result != nil {
-					fmt.Println()
-					fmt.Println(git.FormatCommitSuccess(result.Files, result.CommitHash, "Add migration: "+name))
-
-					// Push if requested
-					if push {
-						pushResult, err := git.PushIfReady(cfg.MigrationsDir)
-						if err != nil {
-							fmt.Fprintf(os.Stderr, "Warning: Failed to push: %v\n", err)
-						} else if pushResult != nil && pushResult.Pushed {
-							fmt.Println(pushResult.Message)
-						}
-					} else if result.ShouldPush {
-						fmt.Println("\nTip: Run 'git push' or use 'alab new --push' to push automatically")
-					}
+					return createEmptyMigration(name)
 				}
+				fmt.Printf("Generated migration: %s\n", path)
+				return nil
 			}
 
+			// Standard generation (no interactive changes)
+			path, err := client.MigrationGenerate(name)
+			if err != nil {
+				// If generation fails (e.g., no changes), create empty migration
+				return createEmptyMigration(name)
+			}
+			fmt.Printf("Generated migration: %s\n", path)
 			return nil
 		},
 	}
 
 	cmd.Flags().BoolVar(&empty, "empty", false, "Force creation of empty migration (skip auto-generation)")
 	cmd.Flags().BoolVar(&noInteractive, "no-interactive", false, "Skip interactive prompts (renames, backfills)")
-	cmd.Flags().BoolVar(&noCommit, "no-commit", false, "Skip auto-commit of migration file")
-	cmd.Flags().BoolVar(&push, "push", false, "Push after committing")
 
 	return cmd
 }
