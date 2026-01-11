@@ -107,14 +107,17 @@ export default table({
 }).timestamps();
 ```
 
-### 3. Generate and apply migrations
+### 3. Create tables and generate migrations
 
 ```bash
+# Create a new table schema file
+alab table auth user
+
 # Generate migration from your schema
 alab new create_users
 
 # Preview the SQL (optional)
-alab migrate --dry-run
+alab migrate --dry
 
 # Apply to database
 alab migrate
@@ -232,23 +235,28 @@ col.enum(["a", "b"]); // CHECK constraint
 
 ## CLI Commands
 
-| Command             | Description                                         |
-| ------------------- | --------------------------------------------------- |
-| `alab init`         | Initialize new project                              |
-| `alab new <name>`   | Generate migration from schema changes              |
-| `alab migrate`      | Apply pending migrations                            |
-| `alab rollback [n]` | Rollback last n migrations                          |
-| `alab status`       | Show migration status                               |
-| `alab diff`         | Show schema vs database diff                        |
-| `alab check`        | Validate schema files                               |
-| `alab export`       | Export to OpenAPI/GraphQL/TypeScript/Go/Python/Rust |
-| `alab http`         | Start live documentation server                     |
-| `alab types`        | Regenerate IDE autocomplete definitions             |
+| Command                        | Description                                         |
+| ------------------------------ | --------------------------------------------------- |
+| `alab init`                    | Initialize new project                              |
+| `alab table <namespace> <name>` | Create a new table schema file                     |
+| `alab new <name>`              | Generate migration from schema changes              |
+| `alab migrate`                 | Apply pending migrations                            |
+| `alab rollback [n]`            | Rollback last n migrations                          |
+| `alab status`                  | Show migration status                               |
+| `alab history`                 | Show applied migrations with details                |
+| `alab diff`                    | Show schema vs database diff                        |
+| `alab check`                   | Validate schema files                               |
+| `alab verify`                  | Verify migration chain integrity                    |
+| `alab export`                  | Export to OpenAPI/GraphQL/TypeScript/Go/Python/Rust |
+| `alab http`                    | Start live documentation server                     |
+| `alab types`                   | Regenerate IDE autocomplete definitions             |
+| `alab reset`                   | Drop all tables and re-run migrations (dev only)    |
 
 ### Useful Flags
 
 ```bash
-alab migrate --dry-run      # Preview SQL without executing
+alab migrate --dry          # Preview SQL without executing
+alab rollback --dry         # Preview rollback SQL
 alab status --json          # JSON output for CI/CD
 alab export -f all          # Export all formats
 alab export -f all --merge  # Single file per format
