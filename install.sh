@@ -12,7 +12,17 @@ set -e
 
 REPO="hlop3z/astroladb"
 BINARY_NAME="alab"
-INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+
+# Detect OS early for install dir default
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        # Windows: use user's local bin directory
+        INSTALL_DIR="${INSTALL_DIR:-$HOME/bin}"
+        ;;
+    *)
+        INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+        ;;
+esac
 
 # Colors for output
 RED='\033[0;31m'
@@ -107,14 +117,74 @@ install_alab() {
     chmod +x "${BINARY_NAME}${BINARY_EXT}"
 
     # Install
+    # Create install directory if it doesn't exist
+    if [ ! -d "$INSTALL_DIR" ]; then
+        mkdir -p "$INSTALL_DIR" 2>/dev/null || {
+            if [ "$OS" != "windows" ]; then
+                info "Requesting sudo to create $INSTALL_DIR"
+                sudo mkdir -p "$INSTALL_DIR"
+            else
+                error "Cannot create $INSTALL_DIR. Please create it manually or set INSTALL_DIR."
+            fi
+        }
+    fi
+
     if [ -w "$INSTALL_DIR" ]; then
         mv "${BINARY_NAME}${BINARY_EXT}" "$INSTALL_DIR/${BINARY_NAME}${BINARY_EXT}"
     else
-        info "Requesting sudo to install to $INSTALL_DIR"
-        sudo mv "${BINARY_NAME}${BINARY_EXT}" "$INSTALL_DIR/${BINARY_NAME}${BINARY_EXT}"
+        if [ "$OS" = "windows" ]; then
+            error "Cannot write to $INSTALL_DIR. Please set INSTALL_DIR to a writable location."
+        else
+            info "Requesting sudo to install to $INSTALL_DIR"
+            sudo mv "${BINARY_NAME}${BINARY_EXT}" "$INSTALL_DIR/${BINARY_NAME}${BINARY_EXT}"
+        fi
     fi
 
     success "Installed $BINARY_NAME $VERSION to $INSTALL_DIR/${BINARY_NAME}${BINARY_EXT}"
+
+    # Auto-configure PATH for Windows/Git Bash
+    if [ "$OS" = "windows" ]; then
+        add_to_path_windows
+    fi
+}
+
+# Add install directory to PATH for Windows/Git Bash
+add_to_path_windows() {
+    SHELL_RC=""
+
+    # Determine which shell config file to use
+    if [ -f "$HOME/.bashrc" ]; then
+        SHELL_RC="$HOME/.bashrc"
+    elif [ -f "$HOME/.bash_profile" ]; then
+        SHELL_RC="$HOME/.bash_profile"
+    else
+        # Create .bashrc if neither exists
+        SHELL_RC="$HOME/.bashrc"
+        touch "$SHELL_RC"
+    fi
+
+    # Check if PATH already contains install dir
+    case ":$PATH:" in
+        *":$INSTALL_DIR:"*)
+            info "PATH already contains $INSTALL_DIR"
+            return
+            ;;
+    esac
+
+    # Check if already added to shell config
+    if grep -q "export PATH=\".*$INSTALL_DIR" "$SHELL_RC" 2>/dev/null; then
+        info "PATH export already in $SHELL_RC"
+        warn "Restart your terminal or run: source $SHELL_RC"
+        return
+    fi
+
+    # Add to shell config
+    echo "" >> "$SHELL_RC"
+    echo "# Added by alab installer" >> "$SHELL_RC"
+    echo "export PATH=\"\$HOME/bin:\$PATH\"" >> "$SHELL_RC"
+
+    success "Added $INSTALL_DIR to PATH in $SHELL_RC"
+    warn "Restart your terminal or run: source $SHELL_RC"
 }
 
 # Build and install from source
@@ -145,15 +215,45 @@ install_from_source() {
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "$BINARY_NAME" ./cmd/alab || \
         error "Build failed"
 
-    # Install
-    if [ -w "$INSTALL_DIR" ]; then
-        mv "$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
+    # Determine binary extension
+    OS=$(detect_os)
+    if [ "$OS" = "windows" ]; then
+        BINARY_EXT=".exe"
+        mv "$BINARY_NAME" "${BINARY_NAME}${BINARY_EXT}" 2>/dev/null || true
     else
-        info "Requesting sudo to install to $INSTALL_DIR"
-        sudo mv "$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
+        BINARY_EXT=""
     fi
 
-    success "Built and installed $BINARY_NAME to $INSTALL_DIR/$BINARY_NAME"
+    # Create install directory if it doesn't exist
+    if [ ! -d "$INSTALL_DIR" ]; then
+        mkdir -p "$INSTALL_DIR" 2>/dev/null || {
+            if [ "$OS" != "windows" ]; then
+                info "Requesting sudo to create $INSTALL_DIR"
+                sudo mkdir -p "$INSTALL_DIR"
+            else
+                error "Cannot create $INSTALL_DIR. Please create it manually or set INSTALL_DIR."
+            fi
+        }
+    fi
+
+    # Install
+    if [ -w "$INSTALL_DIR" ]; then
+        mv "${BINARY_NAME}${BINARY_EXT}" "$INSTALL_DIR/${BINARY_NAME}${BINARY_EXT}"
+    else
+        if [ "$OS" = "windows" ]; then
+            error "Cannot write to $INSTALL_DIR. Please set INSTALL_DIR to a writable location."
+        else
+            info "Requesting sudo to install to $INSTALL_DIR"
+            sudo mv "${BINARY_NAME}${BINARY_EXT}" "$INSTALL_DIR/${BINARY_NAME}${BINARY_EXT}"
+        fi
+    fi
+
+    success "Built and installed $BINARY_NAME to $INSTALL_DIR/${BINARY_NAME}${BINARY_EXT}"
+
+    # Auto-configure PATH for Windows/Git Bash
+    if [ "$OS" = "windows" ]; then
+        add_to_path_windows
+    fi
 }
 
 # Main
