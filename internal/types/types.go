@@ -20,7 +20,7 @@ import (
 // TypeDef represents a portable type definition.
 type TypeDef struct {
 	Name     string      // Internal type name (e.g., "string", "integer")
-	JSName   string      // JS DSL name (snake_case, e.g., "string", "date_time")
+	JSName   string      // JS DSL name (snake_case, e.g., "string", "datetime")
 	GoType   string      // Go type for the value (e.g., "string", "int32")
 	TSType   string      // TypeScript type (e.g., "string", "number")
 	OpenAPI  OpenAPIType // OpenAPI/JSON Schema type info
@@ -258,8 +258,8 @@ func init() {
 
 	// Timestamp with timezone - serialized as RFC 3339 string
 	Register(&TypeDef{
-		Name:    "date_time",
-		JSName:  "date_time",
+		Name:    "datetime",
+		JSName:  "datetime",
 		GoType:  "string", // RFC 3339 date-time string
 		TSType:  "string",
 		OpenAPI: OpenAPIType{Type: "string", Format: "date-time"},
@@ -402,7 +402,7 @@ var StandardFormats = map[string]Format{
 		Pattern: `^\d{2}:\d{2}:\d{2}(.\d+)?(Z|[+-]\d{2}:\d{2})?$`,
 		RFC:     "RFC 3339",
 	},
-	"date_time": {
+	"datetime": {
 		Name:    "date-time",
 		Pattern: `^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(.\d+)?(Z|[+-]\d{2}:\d{2})?$`,
 		RFC:     "RFC 3339",
