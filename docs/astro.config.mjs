@@ -4,7 +4,7 @@ import starlight from "@astrojs/starlight";
 import rehypeMermaid from "rehype-mermaid";
 
 const Config = {
-  title: "Astroladb",
+  title: "AstrolaDB",
   description: "Schema-first database migrations. Write once, export everywhere.",
   base: "/astroladb",
   site: "https://hlop3z.github.io",
