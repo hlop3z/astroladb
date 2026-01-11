@@ -27,7 +27,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const version = "0.1.0"
+// version is set via ldflags during build: -ldflags="-X main.version=v1.0.0"
+var version = "dev"
 
 // Global flags
 var (

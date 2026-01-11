@@ -76,13 +76,22 @@ jobs:
           go-version: "1.24"
           cache: true
 
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=dev" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: 0
         run: |
-          go build -ldflags="-s -w" -o alab${{ matrix.ext }} ./cmd/alab
+          go build -ldflags="-s -w -X main.version=${{ steps.version.outputs.VERSION }}" -o alab${{ matrix.ext }} ./cmd/alab
 
       - name: Create archive (Unix)
         if: matrix.os != 'windows'

@@ -749,8 +749,8 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 	sb.WriteString(time.Now().Format(time.RFC3339))
 	sb.WriteString("\n\n")
 
-	// Use the migration() DSL pattern
-	sb.WriteString("migration(m => {\n")
+	// Write up function
+	sb.WriteString("export function up(m) {\n")
 
 	for _, op := range ops {
 		switch o := op.(type) {
@@ -775,11 +775,10 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 		}
 	}
 
-	sb.WriteString("})\n")
+	sb.WriteString("}\n")
 
-	// Add commented down() function for reference
-	sb.WriteString("\n// Rollback operations (for reference):\n")
-	sb.WriteString("// migration(m => {\n")
+	// Write down function (reverse operations)
+	sb.WriteString("\nexport function down(m) {\n")
 	for i := len(ops) - 1; i >= 0; i-- {
 		switch o := ops[i].(type) {
 		case *ast.CreateTable:
@@ -787,9 +786,9 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 			if o.Namespace != "" {
 				ref = o.Namespace + "." + o.Name
 			}
-			sb.WriteString(fmt.Sprintf("//   m.drop_table(\"%s\")\n", ref))
+			sb.WriteString(fmt.Sprintf("  m.drop_table(\"%s\")\n", ref))
 		case *ast.DropTable:
-			sb.WriteString(fmt.Sprintf("//   // TODO: Recreate table %s\n", o.Name))
+			sb.WriteString(fmt.Sprintf("  // TODO: Recreate table %s\n", o.Name))
 		case *ast.RenameTable:
 			oldRef := o.OldName
 			newRef := o.NewName
@@ -797,32 +796,32 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 				oldRef = o.Namespace + "." + o.OldName
 				newRef = o.Namespace + "." + o.NewName
 			}
-			sb.WriteString(fmt.Sprintf("//   m.rename_table(\"%s\", \"%s\")\n", newRef, oldRef))
+			sb.WriteString(fmt.Sprintf("  m.rename_table(\"%s\", \"%s\")\n", newRef, oldRef))
 		case *ast.AddColumn:
 			ref := o.Table_
 			if o.Namespace != "" {
 				ref = o.Namespace + "." + o.Table_
 			}
-			sb.WriteString(fmt.Sprintf("//   m.drop_column(\"%s\", \"%s\")\n", ref, o.Column.Name))
+			sb.WriteString(fmt.Sprintf("  m.drop_column(\"%s\", \"%s\")\n", ref, o.Column.Name))
 		case *ast.DropColumn:
-			sb.WriteString(fmt.Sprintf("//   // TODO: Recreate column %s\n", o.Name))
+			sb.WriteString(fmt.Sprintf("  // TODO: Recreate column %s\n", o.Name))
 		case *ast.RenameColumn:
 			ref := o.Table_
 			if o.Namespace != "" {
 				ref = o.Namespace + "." + o.Table_
 			}
-			sb.WriteString(fmt.Sprintf("//   m.rename_column(\"%s\", \"%s\", \"%s\")\n", ref, o.NewName, o.OldName))
+			sb.WriteString(fmt.Sprintf("  m.rename_column(\"%s\", \"%s\", \"%s\")\n", ref, o.NewName, o.OldName))
 		case *ast.CreateIndex:
 			indexName := o.Name
 			if indexName == "" {
 				indexName = fmt.Sprintf("idx_%s_%s", o.Table_, strings.Join(o.Columns, "_"))
 			}
-			sb.WriteString(fmt.Sprintf("//   m.drop_index(\"%s\")\n", indexName))
+			sb.WriteString(fmt.Sprintf("  m.drop_index(\"%s\")\n", indexName))
 		case *ast.DropIndex:
-			sb.WriteString(fmt.Sprintf("//   // TODO: Recreate index %s\n", o.Name))
+			sb.WriteString(fmt.Sprintf("  // TODO: Recreate index %s\n", o.Name))
 		}
 	}
-	sb.WriteString("// })\n")
+	sb.WriteString("}\n")
 
 	return sb.String()
 }
