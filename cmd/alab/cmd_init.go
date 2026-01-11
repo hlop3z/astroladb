@@ -42,7 +42,7 @@ func initCmd() *cobra.Command {
 				content := `# alab.yaml
 database:
   dialect: sqlite # or postgres
-  url: sqlite://alab.db
+  url: sqlite://sqlite.db
 
 schemas: ./schemas
 migrations: ./migrations
