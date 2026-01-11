@@ -108,3 +108,72 @@ func Note(text string) string {
 func Help(text string) string {
 	return theme.Dim.Render(text)
 }
+
+// Color helper aliases for backward compatibility with internal/cli.
+
+// Green is an alias for Success.
+func Green(text string) string {
+	return Success(text)
+}
+
+// Yellow is an alias for Warning.
+func Yellow(text string) string {
+	return Warning(text)
+}
+
+// Red is an alias for Error.
+func Red(text string) string {
+	return Error(text)
+}
+
+// Cyan is an alias for Info.
+func Cyan(text string) string {
+	return Info(text)
+}
+
+// Bold renders text in bold.
+func Bold(text string) string {
+	return lipgloss.NewStyle().Bold(true).Render(text)
+}
+
+// Muted is an alias for Dim.
+func Muted(text string) string {
+	return Dim(text)
+}
+
+// Badge rendering functions.
+
+// RenderAppliedBadge renders an "Applied" badge.
+func RenderAppliedBadge() string {
+	style := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("0")).
+		Background(lipgloss.Color("10")).
+		Padding(0, 1).
+		Bold(true)
+	return style.Render("Applied")
+}
+
+// RenderPendingBadge renders a "Pending" badge.
+func RenderPendingBadge() string {
+	style := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("0")).
+		Background(lipgloss.Color("11")).
+		Padding(0, 1).
+		Bold(true)
+	return style.Render("Pending")
+}
+
+// RenderErrorBadge renders an "Error" badge.
+func RenderErrorBadge() string {
+	style := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")).
+		Background(lipgloss.Color("9")).
+		Padding(0, 1).
+		Bold(true)
+	return style.Render("Error")
+}
+
+// FilePath renders text as a file path (bold).
+func FilePath(text string) string {
+	return lipgloss.NewStyle().Bold(true).Render(text)
+}

@@ -30,6 +30,11 @@ func RenderTitle(title string) string {
 	return theme.Header.Render(title) + "\n" + theme.Dim.Render(strings.Repeat("─", len(title)))
 }
 
+// RenderSubtitle renders a subtitle (smaller than title).
+func RenderSubtitle(subtitle string) string {
+	return theme.Primary.Render(subtitle)
+}
+
 // FormatKeyValue formats a key-value pair.
 func FormatKeyValue(key, value string) string {
 	return theme.Dim.Render(key+": ") + value
@@ -61,4 +66,75 @@ func padRight(s string, width int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", width-len(s))
+}
+
+// Panel rendering functions.
+
+// RenderSuccessPanel renders content in a success-styled panel.
+func RenderSuccessPanel(title, content string) string {
+	panelStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Success.GetForeground()).
+		Padding(1, 2)
+
+	titleRendered := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(theme.Success.GetForeground()).
+		Render("✓ " + title)
+
+	return panelStyle.Render(titleRendered + "\n\n" + content)
+}
+
+// RenderWarningPanel renders content in a warning-styled panel.
+func RenderWarningPanel(title, content string) string {
+	panelStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Warning.GetForeground()).
+		Padding(1, 2)
+
+	titleRendered := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(theme.Warning.GetForeground()).
+		Render("⚠ " + title)
+
+	return panelStyle.Render(titleRendered + "\n\n" + content)
+}
+
+// RenderErrorPanel renders content in an error-styled panel.
+func RenderErrorPanel(title, content string) string {
+	panelStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Error.GetForeground()).
+		Padding(1, 2)
+
+	titleRendered := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(theme.Error.GetForeground()).
+		Render("✗ " + title)
+
+	return panelStyle.Render(titleRendered + "\n\n" + content)
+}
+
+// RenderInfoPanel renders content in an info-styled panel.
+func RenderInfoPanel(title, content string) string {
+	panelStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Info.GetForeground()).
+		Padding(1, 2)
+
+	titleRendered := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(theme.Info.GetForeground()).
+		Render("→ " + title)
+
+	return panelStyle.Render(titleRendered + "\n\n" + content)
+}
+
+// FormatError formats an error for CLI display.
+// This is a simplified version that handles common error cases.
+func FormatError(err error) string {
+	if err == nil {
+		return ""
+	}
+	return Error("error") + ": " + err.Error() + "\n"
 }

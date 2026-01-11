@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -252,6 +253,116 @@ func TestPadRight(t *testing.T) {
 			if len(output) != tt.width {
 				t.Errorf("padRight(%q, %d) length = %d, want %d",
 					tt.input, tt.width, len(output), tt.width)
+			}
+		})
+	}
+}
+
+// TestColorAliases verifies color alias functions.
+func TestColorAliases(t *testing.T) {
+	tests := []struct {
+		name string
+		fn   func(string) string
+	}{
+		{"Green", Green},
+		{"Yellow", Yellow},
+		{"Red", Red},
+		{"Cyan", Cyan},
+		{"Bold", Bold},
+		{"Muted", Muted},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := tt.fn("test")
+			if !strings.Contains(output, "test") {
+				t.Errorf("%s() output %q does not contain %q", tt.name, output, "test")
+			}
+		})
+	}
+}
+
+// TestBadges verifies badge rendering functions.
+func TestBadges(t *testing.T) {
+	tests := []struct {
+		name     string
+		fn       func() string
+		contains string
+	}{
+		{"Applied", RenderAppliedBadge, "Applied"},
+		{"Pending", RenderPendingBadge, "Pending"},
+		{"Error", RenderErrorBadge, "Error"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := tt.fn()
+			if !strings.Contains(output, tt.contains) {
+				t.Errorf("%s badge output %q does not contain %q", tt.name, output, tt.contains)
+			}
+		})
+	}
+}
+
+// TestRenderSubtitle verifies subtitle rendering.
+func TestRenderSubtitle(t *testing.T) {
+	output := RenderSubtitle("My Subtitle")
+
+	if !strings.Contains(output, "My Subtitle") {
+		t.Error("RenderSubtitle missing subtitle text")
+	}
+}
+
+// TestPanels verifies panel rendering functions.
+func TestPanels(t *testing.T) {
+	tests := []struct {
+		name     string
+		fn       func(string, string) string
+		title    string
+		content  string
+		marker   string
+	}{
+		{"Success", RenderSuccessPanel, "Success Title", "Content", "✓"},
+		{"Warning", RenderWarningPanel, "Warning Title", "Content", "⚠"},
+		{"Error", RenderErrorPanel, "Error Title", "Content", "✗"},
+		{"Info", RenderInfoPanel, "Info Title", "Content", "→"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := tt.fn(tt.title, tt.content)
+			if !strings.Contains(output, tt.title) {
+				t.Errorf("%s panel missing title", tt.name)
+			}
+			if !strings.Contains(output, tt.content) {
+				t.Errorf("%s panel missing content", tt.name)
+			}
+			if !strings.Contains(output, tt.marker) {
+				t.Errorf("%s panel missing marker %q", tt.name, tt.marker)
+			}
+		})
+	}
+}
+
+// TestFormatError verifies error formatting.
+func TestFormatError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"Nil", nil, ""},
+		{"Generic", fmt.Errorf("something went wrong"), "error"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := FormatError(tt.err)
+			if tt.want == "" && output != "" {
+				t.Errorf("FormatError(%v) = %q, want empty string", tt.err, output)
+			}
+			if tt.want != "" && !strings.Contains(output, tt.want) {
+				t.Errorf("FormatError(%v) output %q does not contain %q", tt.err, output, tt.want)
 			}
 		})
 	}

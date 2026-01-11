@@ -103,3 +103,8 @@ func tableStyles() table.Styles {
 
 	return s
 }
+
+// NewStyledTable is an alias for NewTable for backward compatibility.
+func NewStyledTable(headers ...string) *Table {
+	return NewTable(headers...)
+}
