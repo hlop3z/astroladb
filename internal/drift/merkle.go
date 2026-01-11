@@ -187,9 +187,13 @@ func computeColumnHash(col *ast.ColumnDef) string {
 		col.PrimaryKey,
 	)
 
-	// Include default if set
+	// Include default if set (check both Default and ServerDefault for normalization compatibility)
+	// After dev database normalization, defaults are stored in ServerDefault (introspected form)
 	if col.DefaultSet {
 		data += fmt.Sprintf("|default:%v", col.Default)
+	}
+	if col.ServerDefault != "" {
+		data += fmt.Sprintf("|serverdefault:%s", col.ServerDefault)
 	}
 
 	return hashString(data)

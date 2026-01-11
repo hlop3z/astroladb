@@ -189,7 +189,7 @@ func (c *Client) context() (context.Context, context.CancelFunc) {
 //
 // Detection rules:
 //   - postgres:// or postgresql:// -> postgres
-//   - sqlite:// or file: or *.db -> sqlite
+//   - sqlite:// or file: or path ending with .db/.sqlite/.sqlite3 -> sqlite
 func detectDialect(url string) string {
 	url = strings.ToLower(url)
 
@@ -226,7 +226,7 @@ func openDatabase(url, dialectName string) (*sql.DB, error) {
 
 	case "sqlite":
 		driverName = "sqlite"
-		// Convert sqlite:// URL to file path
+		// Convert sqlite:// URL to file path, or use path directly
 		dsn = convertSQLiteURL(url)
 
 	default:
@@ -236,7 +236,8 @@ func openDatabase(url, dialectName string) (*sql.DB, error) {
 	return sql.Open(driverName, dsn)
 }
 
-// convertSQLiteURL converts a sqlite:// URL to a file path.
+// convertSQLiteURL converts a sqlite:// URL to a file path, or returns the path as-is.
+// Accepts both URL formats (sqlite://path) and direct file paths (./path or /path).
 func convertSQLiteURL(url string) string {
 	url = strings.TrimPrefix(url, "sqlite://")
 	url = strings.TrimPrefix(url, "sqlite3://")
@@ -433,10 +434,25 @@ func (c *Client) QuickDriftCheck() (bool, error) {
 	return detector.QuickCheck(ctx, expected)
 }
 
-// getExpectedSchema returns the expected schema state.
-// This is derived from the schema files (what migrations would produce).
+// getExpectedSchema returns the expected schema state in canonical/normalized form.
+// This uses the industry-standard approach combining Liquibase and Atlas patterns:
+//
+// 1. Liquibase/Flyway Pattern: Replay migration history to get expected schema
+// 2. Atlas Pattern: Apply to dev database for normalization to canonical form
+//
+// Why both are needed:
+// - Migration replay gives us "what should be in DB" (natural form)
+// - Dev database normalization converts to canonical form for accurate comparison
+// - Without normalization, representations don't match (e.g., "NOW()" vs "CURRENT_TIMESTAMP")
 func (c *Client) getExpectedSchema() (*engine.Schema, error) {
-	return c.getSchema()
+	// Step 1: Replay migrations to get expected schema (Liquibase pattern)
+	schema, err := c.getSchemaFromMigrations()
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 2: Normalize via dev database (Atlas pattern)
+	return c.normalizeSchema(schema)
 }
 
 // convertDriftResult converts internal drift.Result to public DriftResult.
