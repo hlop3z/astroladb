@@ -256,7 +256,9 @@ func init() {
 		HasArgs: false,
 	})
 
-	// Timestamp with timezone - serialized as RFC 3339 string
+	// Timestamp with timezone - stored in UTC, serialized as RFC 3339 string
+	// PostgreSQL: TIMESTAMPTZ stores in UTC, connection timezone set to UTC
+	// SQLite: TEXT in ISO 8601 format
 	Register(&TypeDef{
 		Name:    "datetime",
 		JSName:  "datetime",

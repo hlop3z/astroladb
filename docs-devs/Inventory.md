@@ -78,7 +78,7 @@ Complete column definition with:
 | Method            | Format              | Example      |
 | ----------------- | ------------------- | ------------ |
 | `FullName()`      | namespace_tablename | `auth_users` |
-| `SQLName()`       | namespace_tablename | `auth_users` |
+| `FullName()`      | namespace_tablename | `auth_users` |
 | `QualifiedName()` | namespace.table     | `auth.users` |
 
 ### 1.3 Introspection Type Mappings
@@ -157,7 +157,6 @@ if col.ServerDefault != "" {
 | --------------- | ------------ | ------------------------------- |
 | Fully qualified | `auth.users` | Explicit namespace              |
 | Relative        | `.users`     | Current namespace (leading dot) |
-| Unqualified     | `users`      | Implicit namespace context      |
 
 **Resolution Table**:
 
@@ -165,7 +164,6 @@ if col.ServerDefault != "" {
 | ------------ | ---------- | ------------ | ------------ |
 | `auth.users` | any        | `auth.users` | `auth_users` |
 | `.roles`     | auth       | `auth.roles` | `auth_roles` |
-| `posts`      | blog       | `blog.posts` | `blog_posts` |
 
 **Resolution Logic** (Lines 56-82 in resolver.go):
 
@@ -215,13 +213,13 @@ Used in `buildDefaultValueSQL()` function (Lines 116-141)
 
 **SQL Format Conversions**:
 
-- `FullName()` / `SQLName()` → `namespace_tablename` (underscore-separated, flat)
+- `FullName()` / `FullName()` → `namespace_tablename` (underscore-separated, flat)
 - `QualifiedName()` → `namespace.table` (dot-separated, hierarchical)
 
 **Reverse Parsing** (Lines 72-80 in introspect/introspect.go):
 
 ```go
-func parseTableName(sqlName string) (namespace, name string)
+func parseTableName(FullName string) (namespace, name string)
 // "auth_user" → ("auth", "user")
 // "user" → ("", "user")
 ```
@@ -406,7 +404,7 @@ col := NewColumnBuilder("email", "string", 255)
 | `ToCamelCase()`  | 77   | various → camelCase                  |
 | `Pluralize()`    | 237  | singular → plural                    |
 | `Singularize()`  | 282  | plural → singular                    |
-| `SQLName()`      | -    | (namespace, table) → namespace_table |
+| `FullName()`     | -    | (namespace, table) → namespace_table |
 
 ---
 
@@ -486,7 +484,7 @@ Export (TypeScript):  columnToTypeScriptType → "string"
 
 - `ToSnakeCase`, `ToPascalCase`, `ToCamelCase`
 - `Pluralize`, `Singularize`
-- `SQLName`, `parseTableName`
+- `FullName`, `parseTableName`
 
 **Reference Conversions**:
 
@@ -520,8 +518,8 @@ Export (TypeScript):  columnToTypeScriptType → "string"
 | Pattern            | Path 1                       | Path 2                   | Convergence                 |
 | ------------------ | ---------------------------- | ------------------------ | --------------------------- |
 | **Defaults**       | `Default` (SQLExpr)          | `ServerDefault` (string) | Both hashed for drift       |
-| **Table Names**    | `QualifiedName()` (ns.table) | `SQLName()` (ns_table)   | `parseTableName()` reverse  |
-| **References**     | Fully qualified              | Relative/Unqualified     | `NormalizeReference()`      |
+| **Table Names**    | `QualifiedName()` (ns.table) | `FullName()` (ns_table)  | `parseTableName()` reverse  |
+| **References**     | Fully qualified              | Relative                 | `NormalizeReference()`      |
 | **FK Actions**     | Constants (Cascade, etc)     | Raw strings from DB      | `normalizeAction()`         |
 | **Booleans**       | Postgres TRUE/FALSE          | SQLite 1/0               | `buildDefaultValueSQL()`    |
 | **Type Mapping**   | Postgres types               | SQLite types             | `TypeMapper` interface      |

@@ -590,4 +590,3 @@ func (c *Client) GetMigrationInfo(revision string) (*engine.Migration, error) {
 		Cause:     fmt.Errorf("revision not found"),
 	}
 }
-

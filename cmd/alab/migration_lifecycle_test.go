@@ -375,20 +375,20 @@ func contains(slice []string, item string) bool {
 func createSchemaFiles(schemasDir string, version int) {
 	appDir := filepath.Join(schemasDir, "app")
 	os.MkdirAll(appDir, 0755)
-	
+
 	// Remove all existing files
 	files, _ := filepath.Glob(filepath.Join(appDir, "*.js"))
 	for _, f := range files {
 		os.Remove(f)
 	}
-	
+
 	// Version 1+: users table
 	usersSchema := `export default table({
   id: col.id(),
   email: col.email().unique(),
   username: col.username().unique(),
 }).timestamps();`
-	
+
 	if version >= 2 {
 		usersSchema = `export default table({
   id: col.id(),
@@ -397,7 +397,7 @@ func createSchemaFiles(schemasDir string, version int) {
   password: col.password_hash(),
 }).timestamps();`
 	}
-	
+
 	if version >= 4 {
 		usersSchema = `export default table({
   id: col.id(),
@@ -407,9 +407,9 @@ func createSchemaFiles(schemasDir string, version int) {
   is_active: col.flag(true),
 }).timestamps();`
 	}
-	
+
 	os.WriteFile(filepath.Join(appDir, "users.js"), []byte(usersSchema), 0644)
-	
+
 	// Version 3+: posts table
 	if version >= 3 {
 		postsSchema := `export default table({
@@ -418,7 +418,7 @@ func createSchemaFiles(schemasDir string, version int) {
   body: col.text(),
   author_id: col.belongs_to(".users"),
 }).timestamps();`
-		
+
 		if version >= 5 {
 			postsSchema = `export default table({
   id: col.id(),
@@ -428,7 +428,7 @@ func createSchemaFiles(schemasDir string, version int) {
   status: col.string(20).default("draft"),
 }).timestamps();`
 		}
-		
+
 		if version >= 7 {
 			postsSchema = `export default table({
   id: col.id(),
@@ -439,7 +439,7 @@ func createSchemaFiles(schemasDir string, version int) {
   published_at: col.datetime().optional(),
 }).timestamps();`
 		}
-		
+
 		if version >= 8 {
 			postsSchema = `export default table({
   id: col.id(),
@@ -451,7 +451,7 @@ func createSchemaFiles(schemasDir string, version int) {
   published_at: col.datetime().optional(),
 }).timestamps();`
 		}
-		
+
 		if version >= 9 {
 			postsSchema = `export default table({
   id: col.id(),
@@ -464,10 +464,10 @@ func createSchemaFiles(schemasDir string, version int) {
   deleted_at: col.datetime().optional(),
 }).timestamps();`
 		}
-		
+
 		os.WriteFile(filepath.Join(appDir, "posts.js"), []byte(postsSchema), 0644)
 	}
-	
+
 	// Version 6+: comments table
 	if version >= 6 {
 		commentsSchema := `export default table({
@@ -478,7 +478,7 @@ func createSchemaFiles(schemasDir string, version int) {
 }).timestamps();`
 		os.WriteFile(filepath.Join(appDir, "comments.js"), []byte(commentsSchema), 0644)
 	}
-	
+
 	// Version 10: tags table
 	if version >= 10 {
 		tagsSchema := `export default table({

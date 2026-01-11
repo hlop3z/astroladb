@@ -12,7 +12,7 @@ import (
 
 // migrateCmd applies pending migrations.
 func migrateCmd() *cobra.Command {
-	var dryRun, force, confirmDestructive bool
+	var dryRun, force, confirmDestroy, commit bool
 
 	cmd := &cobra.Command{
 		Use:   "migrate",
@@ -51,13 +51,13 @@ func migrateCmd() *cobra.Command {
 			}
 			defer client.Close()
 
-			// Check for destructive operations - requires --confirm-destructive (not --force)
+			// Check for destructive operations - requires --confirm-destroy (not --force)
 			if !dryRun {
 				warnings, err := client.LintPendingMigrations()
 				if err != nil {
 					return err
 				}
-				if len(warnings) > 0 && !confirmDestructive {
+				if len(warnings) > 0 && !confirmDestroy {
 					fmt.Fprintln(os.Stderr, alabcli.Warning("warning")+": destructive operations detected")
 					fmt.Fprintln(os.Stderr, "")
 					for _, w := range warnings {
@@ -65,7 +65,7 @@ func migrateCmd() *cobra.Command {
 					}
 					fmt.Fprintln(os.Stderr, "")
 					fmt.Fprintln(os.Stderr, alabcli.Note("note")+": these operations will permanently delete data")
-					fmt.Fprintln(os.Stderr, alabcli.Help("help")+": run with --confirm-destructive to proceed")
+					fmt.Fprintln(os.Stderr, alabcli.Help("help")+": run with --confirm-destroy to proceed")
 					os.Exit(1)
 				}
 			}
@@ -87,9 +87,11 @@ func migrateCmd() *cobra.Command {
 			if !dryRun {
 				fmt.Println("Migrations applied successfully!")
 
-				// Auto-commit migration files
-				if err := autoCommitMigrations(cfg.MigrationsDir, "up"); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+				// Auto-commit migration files (optional with --commit flag)
+				if commit {
+					if err := autoCommitMigrations(cfg.MigrationsDir, "up"); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+					}
 				}
 			}
 			return nil
@@ -98,7 +100,8 @@ func migrateCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&dryRun, "dry", false, "Print SQL without executing")
 	cmd.Flags().BoolVar(&force, "force", false, "Skip safety warnings")
-	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "Confirm DROP operations")
+	cmd.Flags().BoolVar(&confirmDestroy, "confirm-destroy", false, "Confirm DROP operations")
+	cmd.Flags().BoolVar(&commit, "commit", false, "Auto-commit migration files to git")
 
 	return cmd
 }

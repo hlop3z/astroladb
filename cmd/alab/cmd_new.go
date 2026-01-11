@@ -149,7 +149,7 @@ export function up(m) {
 export function down(m) {
   // Reverse the operations in up() in reverse order
 }
-`, name, time.Now().Format(TimeJSON))
+`, name, time.Now().UTC().Format(TimeJSON))
 
 	// Write migration file
 	filename := fmt.Sprintf("%s_%s.js", revision, name)

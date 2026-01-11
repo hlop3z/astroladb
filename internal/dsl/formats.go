@@ -90,16 +90,16 @@ var (
 // Formats is a map of all standard formats by name.
 // Used by JS runtime to expose formats as fmt.email, fmt.uri, etc.
 var Formats = map[string]FormatDef{
-	"email":     FormatEmail,
-	"uri":       FormatURI,
-	"uuid":      FormatUUID,
-	"date":      FormatDate,
-	"time":      FormatTime,
+	"email":    FormatEmail,
+	"uri":      FormatURI,
+	"uuid":     FormatUUID,
+	"date":     FormatDate,
+	"time":     FormatTime,
 	"datetime": FormatDateTime,
-	"hostname":  FormatHostname,
-	"ipv4":      FormatIPv4,
-	"ipv6":      FormatIPv6,
-	"password":  FormatPassword,
+	"hostname": FormatHostname,
+	"ipv4":     FormatIPv4,
+	"ipv6":     FormatIPv6,
+	"password": FormatPassword,
 }
 
 // GetFormat returns the FormatDef for the given format name, or nil if not found.

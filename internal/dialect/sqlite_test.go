@@ -490,8 +490,8 @@ func TestSQLiteVsPostgres(t *testing.T) {
 
 	// SQLite uses TEXT for most things, but uses type affinities for date/time
 	textTypesSQLite := []struct {
-		name          string
-		get           func(Dialect) string
+		name           string
+		get            func(Dialect) string
 		expectedSQLite string
 	}{
 		{"IDType", func(d Dialect) string { return d.IDType() }, "TEXT"},

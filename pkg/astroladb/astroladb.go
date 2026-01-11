@@ -132,6 +132,18 @@ func New(opts ...Option) (*Client, error) {
 		}
 	}
 
+	// Set timezone to UTC for PostgreSQL
+	if cfg.Dialect == "postgres" {
+		if _, err := db.ExecContext(ctx, "SET timezone = 'UTC'"); err != nil {
+			db.Close()
+			return nil, &ConnectionError{
+				URL:     redactURL(cfg.DatabaseURL),
+				Dialect: cfg.Dialect,
+				Cause:   fmt.Errorf("failed to set UTC timezone: %w", err),
+			}
+		}
+	}
+
 	// Initialize runner (needs db and dialect)
 	runner := engine.NewRunner(db, d)
 
@@ -544,7 +556,6 @@ func FormatDriftResult(result *DriftResult) string {
 
 	return drift.FormatResult(internalResult)
 }
-
 
 // computeMerkleHash computes the merkle hash for a schema.
 func (c *Client) computeMerkleHash(schema *engine.Schema) (*drift.SchemaHash, error) {

@@ -299,9 +299,13 @@ func CommitAppliedMigrations(migrationsDir, direction string) (*AutomationResult
 	}
 
 	// Build commit message with description
-	// Subject: migrate: up (or down)
+	// Subject: Migration(up): migrate  or  Migration(down): rollback
 	// Body: list of migration files
-	message := fmt.Sprintf("migrate: %s\n\n%s", direction, strings.Join(fileNames, "\n"))
+	action := "migrate"
+	if direction == "down" {
+		action = "rollback"
+	}
+	message := fmt.Sprintf("Migration(%s): %s\n\n%s", direction, action, strings.Join(fileNames, "\n"))
 
 	if err := repo.CommitFiles(message, filePaths...); err != nil {
 		return nil, alerr.Wrap(alerr.EGitOperation, err, "failed to commit migrations").
