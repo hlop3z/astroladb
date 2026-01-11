@@ -5,7 +5,7 @@
 *.go text eol=lf linguist-language=Go
 
 # Shell scripts
-*.sh text eol=lf
+*.sh text eol=lf linguist-vendored
 
 # Documentation
 *.md text eol=lf linguist-documentation
