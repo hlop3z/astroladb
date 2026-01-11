@@ -30,7 +30,8 @@
     Inspired by<br>
     <a href="https://alembic.sqlalchemy.org/">Alembic</a> |
     <a href="https://docs.djangoproject.com/en/stable/topics/migrations/">Django</a> |
-    <a href="https://www.liquibase.org/">Liquibase</a>
+    <a href="https://www.liquibase.org/">Liquibase</a> |
+    <a href="https://atlasgo.io/">Atlas</a>   
   </sub>
 </p>
 
@@ -235,22 +236,22 @@ col.enum(["a", "b"]); // CHECK constraint
 
 ## CLI Commands
 
-| Command                        | Description                                         |
-| ------------------------------ | --------------------------------------------------- |
-| `alab init`                    | Initialize new project                              |
-| `alab table <namespace> <name>` | Create a new table schema file                     |
-| `alab new <name>`              | Generate migration from schema changes              |
-| `alab migrate`                 | Apply pending migrations                            |
-| `alab rollback [n]`            | Rollback last n migrations                          |
-| `alab status`                  | Show migration status                               |
-| `alab history`                 | Show applied migrations with details                |
-| `alab diff`                    | Show schema vs database diff                        |
-| `alab check`                   | Validate schema files                               |
-| `alab verify`                  | Verify migration chain integrity                    |
-| `alab export`                  | Export to OpenAPI/GraphQL/TypeScript/Go/Python/Rust |
-| `alab http`                    | Start live documentation server                     |
-| `alab types`                   | Regenerate IDE autocomplete definitions             |
-| `alab reset`                   | Drop all tables and re-run migrations (dev only)    |
+| Command                         | Description                                         |
+| ------------------------------- | --------------------------------------------------- |
+| `alab init`                     | Initialize new project                              |
+| `alab table <namespace> <name>` | Create a new table schema file                      |
+| `alab new <name>`               | Generate migration from schema changes              |
+| `alab migrate`                  | Apply pending migrations                            |
+| `alab rollback [n]`             | Rollback last n migrations                          |
+| `alab status`                   | Show migration status                               |
+| `alab history`                  | Show applied migrations with details                |
+| `alab diff`                     | Show schema vs database diff                        |
+| `alab check`                    | Validate schema files                               |
+| `alab verify`                   | Verify migration chain integrity                    |
+| `alab export`                   | Export to OpenAPI/GraphQL/TypeScript/Go/Python/Rust |
+| `alab http`                     | Start live documentation server                     |
+| `alab types`                    | Regenerate IDE autocomplete definitions             |
+| `alab reset`                    | Drop all tables and re-run migrations (dev only)    |
 
 ### Useful Flags
 

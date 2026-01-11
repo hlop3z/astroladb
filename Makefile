@@ -45,7 +45,7 @@ YELLOW := \033[0;33m
 RED := \033[0;31m
 NC := \033[0m # No Color
 
-.PHONY: all build build-dev release clean test test-unit test-integration test-sqlite test-postgres test-e2e test-all fmt vet lint deps tidy help install
+.PHONY: all build build-dev release clean test test-unit test-integration test-sqlite test-postgres test-e2e test-all fmt vet lint deps tidy help install docs-format docs-format-check
 
 # Default target
 all: build
@@ -166,6 +166,16 @@ fmt-check:
 	@echo "$(GREEN)Checking formatting...$(NC)"
 	@test -z "$$($(GOFMT) -l .)" || (echo "$(RED)Code is not formatted. Run 'make fmt'$(NC)" && exit 1)
 
+# Format documentation files
+docs-format:
+	@echo "$(GREEN)Formatting documentation...$(NC)"
+	@cd docs && npm run format
+
+# Check documentation formatting
+docs-format-check:
+	@echo "$(GREEN)Checking documentation formatting...$(NC)"
+	@cd docs && npm run format:check
+
 # Run go vet
 vet:
 	@echo "$(GREEN)Running go vet...$(NC)"
@@ -238,6 +248,8 @@ help:
 	@echo "$(YELLOW)Code quality:$(NC)"
 	@echo "  make fmt           - Format code"
 	@echo "  make fmt-check     - Check code formatting"
+	@echo "  make docs-format   - Format documentation files"
+	@echo "  make docs-format-check - Check documentation formatting"
 	@echo "  make vet           - Run go vet"
 	@echo "  make lint          - Run golangci-lint"
 	@echo "  make check         - Run fmt-check, vet, test-unit"
