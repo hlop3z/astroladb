@@ -14,11 +14,24 @@
   <img src="https://img.shields.io/badge/databases-PostgreSQL%20%7C%20SQLite-336791" alt="Databases">
 </p>
 
-hlop3z/astroladb
-
 <p align="center">
   <a href="https://hlop3z.github.io/astroladb/">Documentation</a> ·
   <a href="https://hlop3z.github.io/astroladb/examples/blog/">Examples</a>
+</p>
+
+---
+
+<p align="center">
+  <em>Astroladb — from "<strong>astrolabe</strong>" the universal instrument of ancient navigators.<br>Define once. Export everywhere. Navigate your data with clarity.</em>
+</p>
+
+<p align="center">
+  <sub>
+    Inspired by<br>
+    <a href="https://alembic.sqlalchemy.org/">Alembic</a> |
+    <a href="https://docs.djangoproject.com/en/stable/topics/migrations/">Django</a> |
+    <a href="https://www.liquibase.org/">Liquibase</a>
+  </sub>
 </p>
 
 ---
