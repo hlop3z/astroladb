@@ -80,12 +80,12 @@ func introspectAndCompare(t *testing.T, db *sql.DB, d dialect.Dialect, expected 
 		t.Fatalf("failed to create introspector for dialect %s", d.Name())
 	}
 
-	actual, err := intro.IntrospectTable(ctx, expected.SQLName())
+	actual, err := intro.IntrospectTable(ctx, expected.FullName())
 	if err != nil {
-		t.Fatalf("failed to introspect table %s: %v", expected.SQLName(), err)
+		t.Fatalf("failed to introspect table %s: %v", expected.FullName(), err)
 	}
 	if actual == nil {
-		t.Fatalf("table %s not found after creation", expected.SQLName())
+		t.Fatalf("table %s not found after creation", expected.FullName())
 	}
 
 	// Compare table name
@@ -642,7 +642,7 @@ func TestRoundTrip_ForeignKey_Postgres(t *testing.T) {
 	ctx := context.Background()
 	intro := introspect.New(db, d)
 
-	actual, err := intro.IntrospectTable(ctx, postTable.SQLName())
+	actual, err := intro.IntrospectTable(ctx, postTable.FullName())
 	if err != nil {
 		t.Fatalf("failed to introspect table: %v", err)
 	}
@@ -700,7 +700,7 @@ func TestRoundTrip_ForeignKey_SQLite(t *testing.T) {
 	ctx := context.Background()
 	intro := introspect.New(db, d)
 
-	actual, err := intro.IntrospectTable(ctx, postTable.SQLName())
+	actual, err := intro.IntrospectTable(ctx, postTable.FullName())
 	if err != nil {
 		t.Fatalf("failed to introspect table: %v", err)
 	}
@@ -748,7 +748,7 @@ func TestRoundTrip_SelfReferentialFK_Postgres(t *testing.T) {
 	ctx := context.Background()
 	intro := introspect.New(db, d)
 
-	actual, err := intro.IntrospectTable(ctx, expected.SQLName())
+	actual, err := intro.IntrospectTable(ctx, expected.FullName())
 	if err != nil {
 		t.Fatalf("failed to introspect table: %v", err)
 	}

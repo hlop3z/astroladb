@@ -78,7 +78,7 @@ func printSchemaTable(revision string, tables []*ast.TableDef) {
 
 	for _, table := range tables {
 		fmt.Printf("Table: %s\n", table.QualifiedName())
-		fmt.Printf("  SQL Name: %s\n", table.SQLName())
+		fmt.Printf("  SQL Name: %s\n", table.FullName())
 		if table.Docs != "" {
 			fmt.Printf("  Description: %s\n", table.Docs)
 		}
@@ -209,7 +209,7 @@ func printSchemaJSON(revision string, tables []*ast.TableDef) {
 		t := TableOutput{
 			Namespace: table.Namespace,
 			Name:      table.Name,
-			SQLName:   table.SQLName(),
+			SQLName:   table.FullName(),
 			Columns:   make([]ColumnOutput, len(table.Columns)),
 			Docs:      table.Docs,
 		}
