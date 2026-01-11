@@ -164,7 +164,8 @@ func (r *Repo) UncommittedMigrations(migrationsDir string) ([]FileStatus, error)
 	}
 
 	// Get all files in migrations directory with their status
-	status, err := r.runGit("status", "--porcelain", relDir)
+	// Use -uall to show individual files in untracked directories
+	status, err := r.runGit("status", "--porcelain", "-uall", relDir)
 	if err != nil {
 		return nil, err
 	}
@@ -201,6 +202,11 @@ func (r *Repo) UncommittedMigrations(migrationsDir string) ([]FileStatus, error)
 			s = StatusDeleted
 		default:
 			s = StatusModified
+		}
+
+		// Only include .js migration files
+		if !strings.HasSuffix(path, ".js") {
+			continue
 		}
 
 		files = append(files, FileStatus{

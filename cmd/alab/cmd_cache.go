@@ -5,13 +5,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hlop3z/astroladb/pkg/astroladb"
 	"github.com/spf13/cobra"
 )
 
 // rebuildCacheCmd rebuilds the local cache from migration files.
 func rebuildCacheCmd() *cobra.Command {
-	var incremental, clear, stats, quiet bool
+	var clear, stats bool
 
 	cmd := &cobra.Command{
 		Use:     "rebuild-cache",
@@ -60,46 +59,29 @@ func rebuildCacheCmd() *cobra.Command {
 
 			// Progress callback
 			progress := func(revision string, current, total int) {
-				if !quiet {
-					fmt.Printf("\rCaching revision %s (%d/%d)...", revision, current, total)
-				}
+				fmt.Printf("\rCaching revision %s (%d/%d)...", revision, current, total)
 			}
 
-			// Rebuild
-			var cacheStats *astroladb.CacheStats
-			if incremental {
-				if !quiet {
-					fmt.Println("Rebuilding cache (incremental)...")
-				}
-				cacheStats, err = client.RebuildCacheIncremental(progress)
-			} else {
-				if !quiet {
-					fmt.Println("Rebuilding cache...")
-				}
-				cacheStats, err = client.RebuildCache(progress)
-			}
-
+			// Rebuild (always incremental for speed)
+			fmt.Println("Rebuilding cache...")
+			cacheStats, err := client.RebuildCacheIncremental(progress)
 			if err != nil {
 				return err
 			}
 
-			if !quiet {
-				fmt.Println() // New line after progress
-				fmt.Println()
-				fmt.Println("Cache rebuilt successfully!")
-				fmt.Printf("  Revisions cached:  %d\n", cacheStats.SchemaSnapshots)
-				fmt.Printf("  Merkle hashes:     %d\n", cacheStats.MerkleHashes)
-				fmt.Printf("  Cache path:        %s\n", cacheStats.CachePath)
-			}
+			fmt.Println() // New line after progress
+			fmt.Println()
+			fmt.Println("Cache rebuilt successfully!")
+			fmt.Printf("  Revisions cached:  %d\n", cacheStats.SchemaSnapshots)
+			fmt.Printf("  Merkle hashes:     %d\n", cacheStats.MerkleHashes)
+			fmt.Printf("  Cache path:        %s\n", cacheStats.CachePath)
 
 			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&incremental, "incremental", false, "Only add missing revisions (faster for updates)")
-	cmd.Flags().BoolVar(&clear, "clear", false, "Clear cache without rebuilding")
-	cmd.Flags().BoolVar(&stats, "stats", false, "Show cache statistics only")
-	cmd.Flags().BoolVar(&quiet, "quiet", false, "Suppress progress output")
+	cmd.Flags().BoolVar(&clear, "clear", false, "Clear cache")
+	cmd.Flags().BoolVar(&stats, "stats", false, "Show cache statistics")
 
 	return cmd
 }

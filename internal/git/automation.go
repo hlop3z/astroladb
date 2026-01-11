@@ -263,3 +263,63 @@ func CheckAfterMigrate(migrationsDir string) (*PostMigrateCheck, error) {
 
 	return result, nil
 }
+
+// CommitAppliedMigrations commits uncommitted migration files after running migrate.
+// The direction should be "up" for migrate or "down" for rollback.
+// Returns the commit result or nil if not in a git repo or no files to commit.
+func CommitAppliedMigrations(migrationsDir, direction string) (*AutomationResult, error) {
+	repo, err := Open(migrationsDir)
+	if err != nil {
+		// Not a git repo, silently skip
+		return nil, nil
+	}
+
+	// Get uncommitted migration files
+	uncommitted, err := repo.UncommittedMigrations(migrationsDir)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(uncommitted) == 0 {
+		return nil, nil
+	}
+
+	// Collect files to commit
+	var filePaths []string
+	var fileNames []string
+	for _, f := range uncommitted {
+		if f.Status == StatusUntracked || f.Status == StatusModified || f.Status == StatusStaged {
+			filePaths = append(filePaths, f.Path)
+			fileNames = append(fileNames, filepath.Base(f.Path))
+		}
+	}
+
+	if len(filePaths) == 0 {
+		return nil, nil
+	}
+
+	// Build commit message with description
+	// Subject: migrate: up (or down)
+	// Body: list of migration files
+	message := fmt.Sprintf("migrate: %s\n\n%s", direction, strings.Join(fileNames, "\n"))
+
+	if err := repo.CommitFiles(message, filePaths...); err != nil {
+		return nil, alerr.Wrap(alerr.EGitOperation, err, "failed to commit migrations").
+			With("files", strings.Join(fileNames, ", "))
+	}
+
+	// Get commit hash
+	hash, _ := repo.runGit("rev-parse", "--short", "HEAD")
+	hash = strings.TrimSpace(hash)
+
+	// Check if push is possible
+	canPush, _ := repo.CanPush()
+
+	return &AutomationResult{
+		Action:     "committed",
+		Files:      fileNames,
+		CommitHash: hash,
+		Message:    fmt.Sprintf("Committed %d migration(s) [%s]", len(fileNames), hash),
+		ShouldPush: canPush,
+	}, nil
+}

@@ -42,22 +42,16 @@ func loadConfig() (*Config, error) {
 	if envURL := os.Getenv("DATABASE_URL"); envURL != "" && databaseURL == "" {
 		cfg.Database.URL = envURL
 	}
-	if envSchemas := os.Getenv("ALAB_SCHEMAS_DIR"); envSchemas != "" && schemasDir == "./schemas" {
+	if envSchemas := os.Getenv("ALAB_SCHEMAS_DIR"); envSchemas != "" {
 		cfg.SchemasDir = envSchemas
 	}
-	if envMigrations := os.Getenv("ALAB_MIGRATIONS_DIR"); envMigrations != "" && migrationsDir == "./migrations" {
+	if envMigrations := os.Getenv("ALAB_MIGRATIONS_DIR"); envMigrations != "" {
 		cfg.MigrationsDir = envMigrations
 	}
 
-	// Override with CLI flags (highest priority)
+	// Override with CLI flag (highest priority)
 	if databaseURL != "" {
 		cfg.Database.URL = databaseURL
-	}
-	if schemasDir != "" && schemasDir != "./schemas" {
-		cfg.SchemasDir = schemasDir
-	}
-	if migrationsDir != "" && migrationsDir != "./migrations" {
-		cfg.MigrationsDir = migrationsDir
 	}
 
 	return cfg, nil

@@ -15,7 +15,7 @@ import (
 
 // newCmd creates a migration file. If schema has changes, auto-generates from diff.
 func newCmd() *cobra.Command {
-	var empty, noInteractive bool
+	var empty bool
 
 	cmd := &cobra.Command{
 		Use:   "new <name>",
@@ -23,11 +23,6 @@ func newCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
-
-			_, err := loadConfig()
-			if err != nil {
-				return err
-			}
 
 			// If --empty flag, create empty migration without checking schema diff
 			if empty {
@@ -42,38 +37,40 @@ func newCmd() *cobra.Command {
 			}
 			defer client.Close()
 
-			interactive := !noInteractive
+			// Detect renames (drop + add pairs that might be renames)
+			renameCandidates, err := client.DetectRenames()
+			if err != nil {
+				// Ignore errors, continue without renames
+				renameCandidates = nil
+			}
 
-			// Collect user inputs for renames and backfills
+			// Prompt for renames if any detected
 			var confirmedRenames []engine.RenameCandidate
+			if len(renameCandidates) > 0 {
+				confirmedRenames = promptForRenames(renameCandidates)
+			}
+
+			// Detect missing backfills (NOT NULL columns without defaults)
+			backfillCandidates, err := client.DetectMissingBackfills()
+			if err != nil {
+				// Ignore errors, continue without backfills
+				backfillCandidates = nil
+			}
+
+			// Prompt for backfills if any detected
 			var backfills map[string]string
-
-			if interactive {
-				// Check for potential renames
-				renameCandidates, err := client.DetectRenames()
-				if err == nil && len(renameCandidates) > 0 {
-					confirmedRenames = promptForRenames(renameCandidates)
-				}
-
-				// Check for missing backfills
-				backfillCandidates, err := client.DetectMissingBackfills()
-				if err == nil && len(backfillCandidates) > 0 {
-					backfills = promptForBackfills(backfillCandidates)
-				}
+			if len(backfillCandidates) > 0 {
+				backfills = promptForBackfills(backfillCandidates)
 			}
 
-			// Generate migration with user inputs applied
+			// Generate migration with renames and backfills
+			var path string
 			if len(confirmedRenames) > 0 || len(backfills) > 0 {
-				path, err := client.MigrationGenerateInteractive(name, confirmedRenames, backfills)
-				if err != nil {
-					return createEmptyMigration(name)
-				}
-				fmt.Printf("Generated migration: %s\n", path)
-				return nil
+				path, err = client.MigrationGenerateInteractive(name, confirmedRenames, backfills)
+			} else {
+				path, err = client.MigrationGenerate(name)
 			}
 
-			// Standard generation (no interactive changes)
-			path, err := client.MigrationGenerate(name)
 			if err != nil {
 				// If generation fails (e.g., no changes), create empty migration
 				return createEmptyMigration(name)
@@ -83,112 +80,9 @@ func newCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&empty, "empty", false, "Force creation of empty migration (skip auto-generation)")
-	cmd.Flags().BoolVar(&noInteractive, "no-interactive", false, "Skip interactive prompts (renames, backfills)")
+	cmd.Flags().BoolVar(&empty, "empty", false, "Create empty migration")
 
 	return cmd
-}
-
-// promptForRenames asks the user to confirm potential renames.
-func promptForRenames(candidates []engine.RenameCandidate) []engine.RenameCandidate {
-	if len(candidates) == 0 {
-		return nil
-	}
-
-	fmt.Println("\nDetected possible renames:")
-	fmt.Println()
-
-	var confirmed []engine.RenameCandidate
-	reader := bufio.NewReader(os.Stdin)
-
-	for _, c := range candidates {
-		var prompt string
-		if c.Type == "column" {
-			tableRef := c.Table
-			if c.Namespace != "" {
-				tableRef = c.Namespace + "." + c.Table
-			}
-			prompt = fmt.Sprintf("  Did you rename column '%s.%s' to '%s'? [y/N] ",
-				tableRef, c.OldName, c.NewName)
-		} else {
-			tableRef := c.OldName
-			newRef := c.NewName
-			if c.Namespace != "" {
-				tableRef = c.Namespace + "." + c.OldName
-				newRef = c.Namespace + "." + c.NewName
-			}
-			prompt = fmt.Sprintf("  Did you rename table '%s' to '%s'? [y/N] ",
-				tableRef, newRef)
-		}
-
-		fmt.Print(prompt)
-		answer, _ := reader.ReadString('\n')
-		answer = strings.TrimSpace(strings.ToLower(answer))
-
-		if answer == "y" || answer == "yes" {
-			confirmed = append(confirmed, c)
-		}
-	}
-
-	if len(confirmed) > 0 {
-		fmt.Println()
-	}
-
-	return confirmed
-}
-
-// promptForBackfills asks the user for backfill values for NOT NULL columns.
-func promptForBackfills(candidates []engine.BackfillCandidate) map[string]string {
-	if len(candidates) == 0 {
-		return nil
-	}
-
-	fmt.Println("\nYou are adding non-nullable columns without defaults.")
-	fmt.Println("Existing rows need a value. Please provide a backfill value for each:")
-	fmt.Println()
-
-	backfills := make(map[string]string)
-	reader := bufio.NewReader(os.Stdin)
-
-	for _, c := range candidates {
-		tableRef := c.Table
-		if c.Namespace != "" {
-			tableRef = c.Namespace + "." + c.Table
-		}
-
-		suggested := engine.SuggestDefault(c.ColType)
-
-		fmt.Printf("  Column '%s.%s' (%s)\n", tableRef, c.Column, c.ColType)
-		fmt.Printf("    1) Provide a value now\n")
-		fmt.Printf("    2) Use suggested: %s\n", suggested)
-		fmt.Printf("    3) Skip (I'll add .backfill() manually)\n")
-		fmt.Print("  Select [1/2/3]: ")
-
-		answer, _ := reader.ReadString('\n')
-		answer = strings.TrimSpace(answer)
-
-		key := c.Namespace + "." + c.Table + "." + c.Column
-
-		switch answer {
-		case "1":
-			fmt.Print("  Enter value: ")
-			value, _ := reader.ReadString('\n')
-			value = strings.TrimSpace(value)
-			if value != "" {
-				backfills[key] = value
-			}
-		case "2":
-			backfills[key] = suggested
-		case "3":
-			// Skip - user will handle manually
-		default:
-			// Default to suggested
-			backfills[key] = suggested
-		}
-		fmt.Println()
-	}
-
-	return backfills
 }
 
 // createEmptyMigration creates an empty migration file.
@@ -261,4 +155,113 @@ func nextRevision(migrationsDir string) (string, error) {
 	}
 
 	return fmt.Sprintf("%03d", maxNum+1), nil
+}
+
+// promptForRenames prompts the user to confirm rename candidates.
+// Returns the list of confirmed renames.
+func promptForRenames(candidates []engine.RenameCandidate) []engine.RenameCandidate {
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	var confirmed []engine.RenameCandidate
+
+	fmt.Println()
+	fmt.Println("Detected potential renames:")
+	fmt.Println(strings.Repeat("-", 50))
+
+	for _, c := range candidates {
+		var prompt string
+		if c.Type == "column" {
+			tableRef := c.Table
+			if c.Namespace != "" {
+				tableRef = c.Namespace + "." + c.Table
+			}
+			prompt = fmt.Sprintf("  Column '%s' -> '%s' in table %s", c.OldName, c.NewName, tableRef)
+		} else {
+			tableRef := c.OldName
+			if c.Namespace != "" {
+				tableRef = c.Namespace + "." + c.OldName
+			}
+			newRef := c.NewName
+			if c.Namespace != "" {
+				newRef = c.Namespace + "." + c.NewName
+			}
+			prompt = fmt.Sprintf("  Table '%s' -> '%s'", tableRef, newRef)
+		}
+
+		fmt.Printf("%s\n", prompt)
+		fmt.Print("  Is this a rename? [y/N]: ")
+
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			continue
+		}
+
+		input = strings.TrimSpace(strings.ToLower(input))
+		if input == "y" || input == "yes" {
+			confirmed = append(confirmed, c)
+		}
+	}
+
+	if len(confirmed) > 0 {
+		fmt.Printf("\nConfirmed %d rename(s).\n", len(confirmed))
+	}
+
+	return confirmed
+}
+
+// promptForBackfills prompts the user for backfill values for NOT NULL columns.
+// Returns a map of "namespace.table.column" -> backfill value.
+func promptForBackfills(candidates []engine.BackfillCandidate) map[string]string {
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	backfills := make(map[string]string)
+
+	fmt.Println()
+	fmt.Println("The following NOT NULL columns need backfill values for existing rows:")
+	fmt.Println(strings.Repeat("-", 60))
+
+	for _, c := range candidates {
+		tableRef := c.Table
+		if c.Namespace != "" {
+			tableRef = c.Namespace + "." + c.Table
+		}
+
+		suggested := engine.SuggestDefault(c.ColType)
+
+		fmt.Printf("\n  Column: %s.%s (%s)\n", tableRef, c.Column, c.ColType)
+		fmt.Printf("  Suggested: %s\n", suggested)
+		fmt.Printf("  Enter backfill value (or press Enter for suggested, 's' to skip): ")
+
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			continue
+		}
+
+		input = strings.TrimSpace(input)
+
+		// Skip this column
+		if strings.ToLower(input) == "s" || strings.ToLower(input) == "skip" {
+			continue
+		}
+
+		// Use suggested value if empty
+		if input == "" {
+			input = suggested
+		}
+
+		key := c.Namespace + "." + c.Table + "." + c.Column
+		backfills[key] = input
+	}
+
+	if len(backfills) > 0 {
+		fmt.Printf("\nSet %d backfill value(s).\n", len(backfills))
+	}
+
+	return backfills
 }

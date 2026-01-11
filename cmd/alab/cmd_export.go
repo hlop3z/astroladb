@@ -15,14 +15,13 @@ var allFormats = []string{"openapi", "graphql", "typescript", "go", "python", "r
 
 // exportCmd exports the schema in various formats.
 func exportCmd() *cobra.Command {
-	var format, output, dir, namespace string
-	var stdout, chrono, mik, merge bool
+	var format, dir string
+	var stdout, mik bool
 
 	cmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export schema (openapi, graphql, typescript, go, python, rust, all)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Export only reads schema files, no database needed
 			client, err := newSchemaOnlyClient()
 			if err != nil {
 				return err
@@ -30,15 +29,6 @@ func exportCmd() *cobra.Command {
 			defer client.Close()
 
 			var opts []astroladb.ExportOption
-
-			if namespace != "" {
-				opts = append(opts, astroladb.WithNamespace(namespace))
-			}
-
-			if chrono {
-				opts = append(opts, astroladb.WithChrono())
-			}
-
 			if mik {
 				opts = append(opts, astroladb.WithMik())
 			}
@@ -49,40 +39,34 @@ func exportCmd() *cobra.Command {
 				if stdout {
 					return fmt.Errorf("--stdout cannot be used with --format all")
 				}
-				if output != "" {
-					return fmt.Errorf("--output cannot be used with --format all")
-				}
 				formats = allFormats
 			}
 
 			// Get namespaces for splitting
-			namespaces := []string{namespace}
-			if namespace == "" {
-				allNs, err := client.GetNamespaces()
-				if err != nil {
-					return err
-				}
-				// Filter out empty namespaces (join tables)
-				namespaces = nil
-				for _, ns := range allNs {
-					if ns != "" {
-						namespaces = append(namespaces, ns)
-					}
+			namespaces, err := client.GetNamespaces()
+			if err != nil {
+				return err
+			}
+			// Filter out empty namespaces
+			var validNs []string
+			for _, ns := range namespaces {
+				if ns != "" {
+					validNs = append(validNs, ns)
 				}
 			}
 
 			for _, fmt := range formats {
 				// OpenAPI and GraphQL always go to root (single file)
-				// Other formats split by namespace unless --merge
-				if fmt == "openapi" || fmt == "graphql" || merge {
-					if err := exportFormat(client, fmt, dir, output, stdout, opts); err != nil {
+				// Other formats split by namespace
+				if fmt == "openapi" || fmt == "graphql" {
+					if err := exportFormat(client, fmt, dir, stdout, opts); err != nil {
 						return err
 					}
 				} else {
-					for _, ns := range namespaces {
+					for _, ns := range validNs {
 						nsOpts := append(opts, astroladb.WithNamespace(ns))
 						nsDir := filepath.Join(dir, ns)
-						if err := exportFormat(client, fmt, nsDir, "", stdout, nsOpts); err != nil {
+						if err := exportFormat(client, fmt, nsDir, stdout, nsOpts); err != nil {
 							return err
 						}
 					}
@@ -94,56 +78,45 @@ func exportCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&format, "format", "f", "openapi", "Export format (openapi, graphql, typescript, go, python, rust, all)")
-	cmd.Flags().StringVarP(&output, "output", "o", "", "Output file path (overrides --dir)")
 	cmd.Flags().StringVar(&dir, "dir", "exports", "Output directory")
-	cmd.Flags().BoolVar(&stdout, "stdout", false, "Print to stdout instead of file")
-	cmd.Flags().StringVar(&namespace, "namespace", "", "Filter by namespace")
-	cmd.Flags().BoolVar(&chrono, "chrono", false, "Use chrono types for Rust date/time fields")
-	cmd.Flags().BoolVar(&mik, "mik", false, "Use mik_sdk style for Rust (#[derive(Type)])")
-	cmd.Flags().BoolVar(&merge, "merge", false, "Merge all namespaces into a single file")
+	cmd.Flags().BoolVar(&stdout, "stdout", false, "Print to stdout")
+	cmd.Flags().BoolVar(&mik, "mik", false, "Use mik_sdk style for Rust")
 
 	return cmd
 }
 
 // exportFormat exports a single format.
-func exportFormat(client *astroladb.Client, format, dir, output string, stdout bool, opts []astroladb.ExportOption) error {
+func exportFormat(client *astroladb.Client, format, dir string, stdout bool, opts []astroladb.ExportOption) error {
 	data, err := client.SchemaExport(format, opts...)
 	if err != nil {
 		return err
 	}
 
-	// Determine output destination
 	if stdout {
 		fmt.Println(string(data))
 		return nil
 	}
 
-	// Determine output file path
-	var outputPath string
-	if output != "" {
-		outputPath = output
-	} else {
-		// Auto-generate filename based on format
-		var filename string
-		switch format {
-		case "openapi":
-			filename = "openapi.json"
-		case "graphql", "gql":
-			filename = "schema.graphql"
-		case "typescript", "ts":
-			filename = "types.ts"
-		case "go", "golang":
-			filename = "types.go"
-		case "python", "py":
-			filename = "types.py"
-		case "rust", "rs":
-			filename = "types.rs"
-		default:
-			filename = format + ".json"
-		}
-
-		outputPath = filepath.Join(dir, filename)
+	// Auto-generate filename based on format
+	var filename string
+	switch format {
+	case "openapi":
+		filename = "openapi.json"
+	case "graphql", "gql":
+		filename = "schema.graphql"
+	case "typescript", "ts":
+		filename = "types.ts"
+	case "go", "golang":
+		filename = "types.go"
+	case "python", "py":
+		filename = "types.py"
+	case "rust", "rs":
+		filename = "types.rs"
+	default:
+		filename = format + ".json"
 	}
+
+	outputPath := filepath.Join(dir, filename)
 
 	// Create directory if needed
 	dirPath := filepath.Dir(outputPath)

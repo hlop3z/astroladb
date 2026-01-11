@@ -1,7 +1,0 @@
-# Generated outputs
-exports/
-lang/
-migrations/
-
-# Database files
-*.db

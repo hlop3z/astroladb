@@ -11,7 +11,7 @@ import (
 
 // historyCmd shows applied migrations from the database with details.
 func historyCmd() *cobra.Command {
-	var jsonOutput, reverse bool
+	var jsonOutput bool
 	var limit int
 
 	cmd := &cobra.Command{
@@ -44,12 +44,9 @@ func historyCmd() *cobra.Command {
 				return nil
 			}
 
-			// By default, show newest first (reverse chronological)
-			if !reverse {
-				// Reverse the slice to show newest first
-				for i, j := 0, len(history)-1; i < j; i, j = i+1, j-1 {
-					history[i], history[j] = history[j], history[i]
-				}
+			// Show newest first (reverse chronological)
+			for i, j := 0, len(history)-1; i < j; i, j = i+1, j-1 {
+				history[i], history[j] = history[j], history[i]
 			}
 
 			// Apply limit
@@ -134,9 +131,8 @@ func historyCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON for CI/CD")
-	cmd.Flags().IntVarP(&limit, "limit", "n", 0, "Show last N migrations (0 = all)")
-	cmd.Flags().BoolVar(&reverse, "reverse", false, "Show oldest first (default: newest first)")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
+	cmd.Flags().IntVarP(&limit, "limit", "n", 0, "Limit to N migrations")
 
 	return cmd
 }

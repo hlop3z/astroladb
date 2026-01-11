@@ -1,5 +1,0 @@
-# PostgreSQL test configuration
-database_url: postgres://alab:alab@localhost:5432/alab_test?sslmode=disable
-schemas_dir: ./schemas
-migrations_dir: ./migrations
-dialect: postgres

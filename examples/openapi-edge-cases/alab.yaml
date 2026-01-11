@@ -1,5 +1,0 @@
-# Alab configuration - OpenAPI Export Example
-database_url: sqlite://blog.db
-schemas_dir: ./schemas
-migrations_dir: ./migrations
-dialect: sqlite

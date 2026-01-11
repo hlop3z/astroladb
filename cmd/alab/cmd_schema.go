@@ -12,7 +12,7 @@ import (
 
 // schemaCmd shows the schema at a specific migration revision.
 func schemaCmd() *cobra.Command {
-	var at, format, tableFilter string
+	var at, format string
 
 	cmd := &cobra.Command{
 		Use:   "schema",
@@ -38,20 +38,8 @@ func schemaCmd() *cobra.Command {
 				return err
 			}
 
-			// Get the list of tables (optionally filtered)
+			// Get the list of tables
 			tables := schema.TableList()
-			if tableFilter != "" {
-				var filtered []*ast.TableDef
-				for _, t := range tables {
-					if t.QualifiedName() == tableFilter || t.Name == tableFilter || t.SQLName() == tableFilter {
-						filtered = append(filtered, t)
-					}
-				}
-				if len(filtered) == 0 {
-					return fmt.Errorf("table not found: %s", tableFilter)
-				}
-				tables = filtered
-			}
 
 			// Output in the requested format
 			switch strings.ToLower(format) {
@@ -70,9 +58,7 @@ func schemaCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&at, "at", "", "Migration revision (e.g., 003)")
-	cmd.Flags().StringVarP(&format, "format", "f", "table", "Output format: table (default), json, sql")
-	cmd.Flags().StringVarP(&tableFilter, "table", "t", "", "Show only a specific table (e.g., auth.user)")
-
+	cmd.Flags().StringVarP(&format, "format", "f", "table", "Output format: table, json, sql")
 	cmd.MarkFlagRequired("at")
 
 	return cmd

@@ -32,10 +32,8 @@ var version = "dev"
 
 // Global flags
 var (
-	databaseURL   string
-	schemasDir    string
-	migrationsDir string
-	configFile    string
+	databaseURL string
+	configFile  string
 )
 
 func main() {
@@ -48,8 +46,6 @@ func main() {
 
 	// Global flags available to all commands
 	rootCmd.PersistentFlags().StringVarP(&databaseURL, "database-url", "d", "", "Database connection URL")
-	rootCmd.PersistentFlags().StringVar(&schemasDir, "schemas-dir", "./schemas", "Path to schemas directory")
-	rootCmd.PersistentFlags().StringVar(&migrationsDir, "migrations-dir", "./migrations", "Path to migrations directory")
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "alab.yaml", "Path to config file")
 
 	// Add subcommands

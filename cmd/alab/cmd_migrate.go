@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -13,9 +12,7 @@ import (
 
 // migrateCmd applies pending migrations.
 func migrateCmd() *cobra.Command {
-	var dryRun, force, confirmDestructive, ignoreChainError, noProgress bool
-	var target string
-	var steps int
+	var dryRun, force, confirmDestructive bool
 
 	cmd := &cobra.Command{
 		Use:   "migrate",
@@ -81,46 +78,27 @@ func migrateCmd() *cobra.Command {
 			if force {
 				opts = append(opts, astroladb.Force())
 			}
-			if target != "" {
-				opts = append(opts, astroladb.Target(target))
-			}
-			if steps > 0 {
-				opts = append(opts, astroladb.Steps(steps))
-			}
 
 			if err := client.MigrationRun(opts...); err != nil {
-				// Check if it's a chain error and format nicely
-				var chainErr *astroladb.ChainError
-				if errors.As(err, &chainErr) {
-					if !ignoreChainError {
-						fmt.Fprintln(os.Stderr, alabcli.Error("error")+": migration chain verification failed")
-						fmt.Fprintln(os.Stderr, "")
-						fmt.Fprintln(os.Stderr, chainErr.Error())
-						fmt.Fprintln(os.Stderr, "")
-						fmt.Fprintln(os.Stderr, alabcli.Note("note")+": chain errors indicate migrations may have been modified after being applied")
-						fmt.Fprintln(os.Stderr, alabcli.Help("help")+": run with --ignore-chain-error to proceed (dangerous)")
-						os.Exit(1)
-					}
-				}
-				// Format other errors using cli package
 				fmt.Fprint(os.Stderr, alabcli.FormatError(err))
 				os.Exit(1)
 			}
 
 			if !dryRun {
 				fmt.Println("Migrations applied successfully!")
+
+				// Auto-commit migration files
+				if err := autoCommitMigrations(cfg.MigrationsDir, "up"); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+				}
 			}
 			return nil
 		},
 	}
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print SQL without executing")
-	cmd.Flags().BoolVar(&force, "force", false, "Skip non-destructive warnings (git checks, etc.)")
-	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "Confirm execution of DROP TABLE/COLUMN operations")
-	cmd.Flags().BoolVar(&ignoreChainError, "ignore-chain-error", false, "Proceed despite migration chain verification failures")
-	cmd.Flags().BoolVar(&noProgress, "no-progress", false, "Disable progress indicators")
-	cmd.Flags().StringVar(&target, "target", "", "Migrate to specific version")
-	cmd.Flags().IntVar(&steps, "steps", 0, "Apply at most N migrations")
+	cmd.Flags().BoolVar(&force, "force", false, "Skip safety warnings")
+	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "Confirm DROP operations")
 
 	return cmd
 }

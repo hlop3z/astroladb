@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	alabcli "github.com/hlop3z/astroladb/internal/cli"
+	"github.com/hlop3z/astroladb/internal/git"
 )
 
 // printDriftSection prints a section of drift results with consistent formatting.
@@ -62,4 +63,20 @@ func (o *OptionalSpinner) Stop() {
 	if o.enabled && o.spinner != nil {
 		o.spinner.Stop()
 	}
+}
+
+// autoCommitMigrations commits uncommitted migration files after running migrate.
+// direction should be "up" for migrate or "down" for rollback.
+// Returns nil on success, error only for failures (not in git repo is not an error).
+func autoCommitMigrations(migrationsDir, direction string) error {
+	result, err := git.CommitAppliedMigrations(migrationsDir, direction)
+	if err != nil {
+		return err
+	}
+
+	if result != nil {
+		fmt.Printf("Git: %s\n", result.Message)
+	}
+
+	return nil
 }

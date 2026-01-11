@@ -834,8 +834,22 @@ func (s *Sandbox) RunFile(path string) ([]ast.Operation, error) {
 		return nil, err
 	}
 
-	// Return operations collected from migration() DSL
-	// If no operations were collected via migration(), fall back to table definitions
+	// Check for export function up(m) { ... } format
+	// If an 'up' function exists, call it with a migration builder
+	if upFn := s.vm.Get("up"); upFn != nil && upFn != goja.Undefined() {
+		fn, ok := goja.AssertFunction(upFn)
+		if ok {
+			migrationObj := s.createMigrationObject()
+			_, err := fn(goja.Undefined(), migrationObj)
+			if err != nil {
+				return nil, alerr.Wrap(alerr.ErrJSExecution, err, "error calling up() function").
+					WithFile(path, 0)
+			}
+		}
+	}
+
+	// Return operations collected from migration() DSL or up() function
+	// If no operations were collected, fall back to table definitions
 	if len(s.operations) > 0 {
 		return s.operations, nil
 	}

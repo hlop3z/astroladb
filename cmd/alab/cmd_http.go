@@ -497,12 +497,14 @@ func watchSchemas() {
 	defer watcher.Close()
 
 	// Watch schemas directory recursively
-	schemasDir := schemasDir
-	if schemasDir == "" {
-		schemasDir = "./schemas"
+	cfg, err := loadConfig()
+	if err != nil {
+		fmt.Printf("Warning: could not load config: %v\n", err)
+		return
 	}
+	watchDir := cfg.SchemasDir
 
-	filepath.Walk(schemasDir, func(path string, info os.FileInfo, err error) error {
+	filepath.Walk(watchDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -512,7 +514,7 @@ func watchSchemas() {
 		return nil
 	})
 
-	fmt.Printf("  Watching: %s (hot reload enabled)\n", schemasDir)
+	fmt.Printf("  Watching: %s (hot reload enabled)\n", watchDir)
 
 	for {
 		select {

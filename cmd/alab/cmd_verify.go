@@ -13,7 +13,6 @@ import (
 // verifyCmd verifies migration chain integrity and git status.
 func verifyCmd() *cobra.Command {
 	var branch string
-	var fetch bool
 
 	cmd := &cobra.Command{
 		Use:   "verify",
@@ -50,20 +49,6 @@ func verifyCmd() *cobra.Command {
 			}
 
 			fmt.Println()
-
-			// Check if we need to fetch
-			if fetch {
-				fmt.Println("Fetching from remote...")
-				repo, err := git.Open(cfg.MigrationsDir)
-				if err == nil {
-					if err := repo.Fetch(); err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: Failed to fetch: %v\n", err)
-					} else {
-						fmt.Println("Fetched successfully.")
-					}
-				}
-				fmt.Println()
-			}
 
 			// Compare with branch if specified
 			if branch != "" {
@@ -175,8 +160,7 @@ func verifyCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&branch, "branch", "", "Compare with a git branch (e.g., origin/main)")
-	cmd.Flags().BoolVar(&fetch, "fetch", false, "Fetch from remote before comparing")
+	cmd.Flags().StringVar(&branch, "branch", "", "Compare with a git branch")
 
 	return cmd
 }

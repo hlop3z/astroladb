@@ -1,5 +1,0 @@
-# SQLite test configuration
-database_url: sqlite://test.db
-schemas_dir: ./schemas
-migrations_dir: ./migrations
-dialect: sqlite
