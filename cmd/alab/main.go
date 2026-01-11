@@ -51,6 +51,7 @@ func main() {
 	// Add subcommands
 	rootCmd.AddCommand(
 		initCmd(),
+		tableCmd(),
 		typesCmd(),
 		checkCmd(),
 		diffCmd(),
