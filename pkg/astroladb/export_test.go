@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // testTable creates a sample table for testing exports.
@@ -878,9 +879,9 @@ func TestPascalCase(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := pascalCase(tt.input)
+		got := strutil.ToPascalCase(tt.input)
 		if got != tt.want {
-			t.Errorf("pascalCase(%q) = %q, want %q", tt.input, got, tt.want)
+			t.Errorf("strutil.ToPascalCase(%q) = %q, want %q", tt.input, got, tt.want)
 		}
 	}
 }
@@ -897,9 +898,9 @@ func TestCamelCase(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := camelCase(tt.input)
+		got := strutil.ToCamelCase(tt.input)
 		if got != tt.want {
-			t.Errorf("camelCase(%q) = %q, want %q", tt.input, got, tt.want)
+			t.Errorf("strutil.ToCamelCase(%q) = %q, want %q", tt.input, got, tt.want)
 		}
 	}
 }
