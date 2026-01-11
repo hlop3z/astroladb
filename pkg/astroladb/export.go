@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/metadata"
+	"github.com/hlop3z/astroladb/internal/strutil"
 	"github.com/hlop3z/astroladb/internal/types"
 )
 
@@ -21,6 +21,380 @@ const (
 	FormatPython     = "python"
 	FormatRust       = "rust"
 )
+
+// TypeConverter interface defines methods for converting Alab types to target language types.
+type TypeConverter interface {
+	ConvertType(col *ast.ColumnDef) string
+	ConvertNullable(baseType string, nullable bool) string
+	FormatName(name string) string
+}
+
+// BaseConverter provides common functionality for type converters.
+type BaseConverter struct {
+	TypeMap        map[string]string
+	NullableFormat string
+}
+
+// ConvertNullable applies the nullable format to a base type.
+func (b *BaseConverter) ConvertNullable(baseType string, nullable bool) string {
+	if !nullable {
+		return baseType
+	}
+	return fmt.Sprintf(b.NullableFormat, baseType)
+}
+
+// TypeScriptConverter converts types to TypeScript.
+type TypeScriptConverter struct {
+	BaseConverter
+}
+
+// NewTypeScriptConverter creates a new TypeScript converter.
+func NewTypeScriptConverter() *TypeScriptConverter {
+	return &TypeScriptConverter{
+		BaseConverter: BaseConverter{
+			TypeMap: map[string]string{
+				"id":       "string",
+				"uuid":     "string",
+				"string":   "string",
+				"text":     "string",
+				"integer":  "number",
+				"float":    "number",
+				"decimal":  "string",
+				"boolean":  "boolean",
+				"date":     "string",
+				"time":     "string",
+				"datetime": "string",
+				"json":     "any",
+				"base64":   "string",
+			},
+			NullableFormat: "%s | null",
+		},
+	}
+}
+
+// ConvertType converts a column definition to TypeScript type.
+func (c *TypeScriptConverter) ConvertType(col *ast.ColumnDef) string {
+	// Handle enum specially - create union type from values
+	if col.Type == "enum" && len(col.TypeArgs) > 0 {
+		var enumValues []string
+		if values, ok := col.TypeArgs[0].([]string); ok {
+			enumValues = values
+		} else if values, ok := col.TypeArgs[0].([]any); ok {
+			for _, v := range values {
+				if s, ok := v.(string); ok {
+					enumValues = append(enumValues, s)
+				}
+			}
+		}
+		if len(enumValues) > 0 {
+			var quotedValues []string
+			for _, v := range enumValues {
+				quotedValues = append(quotedValues, fmt.Sprintf("'%s'", v))
+			}
+			return strings.Join(quotedValues, " | ")
+		}
+	}
+
+	// Use TypeRegistry for all other types
+	if typeDef := types.Get(col.Type); typeDef != nil {
+		return typeDef.TSType
+	}
+	return "unknown"
+}
+
+// FormatName formats a name to TypeScript conventions (camelCase for fields).
+func (c *TypeScriptConverter) FormatName(name string) string {
+	return strutil.ToCamelCase(name)
+}
+
+// GoConverter converts types to Go.
+type GoConverter struct {
+	BaseConverter
+}
+
+// NewGoConverter creates a new Go converter.
+func NewGoConverter() *GoConverter {
+	return &GoConverter{
+		BaseConverter: BaseConverter{
+			TypeMap: map[string]string{
+				"id":       "string",
+				"uuid":     "string",
+				"string":   "string",
+				"text":     "string",
+				"integer":  "int",
+				"float":    "float64",
+				"decimal":  "string",
+				"boolean":  "bool",
+				"date":     "time.Time",
+				"time":     "time.Time",
+				"datetime": "time.Time",
+				"json":     "map[string]any",
+				"base64":   "[]byte",
+			},
+			NullableFormat: "*%s",
+		},
+	}
+}
+
+// ConvertType converts a column definition to Go type.
+func (c *GoConverter) ConvertType(col *ast.ColumnDef) string {
+	// Get base type from TypeRegistry
+	base := "string"
+	if typeDef := types.Get(col.Type); typeDef != nil {
+		base = typeDef.GoType
+	}
+
+	// Handle nullable types
+	if col.Nullable {
+		if base == "time.Time" {
+			return "*time.Time"
+		}
+		if base == "[]byte" || strings.HasPrefix(base, "map[") {
+			return base // Already reference types
+		}
+		return "*" + base
+	}
+	return base
+}
+
+// FormatName formats a name to Go conventions (PascalCase).
+func (c *GoConverter) FormatName(name string) string {
+	return strutil.ToPascalCase(name)
+}
+
+// PythonConverter converts types to Python.
+type PythonConverter struct {
+	BaseConverter
+	TableName string // Used for enum type naming
+}
+
+// NewPythonConverter creates a new Python converter.
+func NewPythonConverter() *PythonConverter {
+	return &PythonConverter{
+		BaseConverter: BaseConverter{
+			TypeMap: map[string]string{
+				"id":       "str",
+				"uuid":     "str",
+				"string":   "str",
+				"text":     "str",
+				"integer":  "int",
+				"float":    "float",
+				"decimal":  "str",
+				"boolean":  "bool",
+				"date":     "date",
+				"time":     "time",
+				"datetime": "datetime",
+				"json":     "Any",
+				"base64":   "bytes",
+			},
+			NullableFormat: "Optional[%s]",
+		},
+	}
+}
+
+// ConvertType converts a column definition to Python type.
+func (c *PythonConverter) ConvertType(col *ast.ColumnDef) string {
+	// Handle enum specially
+	if col.Type == "enum" && c.TableName != "" {
+		return strutil.ToPascalCase(c.TableName) + strutil.ToPascalCase(col.Name)
+	}
+
+	if baseType, ok := c.TypeMap[col.Type]; ok {
+		return baseType
+	}
+	return "str"
+}
+
+// FormatName formats a name to Python conventions (snake_case).
+func (c *PythonConverter) FormatName(name string) string {
+	return strutil.ToSnakeCase(name)
+}
+
+// RustConverter converts types to Rust.
+type RustConverter struct {
+	BaseConverter
+	UseChrono bool
+	TableName string // Used for enum type naming
+}
+
+// NewRustConverter creates a new Rust converter.
+func NewRustConverter(useChrono bool) *RustConverter {
+	typeMap := map[string]string{
+		"id":       "String",
+		"uuid":     "String",
+		"string":   "String",
+		"text":     "String",
+		"integer":  "i32",
+		"float":    "f32",
+		"decimal":  "String",
+		"boolean":  "bool",
+		"date":     "String",
+		"time":     "String",
+		"datetime": "String",
+		"json":     "serde_json::Value",
+		"base64":   "Vec<u8>",
+	}
+
+	// Override time types if using chrono
+	if useChrono {
+		typeMap["date"] = "NaiveDate"
+		typeMap["time"] = "NaiveTime"
+		typeMap["datetime"] = "DateTime<Utc>"
+	}
+
+	return &RustConverter{
+		BaseConverter: BaseConverter{
+			TypeMap:        typeMap,
+			NullableFormat: "Option<%s>",
+		},
+		UseChrono: useChrono,
+	}
+}
+
+// ConvertType converts a column definition to Rust type.
+func (c *RustConverter) ConvertType(col *ast.ColumnDef) string {
+	// Handle enum specially
+	if col.Type == "enum" && c.TableName != "" {
+		return strutil.ToPascalCase(c.TableName) + strutil.ToPascalCase(col.Name)
+	}
+
+	// Check if UseChrono overrides time types
+	if c.UseChrono {
+		switch col.Type {
+		case "date":
+			return "NaiveDate"
+		case "time":
+			return "NaiveTime"
+		case "datetime":
+			return "DateTime<Utc>"
+		}
+	}
+
+	if baseType, ok := c.TypeMap[col.Type]; ok {
+		return baseType
+	}
+	return "String"
+}
+
+// FormatName formats a name to Rust conventions (snake_case).
+func (c *RustConverter) FormatName(name string) string {
+	return strutil.ToSnakeCase(name)
+}
+
+// GraphQLConverter converts types to GraphQL.
+type GraphQLConverter struct {
+	BaseConverter
+	TableName string // Used for enum type naming
+}
+
+// NewGraphQLConverter creates a new GraphQL converter.
+func NewGraphQLConverter() *GraphQLConverter {
+	return &GraphQLConverter{
+		BaseConverter: BaseConverter{
+			TypeMap: map[string]string{
+				"id":       "ID",
+				"uuid":     "ID",
+				"string":   "String",
+				"text":     "String",
+				"integer":  "Int",
+				"float":    "Float",
+				"decimal":  "String",
+				"boolean":  "Boolean",
+				"date":     "DateTime",
+				"time":     "DateTime",
+				"datetime": "DateTime",
+				"json":     "JSON",
+				"base64":   "String",
+			},
+			NullableFormat: "%s",
+		},
+	}
+}
+
+// ConvertType converts a column definition to GraphQL type.
+func (c *GraphQLConverter) ConvertType(col *ast.ColumnDef) string {
+	// Handle enum specially
+	if col.Type == "enum" && c.TableName != "" {
+		return strutil.ToPascalCase(c.TableName) + strutil.ToPascalCase(col.Name)
+	}
+
+	if baseType, ok := c.TypeMap[col.Type]; ok {
+		return baseType
+	}
+	return "String"
+}
+
+// ConvertNullable applies the nullable format to a base type for GraphQL (uses ! for non-null).
+func (c *GraphQLConverter) ConvertNullable(baseType string, nullable bool) string {
+	if nullable {
+		return baseType
+	}
+	return baseType + "!"
+}
+
+// FormatName formats a name to GraphQL conventions (camelCase).
+func (c *GraphQLConverter) FormatName(name string) string {
+	return strutil.ToCamelCase(name)
+}
+
+// OpenAPIConverter converts types to OpenAPI specification.
+type OpenAPIConverter struct {
+	BaseConverter
+}
+
+// NewOpenAPIConverter creates a new OpenAPI converter.
+func NewOpenAPIConverter() *OpenAPIConverter {
+	return &OpenAPIConverter{
+		BaseConverter: BaseConverter{
+			TypeMap: map[string]string{
+				"id":       "string",
+				"uuid":     "string",
+				"string":   "string",
+				"text":     "string",
+				"integer":  "integer",
+				"float":    "number",
+				"decimal":  "string",
+				"boolean":  "boolean",
+				"date":     "string",
+				"time":     "string",
+				"datetime": "string",
+				"json":     "object",
+				"base64":   "string",
+			},
+			NullableFormat: "%s",
+		},
+	}
+}
+
+// ConvertType converts a column definition to OpenAPI type (returns the type string).
+func (c *OpenAPIConverter) ConvertType(col *ast.ColumnDef) string {
+	// Get base type from registry
+	typeDef := types.Get(col.Type)
+	if typeDef != nil {
+		return typeDef.OpenAPI.Type
+	}
+	return "string"
+}
+
+// FormatName formats a name to OpenAPI conventions (snake_case typically).
+func (c *OpenAPIConverter) FormatName(name string) string {
+	return strutil.ToSnakeCase(name)
+}
+
+// typeConverters is a global map of all available type converters.
+var typeConverters = map[string]TypeConverter{
+	FormatTypeScript: NewTypeScriptConverter(),
+	FormatGo:         NewGoConverter(),
+	FormatPython:     NewPythonConverter(),
+	FormatRust:       NewRustConverter(false),
+	FormatOpenAPI:    NewOpenAPIConverter(),
+	"graphql":        NewGraphQLConverter(),
+}
+
+// GetConverter returns the type converter for the given format.
+func GetConverter(format string) TypeConverter {
+	return typeConverters[format]
+}
 
 // exportOpenAPI generates an OpenAPI 3.0 specification from the schema.
 // Uses x-db extension for complete database metadata per PLAN.md.
@@ -36,9 +410,8 @@ func exportOpenAPI(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 				"url":  "https://opensource.org/licenses/MIT",
 			},
 			"x-db": map[string]any{
-				"generator":   "alab",
-				"generatedAt": time.Now().UTC().Format(time.RFC3339),
-				"version":     "1.0.0",
+				"generator": "alab",
+				"version":   "1.0.0",
 			},
 		},
 		"servers": []map[string]any{
@@ -86,7 +459,7 @@ func generateOpenAPIPaths(tables []*ast.TableDef, cfg *ExportConfig) map[string]
 	for _, table := range tables {
 		// Join tables have empty namespace
 		if table.Namespace == "" {
-			ns := joinTableNS[table.SQLName()]
+			ns := joinTableNS[table.FullName()]
 			if ns == "" {
 				ns = "internal"
 			}
@@ -129,7 +502,7 @@ func generateOpenAPIPaths(tables []*ast.TableDef, cfg *ExportConfig) map[string]
 func buildModelEntry(table *ast.TableDef) map[string]any {
 	entry := map[string]any{
 		"name":    table.Name,
-		"table":   table.SQLName(),
+		"table":   table.FullName(),
 		"columns": buildColumnList(table),
 		"example": generateTableExample(table, false),
 	}
@@ -165,7 +538,7 @@ func buildModelEntry(table *ast.TableDef) map[string]any {
 // buildJoinTableEntry builds a join table entry with essential metadata.
 func buildJoinTableEntry(table *ast.TableDef) map[string]any {
 	entry := map[string]any{
-		"table":   table.SQLName(),
+		"table":   table.FullName(),
 		"columns": buildColumnList(table),
 		"example": generateTableExample(table, false),
 	}
@@ -406,7 +779,7 @@ func generateOpenAPISchemas(tables []*ast.TableDef, cfg *ExportConfig) map[strin
 	schemas := make(map[string]any)
 
 	for _, table := range tables {
-		name := pascalCase(table.SQLName())
+		name := strutil.ToPascalCase(table.FullName())
 		schemas[name] = tableToOpenAPISchema(table, tables, cfg)
 	}
 
@@ -454,7 +827,7 @@ func tableToOpenAPISchema(table *ast.TableDef, allTables []*ast.TableDef, cfg *E
 // buildSchemaXDB builds the schema-level x-db extension object.
 func buildSchemaXDB(table *ast.TableDef, allTables []*ast.TableDef, meta *metadata.Metadata) map[string]any {
 	xdb := map[string]any{
-		"table":     table.SQLName(),
+		"table":     table.FullName(),
 		"namespace": table.Namespace,
 	}
 
@@ -466,7 +839,7 @@ func buildSchemaXDB(table *ast.TableDef, allTables []*ast.TableDef, meta *metada
 
 	// Check if this is a join table and add joinTable metadata
 	if meta != nil {
-		if joinTableInfo := findJoinTableInfo(table.SQLName(), meta); joinTableInfo != nil {
+		if joinTableInfo := findJoinTableInfo(table.FullName(), meta); joinTableInfo != nil {
 			xdb["joinTable"] = joinTableInfo
 		}
 	}
@@ -572,7 +945,7 @@ func buildIndexes(table *ast.TableDef) []map[string]any {
 	pk := findPrimaryKey(table)
 	if len(pk) > 0 {
 		indexes = append(indexes, map[string]any{
-			"name":    table.SQLName() + "_pkey",
+			"name":    table.FullName() + "_pkey",
 			"columns": pk,
 			"unique":  true,
 			"primary": true,
@@ -587,7 +960,7 @@ func buildIndexes(table *ast.TableDef) []map[string]any {
 		if idx.Name != "" {
 			idxDef["name"] = idx.Name
 		} else {
-			idxDef["name"] = table.SQLName() + "_" + strings.Join(idx.Columns, "_") + "_idx"
+			idxDef["name"] = table.FullName() + "_" + strings.Join(idx.Columns, "_") + "_idx"
 		}
 		if idx.Unique {
 			idxDef["unique"] = true
@@ -599,7 +972,7 @@ func buildIndexes(table *ast.TableDef) []map[string]any {
 	for _, col := range table.Columns {
 		if col.Unique && !col.PrimaryKey {
 			indexes = append(indexes, map[string]any{
-				"name":    table.SQLName() + "_" + col.Name + "_key",
+				"name":    table.FullName() + "_" + col.Name + "_key",
 				"columns": []string{col.Name},
 				"unique":  true,
 			})
@@ -620,7 +993,7 @@ func buildIndexes(table *ast.TableDef) []map[string]any {
 			}
 			if !alreadyIndexed {
 				indexes = append(indexes, map[string]any{
-					"name":    table.SQLName() + "_" + col.Name + "_idx",
+					"name":    table.FullName() + "_" + col.Name + "_idx",
 					"columns": []string{col.Name},
 				})
 			}
@@ -674,7 +1047,7 @@ func buildRelationships(table *ast.TableDef, allTables []*ast.TableDef, meta *me
 			relationships[relName] = map[string]any{
 				"type":        relType,
 				"target":      otherTable.QualifiedName(),
-				"targetTable": otherTable.SQLName(),
+				"targetTable": otherTable.FullName(),
 				"foreignKey":  col.Name,
 				"localKey":    "id",
 				"backref":     relationName,
@@ -914,10 +1287,10 @@ func buildPropertyXDB(col *ast.ColumnDef, table *ast.TableDef, meta *metadata.Me
 		xdb["fk"] = col.Reference.Table + "." + col.Reference.Column
 
 		if col.Reference.OnDelete != "" {
-			xdb["onDelete"] = camelCase(col.Reference.OnDelete)
+			xdb["onDelete"] = strutil.ToCamelCase(col.Reference.OnDelete)
 		}
 		if col.Reference.OnUpdate != "" {
-			xdb["onUpdate"] = camelCase(col.Reference.OnUpdate)
+			xdb["onUpdate"] = strutil.ToCamelCase(col.Reference.OnUpdate)
 		}
 
 		// Relationship name (strip _id suffix)
@@ -1122,20 +1495,6 @@ func buildSQLType(col *ast.ColumnDef) map[string]string {
 	return sqlType
 }
 
-// camelCase converts snake_case to camelCase.
-func camelCase(s string) string {
-	parts := strings.Split(s, "_")
-	for i := 1; i < len(parts); i++ {
-		if len(parts[i]) > 0 {
-			parts[i] = strings.ToUpper(parts[i][:1]) + strings.ToLower(parts[i][1:])
-		}
-	}
-	if len(parts[0]) > 0 {
-		parts[0] = strings.ToLower(parts[0])
-	}
-	return strings.Join(parts, "")
-}
-
 // exportTypeScript generates TypeScript type definitions from the schema.
 func exportTypeScript(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 	var sb strings.Builder
@@ -1164,7 +1523,7 @@ func exportTypeScript(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error)
 		if table.Namespace == "" {
 			continue // Skip join tables
 		}
-		typeName := pascalCase(table.SQLName())
+		typeName := strutil.ToPascalCase(table.FullName())
 		sb.WriteString(fmt.Sprintf("  \"%s\": \"%s\",\n", table.QualifiedName(), typeName))
 	}
 	sb.WriteString("};\n")
@@ -1176,7 +1535,7 @@ func exportTypeScript(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error)
 func tableToTypeScript(table *ast.TableDef, cfg *ExportConfig) string {
 	var sb strings.Builder
 
-	name := pascalCase(table.SQLName())
+	name := strutil.ToPascalCase(table.FullName())
 
 	// Add JSDoc comment
 	if cfg.IncludeDescriptions && table.Docs != "" {
@@ -1212,45 +1571,7 @@ func tableToTypeScript(table *ast.TableDef, cfg *ExportConfig) string {
 
 // columnToTypeScriptType converts a column type to TypeScript type.
 func columnToTypeScriptType(col *ast.ColumnDef) string {
-	// Handle enum specially - create union type from values
-	// TypeArgs[0] contains the entire []string slice
-	if col.Type == "enum" && len(col.TypeArgs) > 0 {
-		var enumValues []string
-		if values, ok := col.TypeArgs[0].([]string); ok {
-			enumValues = values
-		} else if values, ok := col.TypeArgs[0].([]any); ok {
-			// Goja may convert []string to []any
-			for _, v := range values {
-				if s, ok := v.(string); ok {
-					enumValues = append(enumValues, s)
-				}
-			}
-		}
-		if len(enumValues) > 0 {
-			var quotedValues []string
-			for _, v := range enumValues {
-				quotedValues = append(quotedValues, fmt.Sprintf("'%s'", v))
-			}
-			return strings.Join(quotedValues, " | ")
-		}
-	}
-
-	// Use TypeRegistry for all other types
-	if typeDef := types.Get(col.Type); typeDef != nil {
-		return typeDef.TSType
-	}
-	return "unknown"
-}
-
-// pascalCase converts a snake_case string to PascalCase.
-func pascalCase(s string) string {
-	parts := strings.Split(s, "_")
-	for i, part := range parts {
-		if len(part) > 0 {
-			parts[i] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
-		}
-	}
-	return strings.Join(parts, "")
+	return GetConverter(FormatTypeScript).ConvertType(col)
 }
 
 // exportGo generates Go struct definitions from the schema.
@@ -1282,7 +1603,7 @@ func exportGo(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 		if table.Namespace == "" {
 			continue // Skip join tables
 		}
-		typeName := pascalCase(table.SQLName())
+		typeName := strutil.ToPascalCase(table.FullName())
 		fmt.Fprintf(&buf, "\t\"%s\": \"%s\",\n", table.QualifiedName(), typeName)
 	}
 	buf.WriteString("}\n")
@@ -1292,7 +1613,7 @@ func exportGo(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 
 // generateGoStruct generates a Go struct for a single table.
 func generateGoStruct(buf *bytes.Buffer, table *ast.TableDef, cfg *ExportConfig) {
-	name := pascalCase(table.SQLName())
+	name := strutil.ToPascalCase(table.FullName())
 
 	// Add doc comment if present
 	if cfg.IncludeDescriptions && table.Docs != "" {
@@ -1316,7 +1637,7 @@ func generateGoStruct(buf *bytes.Buffer, table *ast.TableDef, cfg *ExportConfig)
 		if cfg.IncludeDescriptions && col.Docs != "" {
 			fmt.Fprintf(buf, "\t// %s\n", col.Docs)
 		}
-		fmt.Fprintf(buf, "\t%s %s %s\n", pascalCase(col.Name), goType, jsonTag)
+		fmt.Fprintf(buf, "\t%s %s %s\n", strutil.ToPascalCase(col.Name), goType, jsonTag)
 	}
 
 	buf.WriteString("}\n\n")
@@ -1324,23 +1645,7 @@ func generateGoStruct(buf *bytes.Buffer, table *ast.TableDef, cfg *ExportConfig)
 
 // mapToGoType converts a column type to its Go equivalent.
 func mapToGoType(col *ast.ColumnDef) string {
-	// Get base type from TypeRegistry
-	base := "string" // default
-	if typeDef := types.Get(col.Type); typeDef != nil {
-		base = typeDef.GoType
-	}
-
-	// Handle nullable types
-	if col.Nullable {
-		if base == "time.Time" {
-			return "*time.Time"
-		}
-		if base == "[]byte" || strings.HasPrefix(base, "map[") {
-			return base // Already reference types
-		}
-		return "*" + base
-	}
-	return base
+	return GetConverter(FormatGo).ConvertType(col)
 }
 
 // exportPython generates Python dataclass definitions from the schema.
@@ -1366,7 +1671,7 @@ func exportPython(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 	for _, table := range sortedTables {
 		for _, col := range table.Columns {
 			if col.Type == "enum" && len(col.TypeArgs) > 0 {
-				enumName := pascalCase(table.SQLName()) + pascalCase(col.Name)
+				enumName := strutil.ToPascalCase(table.FullName()) + strutil.ToPascalCase(col.Name)
 				sb.WriteString(fmt.Sprintf("class %s(str, Enum):\n", enumName))
 				enumValues := getEnumValues(col)
 				for _, v := range enumValues {
@@ -1389,7 +1694,7 @@ func exportPython(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 		if table.Namespace == "" {
 			continue // Skip join tables
 		}
-		className := pascalCase(table.SQLName())
+		className := strutil.ToPascalCase(table.FullName())
 		sb.WriteString(fmt.Sprintf("    \"%s\": \"%s\",\n", table.QualifiedName(), className))
 	}
 	sb.WriteString("}\n")
@@ -1399,7 +1704,7 @@ func exportPython(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 
 // generatePythonDataclass generates a Python dataclass for a single table.
 func generatePythonDataclass(sb *strings.Builder, table *ast.TableDef, cfg *ExportConfig) {
-	name := pascalCase(table.SQLName())
+	name := strutil.ToPascalCase(table.FullName())
 
 	// Add docstring if present
 	if cfg.IncludeDescriptions && table.Docs != "" {
@@ -1446,38 +1751,9 @@ func generatePythonDataclass(sb *strings.Builder, table *ast.TableDef, cfg *Expo
 
 // columnToPythonType converts a column type to Python type.
 func columnToPythonType(col *ast.ColumnDef, table *ast.TableDef) string {
-	// Handle enum specially
-	if col.Type == "enum" {
-		return pascalCase(table.SQLName()) + pascalCase(col.Name)
-	}
-
-	// Map types
-	switch col.Type {
-	case "id", "uuid":
-		return "str"
-	case "string", "text":
-		return "str"
-	case "integer":
-		return "int"
-	case "float":
-		return "float"
-	case "decimal":
-		return "str" // Decimal as string for precision
-	case "boolean":
-		return "bool"
-	case "date":
-		return "date"
-	case "time":
-		return "time"
-	case "datetime":
-		return "datetime"
-	case "json":
-		return "Any"
-	case "base64":
-		return "bytes"
-	default:
-		return "str"
-	}
+	converter := GetConverter(FormatPython).(*PythonConverter)
+	converter.TableName = table.FullName()
+	return converter.ConvertType(col)
 }
 
 // exportRust generates Rust struct definitions with serde from the schema.
@@ -1507,7 +1783,7 @@ func exportRust(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 	for _, table := range sortedTables {
 		for _, col := range table.Columns {
 			if col.Type == "enum" && len(col.TypeArgs) > 0 {
-				enumName := pascalCase(table.SQLName()) + pascalCase(col.Name)
+				enumName := strutil.ToPascalCase(table.FullName()) + strutil.ToPascalCase(col.Name)
 				if cfg.UseMik {
 					sb.WriteString("#[derive(Type)]\n")
 				} else {
@@ -1517,7 +1793,7 @@ func exportRust(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 				sb.WriteString(fmt.Sprintf("pub enum %s {\n", enumName))
 				enumValues := getEnumValues(col)
 				for _, v := range enumValues {
-					sb.WriteString(fmt.Sprintf("    %s,\n", pascalCase(v)))
+					sb.WriteString(fmt.Sprintf("    %s,\n", strutil.ToPascalCase(v)))
 				}
 				sb.WriteString("}\n\n")
 			}
@@ -1536,7 +1812,7 @@ func exportRust(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 		if table.Namespace == "" {
 			continue // Skip join tables
 		}
-		typeName := pascalCase(table.SQLName())
+		typeName := strutil.ToPascalCase(table.FullName())
 		sb.WriteString(fmt.Sprintf("    (\"%s\", \"%s\"),\n", table.QualifiedName(), typeName))
 	}
 	sb.WriteString("];\n")
@@ -1546,7 +1822,7 @@ func exportRust(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 
 // generateRustStruct generates a Rust struct for a single table.
 func generateRustStruct(sb *strings.Builder, table *ast.TableDef, cfg *ExportConfig) {
-	name := pascalCase(table.SQLName())
+	name := strutil.ToPascalCase(table.FullName())
 
 	// Add doc comment if present
 	if cfg.IncludeDescriptions && table.Docs != "" {
@@ -1602,52 +1878,10 @@ func isRustKeyword(name string) bool {
 
 // columnToRustType converts a column type to Rust type.
 func columnToRustType(col *ast.ColumnDef, table *ast.TableDef, cfg *ExportConfig) string {
-	var baseType string
-
-	// Handle enum specially
-	if col.Type == "enum" {
-		baseType = pascalCase(table.SQLName()) + pascalCase(col.Name)
-	} else {
-		// Map types
-		switch col.Type {
-		case "id", "uuid":
-			baseType = "String"
-		case "string", "text":
-			baseType = "String"
-		case "integer":
-			baseType = "i32"
-		case "float":
-			baseType = "f32"
-		case "decimal":
-			baseType = "String" // Decimal as string for precision
-		case "boolean":
-			baseType = "bool"
-		case "date":
-			if cfg.UseChrono {
-				baseType = "NaiveDate"
-			} else {
-				baseType = "String"
-			}
-		case "time":
-			if cfg.UseChrono {
-				baseType = "NaiveTime"
-			} else {
-				baseType = "String"
-			}
-		case "datetime":
-			if cfg.UseChrono {
-				baseType = "DateTime<Utc>"
-			} else {
-				baseType = "String"
-			}
-		case "json":
-			baseType = "serde_json::Value"
-		case "base64":
-			baseType = "Vec<u8>"
-		default:
-			baseType = "String"
-		}
-	}
+	converter := GetConverter(FormatRust).(*RustConverter)
+	converter.UseChrono = cfg.UseChrono
+	converter.TableName = table.FullName()
+	baseType := converter.ConvertType(col)
 
 	if col.Nullable {
 		return fmt.Sprintf("Option<%s>", baseType)
@@ -1683,7 +1917,7 @@ func exportGraphQLExamples(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, e
 		if table.Namespace == "" {
 			continue // Skip join tables
 		}
-		typeName := lowerFirst(pascalCase(table.SQLName()))
+		typeName := lowerFirst(strutil.ToPascalCase(table.FullName()))
 		examples[typeName] = generateTableExample(table, false)
 	}
 
@@ -1712,7 +1946,7 @@ func exportGraphQL(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 	for _, table := range sortedTables {
 		for _, col := range table.Columns {
 			if col.Type == "enum" && len(col.TypeArgs) > 0 {
-				enumName := pascalCase(table.SQLName()) + pascalCase(col.Name)
+				enumName := strutil.ToPascalCase(table.FullName()) + strutil.ToPascalCase(col.Name)
 				if cfg.IncludeDescriptions && col.Docs != "" {
 					sb.WriteString(fmt.Sprintf("\"\"\"%s\"\"\"\n", col.Docs))
 				}
@@ -1737,7 +1971,7 @@ func exportGraphQL(tables []*ast.TableDef, cfg *ExportConfig) ([]byte, error) {
 		if table.Namespace == "" {
 			continue // Skip join tables
 		}
-		typeName := pascalCase(table.SQLName())
+		typeName := strutil.ToPascalCase(table.FullName())
 		fieldName := lowerFirst(typeName)
 		sb.WriteString(fmt.Sprintf("  %s(id: ID!): %s\n", fieldName, typeName))
 	}
@@ -1756,7 +1990,7 @@ func lowerFirst(s string) string {
 
 // generateGraphQLType generates a GraphQL type for a single table.
 func generateGraphQLType(sb *strings.Builder, table *ast.TableDef, cfg *ExportConfig) {
-	name := pascalCase(table.SQLName())
+	name := strutil.ToPascalCase(table.FullName())
 
 	// Add doc comment if present
 	if cfg.IncludeDescriptions && table.Docs != "" {
@@ -1781,36 +2015,9 @@ func generateGraphQLType(sb *strings.Builder, table *ast.TableDef, cfg *ExportCo
 
 // columnToGraphQLType converts a column type to GraphQL type.
 func columnToGraphQLType(col *ast.ColumnDef, table *ast.TableDef, cfg *ExportConfig) string {
-	var baseType string
-
-	// Handle enum specially
-	if col.Type == "enum" {
-		baseType = pascalCase(table.SQLName()) + pascalCase(col.Name)
-	} else {
-		// Map types
-		switch col.Type {
-		case "id", "uuid":
-			baseType = "ID"
-		case "string", "text":
-			baseType = "String"
-		case "integer":
-			baseType = "Int"
-		case "float":
-			baseType = "Float"
-		case "decimal":
-			baseType = "String" // Decimal as string for precision
-		case "boolean":
-			baseType = "Boolean"
-		case "date", "time", "datetime":
-			baseType = "DateTime"
-		case "json":
-			baseType = "JSON"
-		case "base64":
-			baseType = "String"
-		default:
-			baseType = "String"
-		}
-	}
+	converter := GetConverter("graphql").(*GraphQLConverter)
+	converter.TableName = table.FullName()
+	baseType := converter.ConvertType(col)
 
 	if col.Nullable {
 		return baseType
