@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 	"unicode"
 
@@ -133,23 +135,25 @@ func createEmptyMigration(name string) error {
 		return err
 	}
 
-	// Generate migration content
-	content := fmt.Sprintf(`// Migration: %s
-// Generated at: %s
+	// Generate migration content using template
+	tmplContent := mustReadTemplate("templates/migration.js.tmpl")
+	tmpl, err := template.New("migration").Parse(tmplContent)
+	if err != nil {
+		return fmt.Errorf("failed to parse migration template: %w", err)
+	}
 
-export function up(m) {
-  // Examples:
-  // m.create_table("namespace.table", t => { t.id(); t.string("name", 100); })
-  // m.add_column("namespace.table", c => c.integer("count").default(0))
-  // m.create_index("namespace.table", ["column1", "column2"])
-  // m.rename_column("namespace.table", "old_name", "new_name")
-  // m.drop_column("namespace.table", "column_name")
-}
-
-export function down(m) {
-  // Reverse the operations in up() in reverse order
-}
-`, name, time.Now().UTC().Format(TimeJSON))
+	var buf bytes.Buffer
+	data := struct {
+		Name      string
+		Timestamp string
+	}{
+		Name:      name,
+		Timestamp: time.Now().UTC().Format(TimeJSON),
+	}
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return fmt.Errorf("failed to execute migration template: %w", err)
+	}
+	content := buf.String()
 
 	// Write migration file
 	filename := fmt.Sprintf("%s_%s.js", revision, name)

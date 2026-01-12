@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
+	"text/template"
 
 	"github.com/spf13/cobra"
 )
@@ -55,7 +57,10 @@ Examples:
 			}
 
 			// Generate schema content
-			content := generateTableSchema(namespace, tableName)
+			content, err := generateTableSchema(namespace, tableName)
+			if err != nil {
+				return err
+			}
 
 			// Write the file
 			if err := os.WriteFile(schemaFile, []byte(content), 0644); err != nil {
@@ -73,15 +78,23 @@ Examples:
 }
 
 // generateTableSchema generates the content for a new table schema file.
-func generateTableSchema(namespace, tableName string) string {
-	return fmt.Sprintf(`// schemas/%s/%s.js
-export default table({
-  // id: col.id(),
-  // name: col.string(100),
-  // email: col.email().unique(),
-  // is_active: col.flag(true),
-  // status: col.enum(["active", "inactive"]).default("active"),
-  // author: col.belongs_to("%s.user"),
-}).timestamps();
-`, namespace, tableName, namespace)
+func generateTableSchema(namespace, tableName string) (string, error) {
+	tmplContent := mustReadTemplate("templates/table.js.tmpl")
+	tmpl, err := template.New("table").Parse(tmplContent)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse table template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	data := struct {
+		Namespace string
+		TableName string
+	}{
+		Namespace: namespace,
+		TableName: tableName,
+	}
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("failed to execute table template: %w", err)
+	}
+	return buf.String(), nil
 }

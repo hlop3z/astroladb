@@ -88,17 +88,8 @@ func disableDangerousGlobals(vm *goja.Runtime) {
 
 	// Freeze prototypes to prevent pollution attacks
 	// This is done safely - errors are ignored if freeze fails
-	_, _ = vm.RunString(`
-		(function() {
-			try {
-				Object.freeze(Object.prototype);
-				Object.freeze(Array.prototype);
-				Object.freeze(String.prototype);
-				Object.freeze(Number.prototype);
-				Object.freeze(Boolean.prototype);
-			} catch(e) {}
-		})();
-	`)
+	freezeCode := mustReadJSFile("js/freeze.js")
+	_, _ = vm.RunString(freezeCode)
 }
 
 // bindDSL binds the schema DSL functions to the JS runtime.
@@ -710,21 +701,10 @@ func (s *Sandbox) EvalSchema(code string, namespace string, tableName string) (*
 
 	// Wrap the schema code to capture the result
 	// Handle both old API (returns result directly) and new API (returns chainable object)
-	wrappedCode := `
-(function() {
-	var __result = ` + code + `;
-
-	// Check if result is a chainable object (new API) with _getResult method
-	if (__result && typeof __result._getResult === 'function') {
-		__result = __result._getResult();
-	}
-
-	// Register the table if it has columns (table builder result)
-	if (__result && __result.columns) {
-		__registerTable("` + namespace + `", "` + tableName + `", __result);
-	}
-})();
-`
+	wrapperTmpl := mustReadJSFile("js/wrapper.js")
+	wrappedCode := strings.ReplaceAll(wrapperTmpl, "{{CODE}}", code)
+	wrappedCode = strings.ReplaceAll(wrappedCode, "{{NAMESPACE}}", namespace)
+	wrappedCode = strings.ReplaceAll(wrappedCode, "{{TABLE_NAME}}", tableName)
 
 	// Temporarily store original code (unwrapped) for better error messages
 	s.currentCode = originalCode

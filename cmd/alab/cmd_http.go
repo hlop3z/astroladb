@@ -29,148 +29,13 @@ var (
 	shownErrorsMu sync.Mutex
 )
 
-// defaultSwaggerHTML is the embedded Swagger UI HTML template.
-const defaultSwaggerHTML = `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Alab API Documentation</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css" />
-    <style>
-      body { margin: 0; padding: 0; }
-      .swagger-ui .topbar { display: none; }
-      .copy-btn {
-        position: absolute;
-        top: 5px;
-        right: 5px;
-        padding: 4px 8px;
-        font-size: 11px;
-        cursor: pointer;
-        background: #4990e2;
-        color: white;
-        border: none;
-        border-radius: 3px;
-        opacity: 0.8;
-      }
-      .copy-btn:hover { opacity: 1; }
-      .copy-btn.copied { background: #49cc90; }
-      .swagger-ui .example-value-wrapper,
-      .swagger-ui .highlight-code { position: relative; }
-    </style>
-  </head>
-  <body>
-    <div id="swagger-ui"></div>
-    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
-    <script>
-      window.onload = () => {
-        SwaggerUIBundle({
-          url: "/openapi.json",
-          dom_id: "#swagger-ui",
-          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
-          layout: "StandaloneLayout",
-          deepLinking: true,
-          defaultModelsExpandDepth: 1,
-          defaultModelExpandDepth: 1,
-          tryItOutEnabled: false,
-          showExtensions: true,
-          showCommonExtensions: true,
-        });
 
-        // Add copy buttons to code blocks
-        const addCopyButtons = () => {
-          document.querySelectorAll('.highlight-code, .example-value-wrapper').forEach(block => {
-            if (block.querySelector('.copy-btn')) return;
-            const btn = document.createElement('button');
-            btn.className = 'copy-btn';
-            btn.textContent = 'Copy';
-            btn.onclick = () => {
-              const code = block.querySelector('code, pre')?.textContent || block.textContent;
-              navigator.clipboard.writeText(code).then(() => {
-                btn.textContent = 'Copied!';
-                btn.classList.add('copied');
-                setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
-              });
-            };
-            block.style.position = 'relative';
-            block.appendChild(btn);
-          });
-        };
+// HTML template paths
+const (
+	templateSwaggerHTML  = "templates/swagger.html"
+	templateGraphQLHTML = "templates/graphiql.html"
+)
 
-        // Run periodically to catch dynamically loaded content
-        setInterval(addCopyButtons, 1000);
-
-        // Hot reload: listen for schema changes
-        const evtSource = new EventSource("/_reload");
-        evtSource.onmessage = () => location.reload();
-      };
-    </script>
-  </body>
-</html>
-`
-
-// defaultGraphQLHTML is the embedded GraphiQL HTML template with SDL support.
-const defaultGraphQLHTML = `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Alab GraphQL Explorer</title>
-    <link rel="stylesheet" href="https://unpkg.com/graphiql@3/graphiql.min.css" />
-    <script type="importmap">
-      { "imports": { "graphql": "https://esm.sh/graphql@16?bundle" } }
-    </script>
-  </head>
-  <body style="margin:0;">
-    <div id="graphiql" style="height:100vh;"></div>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/graphiql@3/graphiql.min.js" crossorigin></script>
-    <script type="module">
-      import { buildSchema, graphql } from "graphql";
-
-      // Load SDL and examples
-      const [sdl, examples] = await Promise.all([
-        fetch("/graphql").then(r => r.text()),
-        fetch("/graphql/examples").then(r => r.json())
-      ]);
-      const schema = buildSchema(sdl);
-
-      // Create root resolver that returns examples
-      const rootValue = {};
-      for (const [key, value] of Object.entries(examples)) {
-        rootValue[key] = () => value;
-      }
-
-      const fetcher = async (params) => {
-        return graphql({ schema, source: params.query, variableValues: params.variables, rootValue });
-      };
-
-      const root = ReactDOM.createRoot(document.getElementById("graphiql"));
-      // Hot reload: listen for schema changes
-      const evtSource = new EventSource("/_reload");
-      evtSource.onmessage = () => location.reload();
-
-      root.render(React.createElement(GraphiQL, {
-        fetcher,
-        defaultQuery: ` + "`" + `# Alab GraphQL Schema Explorer
-#
-# This is a local mock server with example data.
-# Use the Docs panel (top-right) to browse types.
-#
-# Try running this query:
-query {
-  authUser(id: "1") {
-    id
-    email
-    username
-  }
-}
-` + "`" + `,
-      }));
-    </script>
-  </body>
-</html>
-`
 
 // handleSchemaError writes a user-friendly error response and logs to console.
 func handleSchemaError(w http.ResponseWriter, err error, endpoint string) {
@@ -343,7 +208,7 @@ func createHTMLFile() error {
 		return fmt.Errorf("%s already exists", filename)
 	}
 
-	if err := os.WriteFile(filename, []byte(defaultSwaggerHTML), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(mustReadTemplate(templateSwaggerHTML)), 0644); err != nil {
 		return fmt.Errorf("failed to create %s: %w", filename, err)
 	}
 
@@ -451,7 +316,7 @@ func startServer(port int) error {
 	// Serve GraphQL schema viewer
 	http.HandleFunc("/graphiql", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(defaultGraphQLHTML))
+		w.Write([]byte(mustReadTemplate(templateGraphQLHTML)))
 	})
 
 	// Serve Swagger UI
@@ -484,7 +349,7 @@ func getHTML() string {
 		return string(data)
 	}
 
-	return defaultSwaggerHTML
+	return mustReadTemplate(templateSwaggerHTML)
 }
 
 // watchSchemas watches the schemas directory for changes and notifies SSE clients.
