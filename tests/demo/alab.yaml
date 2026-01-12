@@ -1,0 +1,7 @@
+# alab.yaml
+database:
+  dialect: sqlite # or postgres
+  url: ./sqlite.db
+
+schemas: ./schemas
+migrations: ./migrations
