@@ -19,11 +19,11 @@
       .copy-btn {
         position: absolute;
         top: 5px;
-        right: 5px;
+        right: 16px;
         padding: 4px 8px;
         font-size: 11px;
         cursor: pointer;
-        background: #4990e2;
+        background: #1a1b1d;
         color: white;
         border: none;
         border-radius: 3px;
@@ -39,9 +39,58 @@
       .swagger-ui .highlight-code {
         position: relative;
       }
+
+      .api-header {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 0px 6px;
+        background: #0f172a;
+        color: white;
+      }
+
+      .api-header img {
+        height: 48px;
+        margin-top: -4px;
+      }
+
+      .api-header a {
+        color: #94a3b8;
+        text-decoration: none;
+        font-size: 14px;
+        padding: 6px 12px;
+        border-radius: 4px;
+        transition: all 0.2s;
+      }
+
+      .api-header a:hover {
+        color: white;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .api-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .api-header-right {
+        margin-left: auto;
+        margin-right: 12px;
+      }
     </style>
   </head>
   <body>
+    <header class="api-header">
+      <div class="api-header-left">
+        <img src="/logo.png" alt="Alab Logo" />
+        <h1>Astrola DB Documentation</h1>
+      </div>
+      <div class="api-header-right">
+        <a href="/graphiql">GraphQL</a>
+      </div>
+    </header>
     <div id="swagger-ui"></div>
     <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
