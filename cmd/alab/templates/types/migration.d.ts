@@ -1,3 +1,4 @@
+/**
  * Alab Migration Type Definitions
  * AUTO-GENERATED - Do not edit. Run 'alab types' to regenerate.
  */
@@ -208,4 +209,4 @@ declare function up(m: MigrationBuilder): void;
  */
 declare function down(m: MigrationBuilder): void;
 
-export { up, down, MigrationBuilder, IndexOptions };
+export { up, down };

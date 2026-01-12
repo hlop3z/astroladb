@@ -1,59 +1,88 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <title>Alab GraphQL Explorer</title>
-    <link rel="stylesheet" href="https://unpkg.com/graphiql@3/graphiql.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/graphiql@3/graphiql.min.css"
+    />
     <script type="importmap">
       { "imports": { "graphql": "https://esm.sh/graphql@16?bundle" } }
     </script>
   </head>
   <body style="margin:0;">
     <div id="graphiql" style="height:100vh;"></div>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/graphiql@3/graphiql.min.js" crossorigin></script>
+
+    <!-- React & GraphiQL UMD builds -->
+    <script
+      src="https://unpkg.com/react@18/umd/react.production.min.js"
+      crossorigin
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+      crossorigin
+    ></script>
+    <script
+      src="https://unpkg.com/graphiql@3/graphiql.min.js"
+      crossorigin
+    ></script>
+
     <script type="module">
       import { buildSchema, graphql } from "graphql";
 
-      // Load SDL and examples
-      const [sdl, examples] = await Promise.all([
-        fetch("/graphql").then(r => r.text()),
-        fetch("/graphql/examples").then(r => r.json())
-      ]);
-      const schema = buildSchema(sdl);
+      async function init() {
+        // Load SDL and example data
+        const [sdl, examples] = await Promise.all([
+          fetch("/graphql").then((r) => r.text()),
+          fetch("/graphql/examples").then((r) => r.json()),
+        ]);
 
-      // Create root resolver that returns examples
-      const rootValue = {};
-      for (const [key, value] of Object.entries(examples)) {
-        rootValue[key] = () => value;
-      }
+        const schema = buildSchema(sdl);
 
-      const fetcher = async (params) => {
-        return graphql({ schema, source: params.query, variableValues: params.variables, rootValue });
-      };
+        // Root resolver: return example values
+        const rootValue = {};
+        for (const [key, value] of Object.entries(examples)) {
+          rootValue[key] = () => value;
+        }
 
-      const root = ReactDOM.createRoot(document.getElementById("graphiql"));
-      // Hot reload: listen for schema changes
-      const evtSource = new EventSource("/_reload");
-      evtSource.onmessage = () => location.reload();
+        // GraphiQL fetcher
+        const fetcher = async (params) => {
+          return graphql({
+            schema,
+            source: params.query,
+            variableValues: params.variables || {},
+            rootValue,
+          });
+        };
 
-      root.render(React.createElement(GraphiQL, {
-        fetcher,
-        defaultQuery: ` + "`" + `# Alab GraphQL Schema Explorer
+        // Render GraphiQL
+        const root = ReactDOM.createRoot(document.getElementById("graphiql"));
+        root.render(
+          React.createElement(GraphiQL, {
+            fetcher,
+            defaultQuery: `# Alab GraphQL Schema Explorer
 #
 # This is a local mock server with example data.
 # Use the Docs panel (top-right) to browse types.
 #
-# Try running this query:
-query {
-  authUser(id: "1") {
-    id
-    email
-    username
-  }
-}
-` + "`" + `,
-      }));
+`,
+          })
+        );
+
+        // Optional hot reload: reload on server push
+        if (typeof EventSource !== "undefined") {
+          try {
+            const evtSource = new EventSource("/_reload");
+            evtSource.onmessage = () => location.reload();
+          } catch (err) {
+            console.warn("Live reload unavailable:", err);
+          }
+        }
+      }
+
+      // Initialize
+      init();
     </script>
   </body>
 </html>

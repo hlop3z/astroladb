@@ -55,22 +55,47 @@ func exportCmd() *cobra.Command {
 				}
 			}
 
+			// Track exported files
+			var exportedFiles []string
+
 			for _, fmt := range formats {
 				// OpenAPI and GraphQL always go to root (single file)
 				// Other formats split by namespace
 				if fmt == "openapi" || fmt == "graphql" {
-					if err := exportFormat(client, fmt, dir, stdout, opts); err != nil {
+					files, err := exportFormat(client, fmt, dir, stdout, opts)
+					if err != nil {
 						return err
 					}
+					exportedFiles = append(exportedFiles, files...)
 				} else {
 					for _, ns := range validNs {
 						nsOpts := append(opts, astroladb.WithNamespace(ns))
 						nsDir := filepath.Join(dir, ns)
-						if err := exportFormat(client, fmt, nsDir, stdout, nsOpts); err != nil {
+						files, err := exportFormat(client, fmt, nsDir, stdout, nsOpts)
+						if err != nil {
 							return err
 						}
+						exportedFiles = append(exportedFiles, files...)
 					}
 				}
+			}
+
+			// Show summary if files were exported
+			if !stdout && len(exportedFiles) > 0 {
+				fmt.Println()
+				list := ui.NewList()
+				for _, f := range exportedFiles {
+					list.AddSuccess(f)
+				}
+
+				view := ui.NewSuccessView(
+					"Export Complete",
+					fmt.Sprintf("Exported %s:\n%s",
+						ui.FormatCount(len(exportedFiles), "file", "files"),
+						list.String(),
+					),
+				)
+				fmt.Println(view.Render())
 			}
 
 			return nil
@@ -85,16 +110,16 @@ func exportCmd() *cobra.Command {
 	return cmd
 }
 
-// exportFormat exports a single format.
-func exportFormat(client *astroladb.Client, format, dir string, stdout bool, opts []astroladb.ExportOption) error {
+// exportFormat exports a single format and returns the list of exported files.
+func exportFormat(client *astroladb.Client, format, dir string, stdout bool, opts []astroladb.ExportOption) ([]string, error) {
 	data, err := client.SchemaExport(format, opts...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if stdout {
 		fmt.Println(string(data))
-		return nil
+		return nil, nil
 	}
 
 	// Auto-generate filename based on format
@@ -122,14 +147,14 @@ func exportFormat(client *astroladb.Client, format, dir string, stdout bool, opt
 	dirPath := filepath.Dir(outputPath)
 	if dirPath != "." && dirPath != "" {
 		if err := os.MkdirAll(dirPath, 0755); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", dirPath, err)
+			return nil, fmt.Errorf("failed to create directory %s: %w", dirPath, err)
 		}
 	}
 
 	if err := os.WriteFile(outputPath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write output file: %w", err)
+		return nil, fmt.Errorf("failed to write output file: %w", err)
 	}
-	fmt.Printf("  %s %s → %s\n", ui.Success("Exported"), ui.Dim(format), ui.FilePath(outputPath))
+	fmt.Printf("  %s %s → %s\n", ui.Success("✓"), ui.Dim(format), ui.FilePath(outputPath))
 
-	return nil
+	return []string{outputPath}, nil
 }

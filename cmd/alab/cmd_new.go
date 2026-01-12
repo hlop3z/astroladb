@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"unicode"
 
 	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -107,7 +107,9 @@ func newCmd() *cobra.Command {
 				// If generation fails (e.g., no changes), create empty migration
 				return createEmptyMigration(name)
 			}
-			fmt.Printf("Generated migration: %s\n", path)
+
+			// Show success
+			fmt.Println(ui.Success("✓") + " Generated migration: " + ui.FilePath(path))
 			return nil
 		},
 	}
@@ -163,7 +165,8 @@ func createEmptyMigration(name string) error {
 		return fmt.Errorf("failed to write migration file: %w", err)
 	}
 
-	fmt.Printf("Created migration: %s\n", path)
+	// Show success
+	fmt.Println(ui.Success("✓") + " Created migration: " + ui.FilePath(path))
 	return nil
 }
 
@@ -198,49 +201,44 @@ func promptForRenames(candidates []engine.RenameCandidate) []engine.RenameCandid
 		return nil
 	}
 
-	reader := bufio.NewReader(os.Stdin)
 	var confirmed []engine.RenameCandidate
 
 	fmt.Println()
-	fmt.Println("Detected potential renames:")
-	fmt.Println(strings.Repeat("-", 50))
+	fmt.Println(ui.RenderSubtitle("Detected Potential Renames"))
+	fmt.Println()
 
 	for _, c := range candidates {
-		var prompt string
+		var message string
 		if c.Type == "column" {
 			tableRef := c.Table
 			if c.Namespace != "" {
 				tableRef = c.Namespace + "." + c.Table
 			}
-			prompt = fmt.Sprintf("  Column '%s' -> '%s' in table %s", c.OldName, c.NewName, tableRef)
+			message = fmt.Sprintf("Column %s in table %s",
+				ui.FormatChange("", c.OldName, c.NewName),
+				ui.Bold(tableRef))
 		} else {
-			tableRef := c.OldName
+			oldRef := c.OldName
 			if c.Namespace != "" {
-				tableRef = c.Namespace + "." + c.OldName
+				oldRef = c.Namespace + "." + c.OldName
 			}
 			newRef := c.NewName
 			if c.Namespace != "" {
 				newRef = c.Namespace + "." + c.NewName
 			}
-			prompt = fmt.Sprintf("  Table '%s' -> '%s'", tableRef, newRef)
+			message = fmt.Sprintf("Table %s", ui.FormatChange("", oldRef, newRef))
 		}
 
-		fmt.Printf("%s\n", prompt)
-		fmt.Print("  Is this a rename? [y/N]: ")
-
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			continue
-		}
-
-		input = strings.TrimSpace(strings.ToLower(input))
-		if input == "y" || input == "yes" {
+		if ui.Confirm(message+"\n  Is this a rename?", false) {
 			confirmed = append(confirmed, c)
 		}
+		fmt.Println()
 	}
 
 	if len(confirmed) > 0 {
-		fmt.Printf("\nConfirmed %d rename(s).\n", len(confirmed))
+		fmt.Printf("%s Confirmed %s\n\n",
+			ui.Success("✓"),
+			ui.FormatCount(len(confirmed), "rename", "renames"))
 	}
 
 	return confirmed
@@ -253,12 +251,13 @@ func promptForBackfills(candidates []engine.BackfillCandidate) map[string]string
 		return nil
 	}
 
-	reader := bufio.NewReader(os.Stdin)
 	backfills := make(map[string]string)
 
 	fmt.Println()
-	fmt.Println("The following NOT NULL columns need backfill values for existing rows:")
-	fmt.Println(strings.Repeat("-", 60))
+	fmt.Println(ui.RenderSubtitle("Backfill Values Required"))
+	fmt.Println()
+	fmt.Println(ui.Info("The following NOT NULL columns need backfill values for existing rows"))
+	fmt.Println()
 
 	for _, c := range candidates {
 		tableRef := c.Table
@@ -268,33 +267,39 @@ func promptForBackfills(candidates []engine.BackfillCandidate) map[string]string
 
 		suggested := engine.SuggestDefault(c.ColType)
 
-		fmt.Printf("\n  Column: %s.%s (%s)\n", tableRef, c.Column, c.ColType)
-		fmt.Printf("  Suggested: %s\n", suggested)
-		fmt.Printf("  Enter backfill value (or press Enter for suggested, 's' to skip): ")
+		// Show column info
+		fmt.Printf("  Column: %s.%s (%s)\n",
+			ui.Bold(tableRef),
+			ui.Primary(c.Column),
+			ui.Dim(c.ColType))
 
-		input, err := reader.ReadString('\n')
+		// Prompt for value
+		input, err := ui.Prompt(ui.PromptConfig{
+			Message:      fmt.Sprintf("Backfill value (or 'skip')"),
+			DefaultValue: suggested,
+			Required:     false,
+		})
 		if err != nil {
 			continue
 		}
 
-		input = strings.TrimSpace(input)
-
 		// Skip this column
-		if strings.ToLower(input) == "s" || strings.ToLower(input) == "skip" {
+		if strings.ToLower(input) == "skip" || strings.ToLower(input) == "s" {
+			fmt.Println(ui.Dim("  Skipped"))
+			fmt.Println()
 			continue
-		}
-
-		// Use suggested value if empty
-		if input == "" {
-			input = suggested
 		}
 
 		key := c.Namespace + "." + c.Table + "." + c.Column
 		backfills[key] = input
+		fmt.Println(ui.Success("  ✓ Set to: ") + input)
+		fmt.Println()
 	}
 
 	if len(backfills) > 0 {
-		fmt.Printf("\nSet %d backfill value(s).\n", len(backfills))
+		fmt.Printf("%s Set %s\n\n",
+			ui.Success("✓"),
+			ui.FormatCount(len(backfills), "backfill value", "backfill values"))
 	}
 
 	return backfills

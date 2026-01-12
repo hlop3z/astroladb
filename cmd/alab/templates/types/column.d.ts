@@ -1,3 +1,4 @@
+/**
  * Alab Column Type Definitions
  * AUTO-GENERATED - Do not edit. Run 'alab types' to regenerate.
  */

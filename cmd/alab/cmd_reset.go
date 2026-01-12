@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -25,14 +25,27 @@ func resetCmd() *cobra.Command {
 			}
 			defer client.Close()
 
+			// Show warning and get confirmation
 			if !force {
-				fmt.Print("This will DROP ALL TABLES and re-run migrations. Are you sure? [y/N] ")
-				var response string
-				fmt.Scanln(&response)
-				if strings.ToLower(response) != "y" {
-					fmt.Println("Aborted.")
+				list := ui.NewList()
+				list.AddError("Drop ALL tables in the database")
+				list.AddError("Delete ALL data permanently")
+				list.AddInfo("Re-run all migrations from scratch")
+
+				warning := ui.RenderWarningPanel(
+					"Destructive Operation",
+					list.String()+"\n"+
+						ui.Warning("⚠ This operation cannot be undone\n")+
+						ui.Help("This command is intended for development only"),
+				)
+				fmt.Println(warning)
+				fmt.Println()
+
+				if !ui.Confirm("Continue with database reset?", false) {
+					fmt.Println(ui.Dim("Reset cancelled"))
 					return nil
 				}
+				fmt.Println()
 			}
 
 			// Drop all tables by executing raw SQL
@@ -40,6 +53,7 @@ func resetCmd() *cobra.Command {
 			dialect := client.Dialect()
 
 			var dropSQL string
+			var tableCount int
 			switch dialect {
 			case "postgres":
 				dropSQL = "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
@@ -59,19 +73,27 @@ func resetCmd() *cobra.Command {
 					}
 					tables = append(tables, name)
 				}
+				tableCount = len(tables)
 
 				for _, table := range tables {
 					if _, err := db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", table)); err != nil {
 						return fmt.Errorf("failed to drop table %s: %w", table, err)
 					}
 				}
-				fmt.Println("Dropped all tables.")
+				fmt.Println(ui.Success("✓") + " Dropped " + ui.FormatCount(tableCount, "table", "tables"))
+				fmt.Println()
 
 				// Run migrations
 				if err := client.MigrationRun(); err != nil {
 					return err
 				}
-				fmt.Println("Database reset complete!")
+
+				// Show success
+				view := ui.NewSuccessView(
+					"Database Reset Complete",
+					"All tables dropped and migrations re-applied",
+				)
+				fmt.Println(view.Render())
 				return nil
 			default:
 				return fmt.Errorf("unsupported dialect for db:reset: %s", dialect)
@@ -80,14 +102,20 @@ func resetCmd() *cobra.Command {
 			if _, err := db.Exec(dropSQL); err != nil {
 				return fmt.Errorf("failed to drop tables: %w", err)
 			}
-			fmt.Println("Dropped all tables.")
+			fmt.Println(ui.Success("✓") + " Dropped all tables")
+			fmt.Println()
 
 			// Run migrations
 			if err := client.MigrationRun(); err != nil {
 				return err
 			}
 
-			fmt.Println("Database reset complete!")
+			// Show success
+			view := ui.NewSuccessView(
+				"Database Reset Complete",
+				"All tables dropped and migrations re-applied",
+			)
+			fmt.Println(view.Render())
 			return nil
 		},
 	}

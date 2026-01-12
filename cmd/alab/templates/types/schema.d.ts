@@ -1,3 +1,4 @@
+/**
  * Alab Schema Type Definitions
  * AUTO-GENERATED - Do not edit. Run 'alab types' to regenerate.
  */
@@ -110,4 +111,4 @@ declare function table(fn: (t: TableBuilder) => void): TableDefinition;
  */
 declare function table(columns: ColumnDefinitions): TableChain;
 
-export { schema, table, SchemaBuilder, TableDefinition, TableChain, ColumnDefinitions };
+export { schema, table };

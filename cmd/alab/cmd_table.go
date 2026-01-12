@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -67,9 +68,18 @@ Examples:
 				return fmt.Errorf("failed to write schema file: %w", err)
 			}
 
-			fmt.Printf("Created schema: %s\n", schemaFile)
-			fmt.Printf("  Namespace: %s\n", namespace)
-			fmt.Printf("  Table:     %s\n", tableName)
+			// Show success with details
+			list := ui.NewList()
+			list.AddInfo(fmt.Sprintf("File:      %s", ui.FilePath(schemaFile)))
+			list.AddInfo(fmt.Sprintf("Namespace: %s", ui.Primary(namespace)))
+			list.AddInfo(fmt.Sprintf("Table:     %s", ui.Primary(tableName)))
+
+			view := ui.NewSuccessView(
+				"Schema File Created",
+				list.String()+"\n"+
+					ui.Help("Next steps:\n  1. Edit the schema file to define columns\n  2. Run 'alab new <name>' to generate a migration"),
+			)
+			fmt.Println(view.Render())
 			return nil
 		},
 	}

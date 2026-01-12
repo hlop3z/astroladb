@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/hlop3z/astroladb/internal/git"
 	"github.com/hlop3z/astroladb/internal/ui"
@@ -23,6 +24,25 @@ func migrateCmd() *cobra.Command {
 				return err
 			}
 
+			// Show context information
+			if !dryRun {
+				// Mask database URL for security
+				dbDisplay := cfg.Database.URL
+				if len(dbDisplay) > 40 {
+					dbDisplay = dbDisplay[:40] + "..."
+				}
+
+				ctx := &ui.ContextView{
+					Pairs: map[string]string{
+						"Config":     configFile,
+						"Migrations": cfg.MigrationsDir,
+						"Database":   dbDisplay,
+					},
+				}
+				fmt.Println(ctx.Render())
+				fmt.Println()
+			}
+
 			// Pre-migration git checks
 			if !force && !dryRun {
 				check, err := git.CheckBeforeMigrate(cfg.MigrationsDir)
@@ -30,14 +50,16 @@ func migrateCmd() *cobra.Command {
 					return err
 				}
 
-				warnings := git.FormatPreMigrateWarnings(check)
-				if warnings != "" {
-					fmt.Fprint(os.Stderr, warnings)
+				if len(check.Warnings) > 0 || len(check.Errors) > 0 {
+					warnings := git.FormatPreMigrateWarnings(check)
+					if warnings != "" {
+						fmt.Fprint(os.Stderr, warnings)
+					}
 				}
 
 				// Modified migrations are errors - don't proceed
 				if len(check.Errors) > 0 {
-					fmt.Fprintln(os.Stderr, "Use --force to proceed anyway.")
+					fmt.Fprintln(os.Stderr, ui.Help("hint")+": use --force to proceed anyway")
 					os.Exit(1)
 				}
 			}
@@ -51,6 +73,36 @@ func migrateCmd() *cobra.Command {
 			}
 			defer client.Close()
 
+			// Get pending migrations to show count
+			statuses, err := client.MigrationStatus()
+			if err != nil {
+				return err
+			}
+
+			pendingCount := 0
+			for _, s := range statuses {
+				if s.Status == "pending" {
+					pendingCount++
+				}
+			}
+
+			// If no pending migrations, show success and exit
+			if pendingCount == 0 {
+				view := ui.NewSuccessView(
+					"Migrations Up to Date",
+					"No pending migrations to apply",
+				)
+				fmt.Println(view.Render())
+				return nil
+			}
+
+			// Show pending migrations count
+			if !dryRun {
+				fmt.Println(ui.RenderTitle("Apply Migrations"))
+				fmt.Println()
+				fmt.Printf("  %s\n\n", ui.Warning(ui.FormatCount(pendingCount, "pending migration", "pending migrations")))
+			}
+
 			// Check for destructive operations - requires --confirm-destroy (not --force)
 			if !dryRun {
 				warnings, err := client.LintPendingMigrations()
@@ -58,15 +110,30 @@ func migrateCmd() *cobra.Command {
 					return err
 				}
 				if len(warnings) > 0 && !confirmDestroy {
-					fmt.Fprintln(os.Stderr, ui.Warning("warning")+": destructive operations detected")
-					fmt.Fprintln(os.Stderr, "")
+					list := ui.NewList()
 					for _, w := range warnings {
-						fmt.Fprintf(os.Stderr, "  %s %s\n", ui.Failed("•"), w)
+						list.AddError(w)
 					}
-					fmt.Fprintln(os.Stderr, "")
-					fmt.Fprintln(os.Stderr, ui.Note("note")+": these operations will permanently delete data")
-					fmt.Fprintln(os.Stderr, ui.Help("help")+": run with --confirm-destroy to proceed")
+
+					fmt.Println(ui.RenderWarningPanel(
+						"Destructive Operations Detected",
+						list.String()+"\n"+
+							ui.Note("These operations will permanently delete data\n")+
+							ui.Help("Run with --confirm-destroy to proceed"),
+					))
 					os.Exit(1)
+				}
+
+				// Ask for confirmation (unless dry run or force)
+				if !force {
+					if !ui.Confirm(
+						fmt.Sprintf("Apply %s?", ui.FormatCount(pendingCount, "migration", "migrations")),
+						true,
+					) {
+						fmt.Println(ui.Dim("Migration cancelled"))
+						return nil
+					}
+					fmt.Println()
 				}
 			}
 
@@ -79,18 +146,31 @@ func migrateCmd() *cobra.Command {
 				opts = append(opts, astroladb.Force())
 			}
 
+			// Apply migrations with timing
+			start := time.Now()
 			if err := client.MigrationRun(opts...); err != nil {
 				fmt.Fprint(os.Stderr, ui.FormatError(err))
 				os.Exit(1)
 			}
+			elapsed := time.Since(start)
 
 			if !dryRun {
-				fmt.Println("Migrations applied successfully!")
+				// Show success with timing
+				fmt.Println(ui.RenderSuccessPanel(
+					"Migrations Applied Successfully",
+					fmt.Sprintf("Applied %s in %s",
+						ui.FormatCount(pendingCount, "migration", "migrations"),
+						ui.FormatDuration(elapsed),
+					),
+				))
 
 				// Auto-commit migration files (optional with --commit flag)
 				if commit {
 					if err := autoCommitMigrations(cfg.MigrationsDir, "up"); err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+						fmt.Fprintf(os.Stderr, "\n"+ui.Warning("Warning")+": %v\n", err)
+					} else {
+						fmt.Println()
+						fmt.Println(ui.Success("✓") + " Migration files committed to git")
 					}
 				}
 			}

@@ -212,7 +212,14 @@ func createHTMLFile() error {
 		return fmt.Errorf("failed to create %s: %w", filename, err)
 	}
 
-	fmt.Printf("Created %s - customize as needed\n", filename)
+	view := ui.NewSuccessView(
+		"HTML File Created",
+		fmt.Sprintf("Created %s\n%s",
+			ui.FilePath(filename),
+			ui.Help("Customize this file to change the Swagger UI appearance"),
+		),
+	)
+	fmt.Println(view.Render())
 	return nil
 }
 
@@ -332,11 +339,22 @@ func startServer(port int) error {
 	})
 
 	addr := fmt.Sprintf(":%d", port)
-	fmt.Printf("Starting API documentation server at http://localhost%s\n", addr)
-	fmt.Printf("Press Ctrl+C to stop\n\n")
-	fmt.Printf("  Swagger:  http://localhost%s/\n", addr)
-	fmt.Printf("  OpenAPI:  http://localhost%s/openapi.json\n", addr)
-	fmt.Printf("  GraphiQL: http://localhost%s/graphiql\n", addr)
+	baseURL := fmt.Sprintf("http://localhost%s", addr)
+
+	// Show server info panel
+	fmt.Println(ui.RenderTitle("API Documentation Server"))
+	fmt.Println()
+
+	list := ui.NewList()
+	list.AddInfo(fmt.Sprintf("Swagger UI:  %s/", ui.Primary(baseURL)))
+	list.AddInfo(fmt.Sprintf("OpenAPI:     %s/openapi.json", ui.Primary(baseURL)))
+	list.AddInfo(fmt.Sprintf("GraphiQL:    %s/graphiql", ui.Primary(baseURL)))
+	list.AddInfo(fmt.Sprintf("GraphQL:     %s/graphql", ui.Primary(baseURL)))
+
+	fmt.Println(list.String())
+	fmt.Println()
+	fmt.Println(ui.Help("Press Ctrl+C to stop"))
+	fmt.Println()
 
 	return http.ListenAndServe(addr, nil)
 }
@@ -379,7 +397,10 @@ func watchSchemas() {
 		return nil
 	})
 
-	fmt.Printf("  Watching: %s (hot reload enabled)\n", watchDir)
+	fmt.Printf("  %s Watching %s %s\n",
+		ui.Success("✓"),
+		ui.Primary(watchDir),
+		ui.Dim("(hot reload enabled)"))
 
 	for {
 		select {

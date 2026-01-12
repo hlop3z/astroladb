@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -19,13 +20,16 @@ func initCmd() *cobra.Command {
 				return err
 			}
 
+			// Track created files/directories
+			created := ui.NewList()
+
 			dirs := []string{cfg.SchemasDir, cfg.MigrationsDir, "types"}
 			gitkeepDirs := []string{cfg.SchemasDir, cfg.MigrationsDir}
 			for _, dir := range dirs {
 				if err := os.MkdirAll(dir, 0755); err != nil {
 					return fmt.Errorf("failed to create %s: %w", dir, err)
 				}
-				fmt.Printf("Created %s/\n", dir)
+				created.AddSuccess(dir + "/")
 			}
 			// Create .gitkeep to ensure empty directories are tracked by git
 			for _, dir := range gitkeepDirs {
@@ -50,14 +54,14 @@ migrations: ./migrations
 				if err := os.WriteFile(configFile, []byte(content), 0644); err != nil {
 					return fmt.Errorf("failed to create config file: %w", err)
 				}
-				fmt.Printf("Created %s\n", configFile)
+				created.AddSuccess(configFile)
 			}
 
 			// Create type definition files for IDE autocomplete
 			if err := writeTypeDefinitions(); err != nil {
 				return fmt.Errorf("failed to create type definitions: %w", err)
 			}
-			fmt.Println("Created types/*.d.ts (for IDE autocomplete)")
+			created.AddSuccess("types/*.d.ts")
 
 			// Create jsconfig.json for IDE autocomplete if it doesn't exist
 			jsconfigPath := "jsconfig.json"
@@ -85,10 +89,16 @@ migrations: ./migrations
 				if err := os.WriteFile(jsconfigPath, []byte(jsconfigContent), 0644); err != nil {
 					return fmt.Errorf("failed to create jsconfig.json: %w", err)
 				}
-				fmt.Printf("Created %s\n", jsconfigPath)
+				created.AddSuccess(jsconfigPath)
 			}
 
-			fmt.Println("Project initialized successfully!")
+			// Show success panel with created files
+			view := ui.NewSuccessView(
+				"Project Initialized",
+				"Created files:\n"+created.String()+"\n"+
+					ui.Help("Next steps:\n  1. Edit alab.yaml to configure your database\n  2. Create schema files in "+cfg.SchemasDir+"/\n  3. Run 'alab new <name>' to create your first migration"),
+			)
+			fmt.Println(view.Render())
 			return nil
 		},
 	}

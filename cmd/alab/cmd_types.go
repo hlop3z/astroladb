@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -15,8 +16,19 @@ func typesCmd() *cobra.Command {
 			if err := writeTypeDefinitions(); err != nil {
 				return fmt.Errorf("failed to write type definitions: %w", err)
 			}
-			fmt.Println("Regenerated types/*.d.ts and jsconfig.json")
-			fmt.Println("These files are auto-generated - do not edit manually.")
+
+			// Show success with list of regenerated files
+			list := ui.NewList()
+			list.AddSuccess("types/base.d.ts")
+			list.AddSuccess("types/schema.d.ts")
+			list.AddSuccess("types/migration.d.ts")
+
+			view := ui.NewSuccessView(
+				"Type Definitions Regenerated",
+				list.String()+"\n"+
+					ui.Help("These files are auto-generated - do not edit manually"),
+			)
+			fmt.Println(view.Render())
 			return nil
 		},
 	}
