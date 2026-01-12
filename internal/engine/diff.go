@@ -175,7 +175,25 @@ func diffColumns(oldTable, newTable *ast.TableDef) []ast.Operation {
 			return ti < tj
 		}
 		// Then by table name
-		return ops[i].Table() < ops[j].Table()
+		if ops[i].Table() != ops[j].Table() {
+			return ops[i].Table() < ops[j].Table()
+		}
+		// Then by column name for deterministic output
+		switch a := ops[i].(type) {
+		case *ast.AddColumn:
+			if b, ok := ops[j].(*ast.AddColumn); ok {
+				return a.Column.Name < b.Column.Name
+			}
+		case *ast.DropColumn:
+			if b, ok := ops[j].(*ast.DropColumn); ok {
+				return a.Name < b.Name
+			}
+		case *ast.AlterColumn:
+			if b, ok := ops[j].(*ast.AlterColumn); ok {
+				return a.Name < b.Name
+			}
+		}
+		return false
 	})
 
 	return ops
@@ -272,6 +290,27 @@ func diffIndexes(oldTable, newTable *ast.TableDef) []ast.Operation {
 		}
 	}
 
+	// Sort for deterministic output
+	sort.SliceStable(ops, func(i, j int) bool {
+		// CreateIndex before DropIndex
+		ti, tj := ops[i].Type(), ops[j].Type()
+		if ti != tj {
+			return ti < tj
+		}
+		// Then by index name
+		switch a := ops[i].(type) {
+		case *ast.CreateIndex:
+			if b, ok := ops[j].(*ast.CreateIndex); ok {
+				return a.Name < b.Name
+			}
+		case *ast.DropIndex:
+			if b, ok := ops[j].(*ast.DropIndex); ok {
+				return a.Name < b.Name
+			}
+		}
+		return false
+	})
+
 	return ops
 }
 
@@ -329,6 +368,27 @@ func diffForeignKeys(oldTable, newTable *ast.TableDef) []ast.Operation {
 			})
 		}
 	}
+
+	// Sort for deterministic output
+	sort.SliceStable(ops, func(i, j int) bool {
+		// AddForeignKey before DropForeignKey
+		ti, tj := ops[i].Type(), ops[j].Type()
+		if ti != tj {
+			return ti < tj
+		}
+		// Then by FK name
+		switch a := ops[i].(type) {
+		case *ast.AddForeignKey:
+			if b, ok := ops[j].(*ast.AddForeignKey); ok {
+				return a.Name < b.Name
+			}
+		case *ast.DropForeignKey:
+			if b, ok := ops[j].(*ast.DropForeignKey); ok {
+				return a.Name < b.Name
+			}
+		}
+		return false
+	})
 
 	return ops
 }
@@ -414,6 +474,27 @@ func diffCheckConstraints(oldTable, newTable *ast.TableDef) []ast.Operation {
 			})
 		}
 	}
+
+	// Sort for deterministic output
+	sort.SliceStable(ops, func(i, j int) bool {
+		// AddCheck before DropCheck
+		ti, tj := ops[i].Type(), ops[j].Type()
+		if ti != tj {
+			return ti < tj
+		}
+		// Then by constraint name
+		switch a := ops[i].(type) {
+		case *ast.AddCheck:
+			if b, ok := ops[j].(*ast.AddCheck); ok {
+				return a.Name < b.Name
+			}
+		case *ast.DropCheck:
+			if b, ok := ops[j].(*ast.DropCheck); ok {
+				return a.Name < b.Name
+			}
+		}
+		return false
+	})
 
 	return ops
 }

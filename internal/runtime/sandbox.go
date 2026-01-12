@@ -230,7 +230,12 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 			// Set the column name based on relationship or regular column
 			if colDef.IsRelationship {
 				// For relationships, key becomes the alias: author -> author_id
-				columnDef.Name = key + "_id"
+				// But if key already ends with _id, use it as-is
+				if strings.HasSuffix(key, "_id") {
+					columnDef.Name = key
+				} else {
+					columnDef.Name = key + "_id"
+				}
 				columnDef.Reference = colDef.Reference
 
 				// Auto-create index on foreign key

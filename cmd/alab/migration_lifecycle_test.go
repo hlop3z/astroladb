@@ -167,9 +167,18 @@ migrations: ./migrations
 		t.Logf("  ✓ Table exists: %s", table)
 	}
 
-	// Verify column order in database (id should be first)
-	verifyColumnOrder(t, db, "app_users", []string{"id", "email", "is_active", "password", "username", "created_at", "updated_at"})
-	verifyColumnOrder(t, db, "app_posts", []string{"id", "author_id", "body", "published_at", "slug", "status", "title", "created_at", "updated_at", "deleted_at"})
+	// Verify column order in database (columns appear in creation order)
+	// Version 1: id, email, username, created_at, updated_at
+	// Version 2: + password (at end)
+	// Version 4: + is_active (at end)
+	verifyColumnOrder(t, db, "app_users", []string{"id", "email", "username", "created_at", "updated_at", "password", "is_active"})
+	// Version 3: CREATE TABLE sorts columns alphabetically (id first, timestamps last)
+	//   Initial: id, author_id, body, title, created_at, updated_at
+	// Version 5: + status (at end)
+	// Version 7: + published_at (at end)
+	// Version 8: + slug (at end)
+	// Version 9: + deleted_at (at end)
+	verifyColumnOrder(t, db, "app_posts", []string{"id", "author_id", "body", "title", "created_at", "updated_at", "status", "published_at", "slug", "deleted_at"})
 
 	// Step 3: Rollback N times
 	t.Logf("\nStep 3: Rolling back %d migrations...", rollbackCount)
@@ -234,8 +243,8 @@ migrations: ./migrations
 	t.Logf("  ✓ All tables restored")
 
 	// Verify column order is still correct after rollback/forward cycle
-	verifyColumnOrder(t, db, "app_users", []string{"id", "email", "is_active", "password", "username", "created_at", "updated_at"})
-	verifyColumnOrder(t, db, "app_posts", []string{"id", "author_id", "body", "published_at", "slug", "status", "title", "created_at", "updated_at", "deleted_at"})
+	verifyColumnOrder(t, db, "app_users", []string{"id", "email", "username", "created_at", "updated_at", "password", "is_active"})
+	verifyColumnOrder(t, db, "app_posts", []string{"id", "author_id", "body", "title", "created_at", "updated_at", "status", "published_at", "slug", "deleted_at"})
 	t.Logf("  ✓ Column order correct after rollback/forward cycle")
 
 	// Step 5: Verify migration history
