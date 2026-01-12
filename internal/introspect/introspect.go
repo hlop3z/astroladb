@@ -11,6 +11,7 @@ import (
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/dialect"
 	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // Introspector queries database catalogs to discover schema information.
@@ -19,11 +20,39 @@ type Introspector interface {
 	// It skips internal tables like alab_migrations.
 	IntrospectSchema(ctx context.Context) (*engine.Schema, error)
 
+	// IntrospectSchemaWithMapping returns the complete database schema using a
+	// table name mapping to resolve namespace/table name ambiguity.
+	IntrospectSchemaWithMapping(ctx context.Context, mapping TableNameMapping) (*engine.Schema, error)
+
 	// IntrospectTable returns a single table definition, or nil if not found.
 	IntrospectTable(ctx context.Context, tableName string) (*ast.TableDef, error)
 
 	// TableExists checks if a table exists in the database.
 	TableExists(ctx context.Context, tableName string) (bool, error)
+}
+
+// BuildTableNameMapping creates a mapping from SQL table names to their
+// namespace and table name components from an engine.Schema.
+// This is used to resolve parsing ambiguity when introspecting databases.
+func BuildTableNameMapping(schema *engine.Schema) TableNameMapping {
+	if schema == nil {
+		return nil
+	}
+
+	mapping := make(TableNameMapping)
+	for _, table := range schema.Tables {
+		// Use the same SQLName function that's used during schema evaluation
+		sqlName := strutil.SQLName(table.Namespace, table.Name)
+
+		mapping[sqlName] = struct {
+			Namespace string
+			Name      string
+		}{
+			Namespace: table.Namespace,
+			Name:      table.Name,
+		}
+	}
+	return mapping
 }
 
 // New creates an Introspector for the given dialect.
@@ -69,10 +98,34 @@ type RawForeignKey struct {
 	OnUpdate   string
 }
 
+// TableNameMapping holds SQL table names to their namespace/table components.
+// This is used to resolve the ambiguity when parsing SQL table names that may
+// contain underscores in either the namespace or table name.
+type TableNameMapping map[string]struct {
+	Namespace string
+	Name      string
+}
+
 // parseTableName extracts namespace and table name from SQL table name.
-// Example: "auth_user" -> ("auth", "user")
-// Example: "user" -> ("", "user")
-func parseTableName(sqlName string) (namespace, name string) {
+// If a mapping is provided, it will use that first (context-aware parsing).
+// Otherwise, it falls back to naive first-underscore splitting.
+//
+// Example with mapping:
+//   mapping["my_app_users"] = {Namespace: "my_app", Name: "users"}
+//   parseTableName("my_app_users", mapping) -> ("my_app", "users")  ✓ Correct!
+//
+// Example without mapping (fallback):
+//   parseTableName("my_app_users", nil) -> ("my", "app_users")  ✗ Wrong, but unavoidable
+//
+func parseTableName(sqlName string, mapping TableNameMapping) (namespace, name string) {
+	// First, try to find it in the mapping (from schema files)
+	if mapping != nil {
+		if entry, found := mapping[sqlName]; found {
+			return entry.Namespace, entry.Name
+		}
+	}
+
+	// Fallback to naive parsing (for tables not in schema files)
 	idx := strings.Index(sqlName, "_")
 	if idx == -1 {
 		return "", sqlName

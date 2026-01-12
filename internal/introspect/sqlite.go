@@ -21,6 +21,14 @@ func (s *sqliteIntrospector) IntrospectSchema(ctx context.Context) (*engine.Sche
 	return introspectSchemaCommon(ctx, s, s)
 }
 
+func (s *sqliteIntrospector) IntrospectSchemaWithMapping(ctx context.Context, mapping TableNameMapping) (*engine.Schema, error) {
+	return introspectSchemaCommonWithMapping(ctx, s, s, mapping)
+}
+
+func (s *sqliteIntrospector) introspectTableWithMapping(ctx context.Context, tableName string, mapping TableNameMapping) (*ast.TableDef, error) {
+	return introspectTableCommonWithMapping(ctx, tableName, s, s, s, mapping)
+}
+
 func (s *sqliteIntrospector) listTables(ctx context.Context) ([]string, error) {
 	query := `
 		SELECT name FROM sqlite_master

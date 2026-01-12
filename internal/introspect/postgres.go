@@ -20,6 +20,14 @@ func (p *postgresIntrospector) IntrospectSchema(ctx context.Context) (*engine.Sc
 	return introspectSchemaCommon(ctx, p, p)
 }
 
+func (p *postgresIntrospector) IntrospectSchemaWithMapping(ctx context.Context, mapping TableNameMapping) (*engine.Schema, error) {
+	return introspectSchemaCommonWithMapping(ctx, p, p, mapping)
+}
+
+func (p *postgresIntrospector) introspectTableWithMapping(ctx context.Context, tableName string, mapping TableNameMapping) (*ast.TableDef, error) {
+	return introspectTableCommonWithMapping(ctx, tableName, p, p, p, mapping)
+}
+
 func (p *postgresIntrospector) listTables(ctx context.Context) ([]string, error) {
 	query := `
 		SELECT tablename FROM pg_tables

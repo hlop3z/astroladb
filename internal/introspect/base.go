@@ -21,6 +21,12 @@ type TableIntrospector interface {
 	IntrospectTable(ctx context.Context, tableName string) (*ast.TableDef, error)
 }
 
+// TableIntrospectorWithMapping extends TableIntrospector with mapping support.
+type TableIntrospectorWithMapping interface {
+	TableIntrospector
+	introspectTableWithMapping(ctx context.Context, tableName string, mapping TableNameMapping) (*ast.TableDef, error)
+}
+
 // ColumnIntrospector provides the ability to introspect columns of a table.
 type ColumnIntrospector interface {
 	introspectColumns(ctx context.Context, tableName string) ([]*ast.ColumnDef, error)
@@ -72,6 +78,34 @@ func introspectSchemaCommon(ctx context.Context, lister TableLister, introspecto
 	return schema, nil
 }
 
+// introspectSchemaCommonWithMapping is the shared implementation of IntrospectSchemaWithMapping.
+// It uses the provided lister and introspector to gather schema information, using the mapping
+// to resolve namespace/table name ambiguity.
+func introspectSchemaCommonWithMapping(ctx context.Context, lister TableLister, introspector TableIntrospectorWithMapping, mapping TableNameMapping) (*engine.Schema, error) {
+	schema := engine.NewSchema()
+
+	tables, err := lister.listTables(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tableName := range tables {
+		if isInternalTable(tableName) {
+			continue
+		}
+
+		tableDef, err := introspector.introspectTableWithMapping(ctx, tableName, mapping)
+		if err != nil {
+			return nil, err
+		}
+		if tableDef != nil {
+			schema.Tables[tableDef.QualifiedName()] = tableDef
+		}
+	}
+
+	return schema, nil
+}
+
 // introspectTableCommon is the shared implementation of IntrospectTable.
 func introspectTableCommon(
 	ctx context.Context,
@@ -80,7 +114,19 @@ func introspectTableCommon(
 	idxIntrospector IndexIntrospector,
 	fkIntrospector ForeignKeyIntrospector,
 ) (*ast.TableDef, error) {
-	namespace, name := parseTableName(tableName)
+	return introspectTableCommonWithMapping(ctx, tableName, colIntrospector, idxIntrospector, fkIntrospector, nil)
+}
+
+// introspectTableCommonWithMapping is the shared implementation with mapping support.
+func introspectTableCommonWithMapping(
+	ctx context.Context,
+	tableName string,
+	colIntrospector ColumnIntrospector,
+	idxIntrospector IndexIntrospector,
+	fkIntrospector ForeignKeyIntrospector,
+	mapping TableNameMapping,
+) (*ast.TableDef, error) {
+	namespace, name := parseTableName(tableName, mapping)
 
 	columns, err := colIntrospector.introspectColumns(ctx, tableName)
 	if err != nil {
