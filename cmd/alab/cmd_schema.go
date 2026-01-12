@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -66,90 +67,91 @@ func schemaCmd() *cobra.Command {
 
 // printSchemaTable prints the schema in a human-readable table format.
 func printSchemaTable(revision string, tables []*ast.TableDef) {
-	fmt.Printf("Schema at revision %s\n", revision)
-	fmt.Printf("%s\n\n", strings.Repeat("=", 50))
+	fmt.Println(ui.RenderTitle(fmt.Sprintf("Schema at revision %s", revision)))
+	fmt.Println()
 
 	if len(tables) == 0 {
-		fmt.Println("No tables defined.")
+		fmt.Println(ui.Info("No tables defined."))
 		return
 	}
 
-	fmt.Printf("Tables: %d\n\n", len(tables))
+	fmt.Printf("  %s\n\n", ui.Muted(ui.FormatCount(len(tables), "table", "tables")))
 
 	for _, table := range tables {
-		fmt.Printf("Table: %s\n", table.QualifiedName())
-		fmt.Printf("  SQL Name: %s\n", table.FullName())
+		// Table header with description
+		header := fmt.Sprintf("Table: %s", table.QualifiedName())
+		content := fmt.Sprintf("  SQL Name: %s", ui.Dim(table.FullName()))
 		if table.Docs != "" {
-			fmt.Printf("  Description: %s\n", table.Docs)
+			content += "\n  " + formatTableDescription(table.Docs)
 		}
+
+		fmt.Println(ui.Section(header, content))
 		fmt.Println()
 
-		// Print columns
-		fmt.Println("  Columns:")
-		fmt.Printf("    %-20s %-15s %-10s %-10s %s\n", "NAME", "TYPE", "NULLABLE", "UNIQUE", "NOTES")
-		fmt.Printf("    %s\n", strings.Repeat("-", 70))
+		// Columns
+		fmt.Println("  " + ui.Primary("Columns:"))
+		colTable := ui.NewStyledTable("NAME", "TYPE", "NULLABLE", "UNIQUE", "NOTES")
 
 		for _, col := range table.Columns {
-			nullable := "NOT NULL"
+			nullable := ui.Error("NOT NULL")
 			if col.Nullable {
-				nullable = "NULL"
+				nullable = ui.Dim("NULL")
 			}
 
 			unique := ""
 			if col.Unique {
-				unique = "UNIQUE"
+				unique = ui.Warning("UNIQUE")
 			}
 
-			notes := ""
-			if col.PrimaryKey {
-				notes = "PRIMARY KEY"
-			} else if col.Reference != nil {
-				notes = fmt.Sprintf("FK -> %s", col.Reference.Table)
-			}
-			if col.DefaultSet {
-				if notes != "" {
-					notes += ", "
-				}
-				notes += fmt.Sprintf("DEFAULT: %v", col.Default)
-			}
-
-			colType := col.Type
-			if len(col.TypeArgs) > 0 {
-				args := make([]string, len(col.TypeArgs))
-				for i, arg := range col.TypeArgs {
-					args[i] = fmt.Sprintf("%v", arg)
-				}
-				colType = fmt.Sprintf("%s(%s)", col.Type, strings.Join(args, ", "))
-			}
-
-			fmt.Printf("    %-20s %-15s %-10s %-10s %s\n", col.Name, colType, nullable, unique, notes)
+			colTable.AddRow(
+				ui.Bold(col.Name),
+				formatColumnType(col),
+				nullable,
+				unique,
+				formatColumnNotes(col),
+			)
 		}
 
-		// Print indexes
+		fmt.Print(ui.Indent(colTable.String(), 2))
+		fmt.Println()
+
+		// Indexes
 		if len(table.Indexes) > 0 {
-			fmt.Println()
-			fmt.Println("  Indexes:")
+			fmt.Println("  " + ui.Primary("Indexes:"))
+			list := ui.NewList()
 			for _, idx := range table.Indexes {
 				uniqueStr := ""
 				if idx.Unique {
-					uniqueStr = " (UNIQUE)"
+					uniqueStr = ui.Warning(" (UNIQUE)")
 				}
-				fmt.Printf("    - %s: [%s]%s\n", idx.Name, strings.Join(idx.Columns, ", "), uniqueStr)
+				list.AddInfo(fmt.Sprintf("%s: [%s]%s",
+					ui.Bold(idx.Name),
+					strings.Join(idx.Columns, ", "),
+					uniqueStr))
 			}
+			fmt.Println(list.String())
+			fmt.Println()
 		}
 
-		// Print foreign keys
+		// Foreign Keys
 		if len(table.ForeignKeys) > 0 {
-			fmt.Println()
-			fmt.Println("  Foreign Keys:")
+			fmt.Println("  " + ui.Primary("Foreign Keys:"))
+			list := ui.NewList()
 			for _, fk := range table.ForeignKeys {
-				fmt.Printf("    - %s: [%s] -> %s [%s]\n",
-					fk.Name, strings.Join(fk.Columns, ", "),
-					fk.RefTable, strings.Join(fk.RefColumns, ", "))
+				fkStr := fmt.Sprintf("%s: [%s] → %s [%s]",
+					ui.Bold(fk.Name),
+					strings.Join(fk.Columns, ", "),
+					ui.Primary(fk.RefTable),
+					strings.Join(fk.RefColumns, ", "))
+
 				if fk.OnDelete != "" || fk.OnUpdate != "" {
-					fmt.Printf("      ON DELETE: %s, ON UPDATE: %s\n", fk.OnDelete, fk.OnUpdate)
+					fkStr += ui.Dim(fmt.Sprintf(" (ON DELETE: %s, ON UPDATE: %s)",
+						fk.OnDelete, fk.OnUpdate))
 				}
+				list.AddInfo(fkStr)
 			}
+			fmt.Println(list.String())
+			fmt.Println()
 		}
 
 		fmt.Println()
@@ -418,4 +420,39 @@ func formatDefaultValue(val any) string {
 	default:
 		return fmt.Sprintf("'%v'", v)
 	}
+}
+
+func formatTableDescription(docs string) string {
+	return "Description: " + ui.Dim(docs)
+}
+
+func formatColumnType(col *ast.ColumnDef) string {
+	colType := col.Type
+	if len(col.TypeArgs) > 0 {
+		args := make([]string, len(col.TypeArgs))
+		for i, arg := range col.TypeArgs {
+			args[i] = fmt.Sprintf("%v", arg)
+		}
+		colType = fmt.Sprintf("%s(%s)", col.Type, strings.Join(args, ", "))
+	}
+	return ui.Info(colType)
+}
+
+func formatColumnNotes(col *ast.ColumnDef) string {
+	var notes []string
+
+	if col.PrimaryKey {
+		notes = append(notes, ui.Success("PRIMARY KEY"))
+	}
+	if col.Reference != nil {
+		notes = append(notes, ui.Info(fmt.Sprintf("FK → %s", col.Reference.Table)))
+	}
+	if col.DefaultSet {
+		notes = append(notes, ui.Dim(fmt.Sprintf("DEFAULT: %v", col.Default)))
+	}
+
+	if len(notes) == 0 {
+		return ""
+	}
+	return strings.Join(notes, ", ")
 }

@@ -3,50 +3,61 @@ package chain
 import (
 	"fmt"
 	"strings"
+
+	"github.com/hlop3z/astroladb/internal/ui"
 )
 
 // FormatVerificationResult formats the verification result for display.
 func FormatVerificationResult(result *VerificationResult) string {
 	var b strings.Builder
 
-	if result.Valid {
-		b.WriteString("Chain Integrity: VALID\n")
-	} else {
-		b.WriteString("Chain Integrity: BROKEN\n")
-	}
-
-	b.WriteString(strings.Repeat("-", 50) + "\n")
-
-	// Summary counts
-	b.WriteString(fmt.Sprintf("  Applied:  %d\n", len(result.AppliedLinks)))
-	b.WriteString(fmt.Sprintf("  Pending:  %d\n", len(result.PendingLinks)))
+	// Build summary content
+	var summary strings.Builder
+	summary.WriteString(fmt.Sprintf("  Applied:  %s\n", ui.FormatCount(len(result.AppliedLinks), "migration", "migrations")))
+	summary.WriteString(fmt.Sprintf("  Pending:  %s\n", ui.FormatCount(len(result.PendingLinks), "migration", "migrations")))
 
 	if len(result.MismatchedLinks) > 0 {
-		b.WriteString(fmt.Sprintf("  Tampered: %d\n", len(result.MismatchedLinks)))
+		summary.WriteString(fmt.Sprintf("  Tampered: %s\n", ui.Error(ui.FormatCount(len(result.MismatchedLinks), "migration", "migrations"))))
 	}
 	if len(result.MissingFiles) > 0 {
-		b.WriteString(fmt.Sprintf("  Missing:  %d\n", len(result.MissingFiles)))
+		summary.WriteString(fmt.Sprintf("  Missing:  %s\n", ui.Error(ui.FormatCount(len(result.MissingFiles), "file", "files"))))
+	}
+
+	// Render main panel based on validity
+	if result.Valid {
+		b.WriteString(ui.RenderSuccessPanel("Chain Integrity: VALID", summary.String()))
+	} else {
+		b.WriteString(ui.RenderErrorPanel("Chain Integrity: BROKEN", summary.String()))
 	}
 
 	// Detail errors
 	if len(result.Errors) > 0 {
-		b.WriteString("\nErrors:\n")
+		b.WriteString("\n")
+		list := ui.NewList()
 		for _, err := range result.Errors {
-			b.WriteString(fmt.Sprintf("\n  [%s] %s\n", err.Revision, err.Message))
+			errMsg := fmt.Sprintf("[%s] %s", ui.Bold(err.Revision), err.Message)
 			if err.Details != "" {
-				for _, line := range strings.Split(err.Details, "\n") {
-					b.WriteString(fmt.Sprintf("    %s\n", line))
-				}
+				errMsg += "\n" + ui.Indent(err.Details, 2)
 			}
+			list.AddError(errMsg)
 		}
+		b.WriteString(list.String())
 	}
 
-	// Pending migrations
+	// Pending migrations as a table
 	if len(result.PendingLinks) > 0 {
-		b.WriteString("\nPending migrations:\n")
+		b.WriteString("\n")
+		b.WriteString(ui.Primary("Pending migrations:") + "\n")
+
+		table := ui.NewStyledTable("REVISION", "NAME", "STATUS")
 		for _, link := range result.PendingLinks {
-			b.WriteString(fmt.Sprintf("  - %s\n", link.Filename))
+			table.AddRow(
+				ui.Dim(link.Revision),
+				link.Name,
+				ui.RenderPendingBadge(),
+			)
 		}
+		b.WriteString(table.String())
 	}
 
 	return b.String()
@@ -91,16 +102,15 @@ To fix:
 // FormatChainStatus formats a brief chain status.
 func FormatChainStatus(chain *Chain) string {
 	if len(chain.Links) == 0 {
-		return "Chain: empty (no migrations)"
+		return ui.RenderInfoPanel("Migration Chain", "Empty (no migrations)")
 	}
 
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Chain: %d migration(s)\n", len(chain.Links)))
-	b.WriteString(fmt.Sprintf("  First: %s\n", chain.Links[0].Filename))
-	b.WriteString(fmt.Sprintf("  Last:  %s\n", chain.Links[len(chain.Links)-1].Filename))
-	b.WriteString(fmt.Sprintf("  Head checksum: %s...\n", chain.LastChecksum()[:16]))
+	content := fmt.Sprintf("  %s\n", ui.FormatCount(len(chain.Links), "migration", "migrations"))
+	content += fmt.Sprintf("  First: %s\n", ui.Primary(chain.Links[0].Filename))
+	content += fmt.Sprintf("  Last:  %s\n", ui.Primary(chain.Links[len(chain.Links)-1].Filename))
+	content += fmt.Sprintf("  Head checksum: %s", ui.Dim(chain.LastChecksum()[:16]+"..."))
 
-	return b.String()
+	return ui.RenderInfoPanel("Migration Chain", content)
 }
 
 // FormatPendingMigrations formats a list of pending migrations.

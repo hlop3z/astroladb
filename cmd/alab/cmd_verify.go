@@ -7,6 +7,7 @@ import (
 
 	"github.com/hlop3z/astroladb/internal/chain"
 	"github.com/hlop3z/astroladb/internal/git"
+	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -23,8 +24,7 @@ func verifyCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Println("Migration Verification")
-			fmt.Println(strings.Repeat("=", 50))
+			fmt.Println(ui.RenderTitle("Migration Verification"))
 			fmt.Println()
 
 			// Compute and display chain status
@@ -52,7 +52,7 @@ func verifyCmd() *cobra.Command {
 
 			// Compare with branch if specified
 			if branch != "" {
-				fmt.Printf("Comparing with %s...\n", branch)
+				fmt.Println(ui.RenderSubtitle(fmt.Sprintf("Comparing with %s", branch)))
 				fmt.Println()
 
 				repo, err := git.Open(cfg.MigrationsDir)
@@ -95,23 +95,28 @@ func verifyCmd() *cobra.Command {
 				}
 
 				if len(onlyInBranch) == 0 && len(onlyLocal) == 0 {
-					fmt.Printf("Local migrations match %s\n", branch)
+					fmt.Println(ui.RenderSuccessPanel(
+						"Branches match",
+						fmt.Sprintf("Local migrations match %s", branch),
+					))
 				} else {
+					list := ui.NewList()
+
 					if len(onlyInBranch) > 0 {
-						fmt.Printf("Migrations only in %s:\n", branch)
 						for _, name := range onlyInBranch {
-							fmt.Printf("  - %s\n", name)
+							list.AddError(fmt.Sprintf("Missing locally: %s", name))
 						}
-						fmt.Println()
 					}
+
 					if len(onlyLocal) > 0 {
-						fmt.Println("Migrations only locally:")
 						for _, name := range onlyLocal {
-							fmt.Printf("  + %s\n", name)
+							list.AddSuccess(fmt.Sprintf("Only local: %s", name))
 						}
-						fmt.Println()
 					}
+
+					fmt.Println(ui.RenderWarningPanel("Branch differences detected", list.String()))
 				}
+				fmt.Println()
 			}
 
 			// Show chain verification from database if possible
@@ -155,7 +160,7 @@ func verifyCmd() *cobra.Command {
 			}
 
 			fmt.Println()
-			fmt.Println("Verification complete.")
+			fmt.Println(ui.Done("Verification complete"))
 			return nil
 		},
 	}

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/hlop3z/astroladb/internal/ui"
 )
 
 // Message templates for git operations.
@@ -75,18 +77,17 @@ To fix:
 
 // FormatNotGitRepoWarning formats a warning when not in a git repo.
 func FormatNotGitRepoWarning() string {
-	return `Warning: Not in a git repository
-
-Migration tracking works best with git:
+	content := `Migration tracking works best with git:
   - Migration checksums form a chain (tamper-proof)
   - History is preserved in commits
   - Team synchronization via push/pull
 
 To initialize:
-  git init
-  git add .
-  git commit -m "Initial commit"
-`
+  ` + ui.Dim("git init") + `
+  ` + ui.Dim("git add .") + `
+  ` + ui.Dim(`git commit -m "Initial commit"`)
+
+	return ui.RenderWarningPanel("Not in a git repository", content)
 }
 
 // FormatPreMigrateWarnings formats all pre-migration warnings.
@@ -182,32 +183,32 @@ To fix:
 
 // FormatGitStatusSummary formats a summary of git status for migrations.
 func FormatGitStatusSummary(info *RepoInfo, uncommitted []FileStatus) string {
-	var b strings.Builder
+	var content strings.Builder
 
-	b.WriteString("Git Status\n")
-	b.WriteString(strings.Repeat("-", 40) + "\n")
-
-	b.WriteString(fmt.Sprintf("  Branch:   %s\n", info.CurrentBranch))
+	content.WriteString(fmt.Sprintf("  Branch:   %s\n", ui.Primary(info.CurrentBranch)))
 	if info.HasRemote {
-		b.WriteString(fmt.Sprintf("  Remote:   %s\n", info.RemoteURL))
+		content.WriteString(fmt.Sprintf("  Remote:   %s\n", ui.Dim(info.RemoteURL)))
 	} else {
-		b.WriteString("  Remote:   (none)\n")
+		content.WriteString(fmt.Sprintf("  Remote:   %s\n", ui.Dim("(none)")))
 	}
 
 	if info.IsDirty {
-		b.WriteString("  Status:   uncommitted changes\n")
+		content.WriteString(fmt.Sprintf("  Status:   %s\n", ui.Warning("uncommitted changes")))
 	} else {
-		b.WriteString("  Status:   clean\n")
+		content.WriteString(fmt.Sprintf("  Status:   %s", ui.Success("clean")))
 	}
 
 	if len(uncommitted) > 0 {
-		b.WriteString(fmt.Sprintf("\n  Uncommitted migrations: %d\n", len(uncommitted)))
+		content.WriteString("\n\n")
+		list := ui.NewList()
 		for _, f := range uncommitted {
-			b.WriteString(fmt.Sprintf("    - %s\n", filepath.Base(f.Path)))
+			list.AddWarning(filepath.Base(f.Path))
 		}
+		content.WriteString("  Uncommitted migrations:\n")
+		content.WriteString(ui.Indent(list.String(), 2))
 	}
 
-	return b.String()
+	return ui.RenderInfoPanel("Git Status", content.String())
 }
 
 // FormatAutoCommitPrompt formats a prompt for auto-commit.
