@@ -18,6 +18,27 @@ func rollbackCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rollback [steps]",
 		Short: "Rollback migrations (default: 1 step)",
+		Long: `Rollback applied migrations by executing their DOWN scripts.
+
+This command reverts database changes by running the down migration scripts
+for the specified number of migrations. By default, it rolls back one migration.
+The rollback process removes the migration entries from the migrations table
+and executes the corresponding down SQL scripts to undo schema changes.
+
+Use --dry flag to preview the SQL that would be executed without making
+actual changes to the database. This is useful for verifying the rollback
+operations before executing them.
+
+Use --commit flag to automatically commit the migration state changes to git
+after a successful rollback.`,
+		Example: `  # Rollback the last migration
+  alab rollback
+
+  # Rollback the last 3 migrations
+  alab rollback 3
+
+  # Preview rollback SQL without executing (dry run)
+  alab rollback 2 --dry`,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
@@ -127,5 +148,6 @@ func rollbackCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry", false, "Print SQL without executing")
 	cmd.Flags().BoolVar(&commit, "commit", false, "Auto-commit migration files to git")
 
+	setupCommandHelp(cmd)
 	return cmd
 }

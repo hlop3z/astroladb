@@ -231,7 +231,8 @@ func (m *Metadata) GetJoinTables() []*ast.TableDef {
 	return tables
 }
 
-// Save writes the metadata to a JSON file.
+// Save writes the metadata to a JSON file in the .alab directory.
+// Deprecated: Use SaveToFile for custom paths.
 func (m *Metadata) Save(projectDir string) error {
 	// Create .alab directory
 	metaDir := filepath.Join(projectDir, ".alab")
@@ -251,6 +252,29 @@ func (m *Metadata) Save(projectDir string) error {
 	// Write file
 	metaFile := filepath.Join(metaDir, "metadata.json")
 	return os.WriteFile(metaFile, data, 0644)
+}
+
+// SaveToFile writes the metadata to a JSON file at the specified path.
+func (m *Metadata) SaveToFile(filePath string) error {
+	// Create parent directory if it doesn't exist
+	dir := filepath.Dir(filePath)
+	if dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+	}
+
+	// Update timestamp
+	m.GeneratedAt = time.Now().UTC()
+
+	// Marshal to JSON
+	data, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	// Write file
+	return os.WriteFile(filePath, data, 0644)
 }
 
 // Load reads metadata from a JSON file.

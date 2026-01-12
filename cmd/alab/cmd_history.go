@@ -17,6 +17,17 @@ func historyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "history",
 		Short: "Show applied migrations from database with details",
+		Long: `Display complete migration history from database (newest first).
+
+Shows revision, name, timestamp, execution time, and checksum. Use --limit for recent migrations or --json for machine-readable output.`,
+		Example: `  # Show all applied migrations
+  alab history
+
+  # Show only the 5 most recent migrations
+  alab history --limit 5
+
+  # Export migration history as JSON
+  alab history --json > migrations.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -134,5 +145,6 @@ func historyCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	cmd.Flags().IntVarP(&limit, "limit", "n", 0, "Limit to N migrations")
 
+	setupCommandHelp(cmd)
 	return cmd
 }

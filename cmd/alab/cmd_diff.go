@@ -11,9 +11,26 @@ import (
 
 // diffCmd shows the diff between schema and database.
 func diffCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Show diff between schema files and database",
+		Long: `Shows the differences between your schema files and the current database state.
+
+This command analyzes your schema definitions and compares them against the actual
+database structure. It identifies all necessary operations (create, alter, drop) that
+would need to be performed to bring the database in sync with your schema files.
+
+The diff output helps you understand what changes need to be migrated before you
+create a new migration file. No database changes are made by this command - it only
+reports the differences.`,
+		Example: `  # Show schema differences
+  alab diff
+
+  # Check for differences after modifying schema files
+  alab diff
+
+  # Verify database is in sync with schema
+  alab diff`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -81,6 +98,9 @@ func diffCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	setupCommandHelp(cmd)
+	return cmd
 }
 
 // getOperationDetails extracts human-readable details from an operation

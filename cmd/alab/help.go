@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ui"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // HelpMessage represents a structured help message for error conditions.
@@ -221,4 +223,182 @@ func getConnectionHelp(dialect, causeStr string) []string {
 		return defaultHelp
 	}
 	return nil
+}
+
+// setupCommandHelp sets up custom help for a specific command.
+func setupCommandHelp(cmd *cobra.Command) {
+	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
+		renderCommandHelp(c)
+	})
+}
+
+// CommandCategory represents a category of related commands.
+type CommandCategory struct {
+	Title    string
+	Commands []CommandInfo
+}
+
+// CommandInfo represents a command with its name and description.
+type CommandInfo struct {
+	Name string
+	Desc string
+}
+
+// setupCategoryHelp sets up help that displays commands organized by categories.
+func setupCategoryHelp(cmd *cobra.Command, title, subtitle string, categories []CommandCategory, flags []struct{ flag, desc string }) {
+	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
+		renderCategoryHelp(title, subtitle, categories, flags)
+	})
+}
+
+// renderCategoryHelp renders help with commands organized by categories.
+func renderCategoryHelp(title, subtitle string, categories []CommandCategory, flags []struct{ flag, desc string }) {
+	dividerWidth := 80
+
+	fmt.Println()
+	fmt.Println(ui.Header(title, ui.Success))
+	fmt.Println()
+	fmt.Println(ui.Dim(subtitle))
+	fmt.Println()
+
+	// Flags section first
+	if len(flags) > 0 {
+		fmt.Println()
+		fmt.Println(ui.Header("Global Flags", ui.Success))
+
+		flagsGrid := ui.NewGrid("Flag", "Description", dividerWidth, 22)
+		for _, f := range flags {
+			flagsGrid.AddRow(f.flag, f.desc)
+		}
+
+		fmt.Print(flagsGrid.String())
+	}
+
+	// Display each category with commands
+	for _, cat := range categories {
+		fmt.Println()
+		fmt.Println(ui.Header(cat.Title, ui.Success))
+
+		grid := ui.NewGrid("Command", "Description", dividerWidth, 16)
+
+		for _, cmd := range cat.Commands {
+			grid.AddRow(cmd.Name, cmd.Desc)
+		}
+
+		fmt.Print(grid.String())
+	}
+
+	// Footer
+	fmt.Println()
+	fmt.Println(ui.Help("Use 'alab [command] --help' for more information about a command"))
+}
+
+// renderCommandHelp renders help for a specific command.
+func renderCommandHelp(cmd *cobra.Command) {
+	dividerWidth := 80
+
+	fmt.Println()
+	fmt.Println(ui.Header(fmt.Sprintf("⏳ alab %s", cmd.Name()), ui.Success))
+	fmt.Println()
+
+	// Description
+	if cmd.Short != "" {
+		fmt.Println(ui.Dim(cmd.Short))
+		fmt.Println()
+	}
+
+	// Usage
+	if cmd.Use != "" {
+		fmt.Println(ui.Header("Usage", ui.Success))
+		fmt.Println(ui.Dim(strings.Repeat("─", dividerWidth)))
+		fmt.Printf("  alab %s\n", cmd.Use)
+		fmt.Println(ui.Dim(strings.Repeat("─", dividerWidth)))
+		fmt.Println()
+	}
+
+	// Long description
+	if cmd.Long != "" {
+		fmt.Println(ui.Header("Description", ui.Success))
+		fmt.Println(ui.Dim(strings.Repeat("─", dividerWidth)))
+		fmt.Println(wrapText(cmd.Long, dividerWidth-4))
+		fmt.Println(ui.Dim(strings.Repeat("─", dividerWidth)))
+		fmt.Println()
+	}
+
+	// Flags
+	if cmd.HasAvailableLocalFlags() {
+		fmt.Println(ui.Header("Flags", ui.Success))
+
+		grid := ui.NewGrid("Flag", "Description", dividerWidth, 24)
+
+		cmd.LocalFlags().VisitAll(func(flag *pflag.Flag) {
+			if !flag.Hidden {
+				flagName := fmt.Sprintf("--%s", flag.Name)
+				if flag.Shorthand != "" {
+					flagName = fmt.Sprintf("-%s, --%s", flag.Shorthand, flag.Name)
+				}
+				grid.AddRow(flagName, flag.Usage)
+			}
+		})
+
+		fmt.Print(grid.String())
+	}
+
+	// Global flags
+	if cmd.HasAvailableInheritedFlags() {
+		fmt.Println(ui.Header("Global Flags", ui.Success))
+
+		grid := ui.NewGrid("Flag", "Description", dividerWidth, 24)
+
+		cmd.InheritedFlags().VisitAll(func(flag *pflag.Flag) {
+			if !flag.Hidden {
+				flagName := fmt.Sprintf("--%s", flag.Name)
+				if flag.Shorthand != "" {
+					flagName = fmt.Sprintf("-%s, --%s", flag.Shorthand, flag.Name)
+				}
+				grid.AddRow(flagName, flag.Usage)
+			}
+		})
+
+		fmt.Print(grid.String())
+	}
+
+	// Examples
+	if cmd.Example != "" {
+		fmt.Println(ui.Header("Examples", ui.Success))
+		fmt.Println(ui.Dim(strings.Repeat("─", dividerWidth)))
+		fmt.Println(cmd.Example)
+		fmt.Println(ui.Dim(strings.Repeat("─", dividerWidth)))
+		fmt.Println()
+	}
+
+	fmt.Println(ui.Help("Use 'alab --help' to see all available commands"))
+}
+
+// wrapText wraps text to a specific width.
+func wrapText(text string, width int) string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return text
+	}
+
+	var lines []string
+	var currentLine string
+
+	for _, word := range words {
+		if currentLine == "" {
+			currentLine = "  " + word
+		} else if len(currentLine)+1+len(word) <= width {
+			currentLine += " " + word
+		} else {
+			lines = append(lines, currentLine)
+			currentLine = "  " + word
+		}
+	}
+
+	if currentLine != "" {
+		lines = append(lines, currentLine)
+	}
+
+	return strings.Join(lines, "\n")
 }

@@ -18,6 +18,18 @@ func verifyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "verify",
 		Short: "Verify migration chain integrity and git status",
+		Long: `Verify migration chain integrity and git status.
+
+Checks checksums, cryptographic integrity, git status, and optionally compares with a branch.
+Ensures migration history hasn't been tampered with and is tracked in version control.`,
+		Example: `  # Verify local migration chain and git status
+  alab verify
+
+  # Compare local migrations with a specific branch
+  alab verify --branch main
+
+  # Verify and check differences from production branch
+  alab verify --branch production`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
@@ -167,5 +179,6 @@ func verifyCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&branch, "branch", "", "Compare with a git branch")
 
+	setupCommandHelp(cmd)
 	return cmd
 }

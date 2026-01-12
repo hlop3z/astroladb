@@ -51,6 +51,20 @@ func newCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "new <name>",
 		Short: "Create migration (auto-generates if schema has changes)",
+		Long: `Create a new migration file.
+
+If your schema has changes, the migration will be auto-generated from the diff between your schema and database. If there are no changes, an empty migration will be created.
+
+Migration names are automatically normalized to snake_case and prefixed with a sequential number.`,
+		Example: `  # Auto-generate from schema changes
+  alab new add_users_table
+
+  # Create empty migration for manual changes
+  alab new --empty custom_index
+
+  # Migration naming (auto-normalized):
+  alab new CreateUsers    # -> 001_create_users.js
+  alab new add-email      # -> 002_add_email.js`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Normalize name to lowercase snake_case
@@ -116,6 +130,7 @@ func newCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&empty, "empty", false, "Create empty migration")
 
+	setupCommandHelp(cmd)
 	return cmd
 }
 

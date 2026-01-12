@@ -60,12 +60,14 @@ func Indent(content string, spaces int) string {
 	return strings.Join(lines, "\n")
 }
 
-// padRight pads a string to the right with spaces.
+// padRight pads a string to the right with spaces, accounting for ANSI codes.
 func padRight(s string, width int) string {
-	if len(s) >= width {
+	// Use lipgloss.Width to get visual width (ignoring ANSI codes)
+	visualWidth := lipgloss.Width(s)
+	if visualWidth >= width {
 		return s
 	}
-	return s + strings.Repeat(" ", width-len(s))
+	return s + strings.Repeat(" ", width-visualWidth)
 }
 
 // Panel rendering functions.

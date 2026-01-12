@@ -11,9 +11,24 @@ import (
 
 // initCmd creates the schemas/ and migrations/ directories.
 func initCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize project structure (creates schemas/, migrations/, types/ dirs)",
+		Long: `Initialize a new Alab project by creating the necessary directory structure and configuration file.
+
+This command creates:
+- schemas/ directory for your schema definitions
+- migrations/ directory for migration files
+- types/ directory for TypeScript type definitions
+- alab.yaml configuration file (if it doesn't exist)`,
+		Example: `  # Initialize a new project
+  alab init
+
+  # This creates the following structure:
+  # ├── alab.yaml
+  # ├── schemas/
+  # ├── migrations/
+  # └── types/`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
@@ -43,14 +58,7 @@ func initCmd() *cobra.Command {
 
 			// Create alab.yaml if it doesn't exist
 			if _, err := os.Stat(configFile); os.IsNotExist(err) {
-				content := `# alab.yaml
-database:
-  dialect: sqlite # or postgres
-  url: ./sqlite.db
-
-schemas: ./schemas
-migrations: ./migrations
-`
+				content := mustReadTemplate("templates/alab.yaml.tmpl")
 				if err := os.WriteFile(configFile, []byte(content), 0644); err != nil {
 					return fmt.Errorf("failed to create config file: %w", err)
 				}
@@ -66,26 +74,7 @@ migrations: ./migrations
 			// Create jsconfig.json for IDE autocomplete if it doesn't exist
 			jsconfigPath := "jsconfig.json"
 			if _, err := os.Stat(jsconfigPath); os.IsNotExist(err) {
-				jsconfigContent := `{
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "ES2020",
-    "moduleResolution": "node",
-    "checkJs": false,
-    "strict": false,
-    "noEmit": true
-  },
-  "include": [
-    "types/**/*.d.ts",
-    "schemas/**/*.js",
-    "migrations/**/*.js"
-  ],
-  "exclude": [
-    "node_modules",
-    ".alab"
-  ]
-}
-`
+				jsconfigContent := mustReadTemplate("templates/jsconfig.json.tmpl")
 				if err := os.WriteFile(jsconfigPath, []byte(jsconfigContent), 0644); err != nil {
 					return fmt.Errorf("failed to create jsconfig.json: %w", err)
 				}
@@ -95,11 +84,14 @@ migrations: ./migrations
 			// Show success panel with created files
 			view := ui.NewSuccessView(
 				"Project Initialized",
-				"Created files:\n"+created.String()+"\n"+
-					ui.Help("Next steps:\n  1. Edit alab.yaml to configure your database\n  2. Create schema files in "+cfg.SchemasDir+"/\n  3. Run 'alab new <name>' to create your first migration"),
+				"Created:\n"+created.String()+"\n"+
+					ui.Help("\nNext steps:\n  1. Edit alab.yaml to configure your database\n  2. Create schema files in "+cfg.SchemasDir+"/\n  3. Run 'alab new <name>' to create your first migration"),
 			)
 			fmt.Println(view.Render())
 			return nil
 		},
 	}
+
+	setupCommandHelp(cmd)
+	return cmd
 }

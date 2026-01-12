@@ -176,15 +176,18 @@ func httpCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "http",
 		Short: "Start local server for live API documentation",
-		Long: `Starts a local HTTP server that serves your API documentation.
+		Long: `Start local HTTP server with interactive API documentation and hot reload.
 
-The server provides:
-  /             - Swagger UI interface
-  /openapi.json - Live OpenAPI spec (regenerated on each request)
-  /graphiql     - GraphiQL interface
-  /graphql      - GraphQL schema
+Endpoints: / (Swagger UI), /openapi.json, /graphiql, /graphql, /graphql/examples.
+Watches schema files and auto-reloads browser on changes. Use --create to customize UI.`,
+		Example: `  # Start server on default port 8080
+  alab http
 
-Changes to your schema files are reflected immediately - just refresh the page.`,
+  # Start server on custom port
+  alab http -p 3000
+
+  # Create customizable HTML file for Swagger UI
+  alab http --create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Create alab.html if requested
 			if create {
@@ -198,6 +201,7 @@ Changes to your schema files are reflected immediately - just refresh the page.`
 	cmd.Flags().IntVarP(&port, "port", "p", 8080, "Port to listen on")
 	cmd.Flags().BoolVar(&create, "create", false, "Create alab.html file for customization")
 
+	setupCommandHelp(cmd)
 	return cmd
 }
 
@@ -324,6 +328,18 @@ func startServer(port int) error {
 	http.HandleFunc("/graphiql", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(mustReadTemplate(templateGraphQLHTML)))
+	})
+
+	// Serve logo
+	http.HandleFunc("/logo.png", func(w http.ResponseWriter, r *http.Request) {
+		data, err := templates.ReadFile("templates/logo.png")
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Write(data)
 	})
 
 	// Serve Swagger UI

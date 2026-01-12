@@ -15,6 +15,19 @@ func resetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reset",
 		Short: "Drop all tables and re-run migrations (dev only)",
+		Long: `Drop all tables and re-run migrations from scratch.
+
+⚠️  DESTRUCTIVE - Permanently deletes ALL data! For development only.
+
+Drops all tables, re-runs migrations, leaves clean schema with no data. Requires confirmation unless --force is used.`,
+		Example: `  # Reset database with confirmation prompt (recommended)
+  alab reset
+
+  # Reset database without confirmation (dangerous)
+  alab reset --force
+
+  # Typical development workflow - reset and seed
+  alab reset && alab seed`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -122,5 +135,6 @@ func resetCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
 
+	setupCommandHelp(cmd)
 	return cmd
 }

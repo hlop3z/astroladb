@@ -18,6 +18,17 @@ func schemaCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "schema",
 		Short: "Show schema at a specific migration revision",
+		Long: `Show complete database schema at a specific migration revision.
+
+Displays tables, columns, indexes, and foreign keys. Output formats: table (default), json, or sql.`,
+		Example: `  # Show schema at revision 003 in table format
+  alab schema --at 003
+
+  # Export schema at revision 005 as JSON
+  alab schema --at 005 --format json > schema.json
+
+  # Generate SQL CREATE statements for the schema at revision 010
+  alab schema --at 010 --format sql`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if at == "" {
 				printSchemaAtError()
@@ -62,6 +73,7 @@ func schemaCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&format, "format", "f", "table", "Output format: table, json, sql")
 	cmd.MarkFlagRequired("at")
 
+	setupCommandHelp(cmd)
 	return cmd
 }
 

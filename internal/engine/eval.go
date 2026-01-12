@@ -240,6 +240,11 @@ func (e *Evaluator) SaveMetadata(projectDir string) error {
 	return e.sandbox.SaveMetadata(projectDir)
 }
 
+// SaveMetadataToFile saves the metadata to a custom file path.
+func (e *Evaluator) SaveMetadataToFile(filePath string) error {
+	return e.sandbox.SaveMetadataToFile(filePath)
+}
+
 // inferFromPath extracts namespace and table name from a schema file path.
 // Expected format: .../schemas/<namespace>/<table>.js
 func inferFromPath(path string) (namespace, tableName string, err error) {

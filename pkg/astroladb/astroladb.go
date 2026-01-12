@@ -334,6 +334,13 @@ func (c *Client) SaveMetadata() error {
 	return c.eval.SaveMetadata(projectDir)
 }
 
+// SaveMetadataToFile saves schema metadata to a custom file path.
+// This includes many_to_many relationships, polymorphic mappings, and join table definitions.
+// Useful for exporting metadata to a specific location for external tools.
+func (c *Client) SaveMetadataToFile(filePath string) error {
+	return c.eval.SaveMetadataToFile(filePath)
+}
+
 // DriftResult represents the result of a drift detection operation.
 // It includes whether drift was detected, merkle tree hashes for fast comparison,
 // and detailed information about any differences found.

@@ -17,6 +17,23 @@ func checkCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "check",
 		Short: "Validate schema and detect drift",
+		Long: `Validate schema files and detect drift between migrations and database state.
+
+This command performs two key operations:
+1. Validates all schema files in the migrations directory for syntax errors
+2. Compares the expected schema (from migrations) against the actual database state
+
+If drift is detected, the command outputs detailed information about:
+- Missing tables (defined in migrations but not in database)
+- Extra tables (present in database but not in migrations)
+- Modified tables (differences in columns, indexes, or constraints)
+
+The command exits with status code 1 if validation fails or drift is detected.`,
+		Example: `  # Check all schema files
+  alab check
+
+  # Check with JSON output for automation
+  alab check --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -99,6 +116,7 @@ func checkCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 
+	setupCommandHelp(cmd)
 	return cmd
 }
 

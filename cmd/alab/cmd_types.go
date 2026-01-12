@@ -9,9 +9,29 @@ import (
 
 // typesCmd regenerates the TypeScript definition files for IDE autocomplete.
 func typesCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "types",
 		Short: "Regenerate TypeScript definitions for IDE autocomplete",
+		Long: `Regenerate TypeScript definition files for IDE autocomplete support.
+
+This command generates TypeScript type definition files (.d.ts) that provide
+intelligent code completion and type checking in your IDE when working with
+database schemas, migrations, and base configurations.
+
+The generated files include:
+  - types/base.d.ts: Core type definitions and utilities
+  - types/schema.d.ts: Database schema type definitions
+  - types/migration.d.ts: Migration-related type definitions
+
+Note: These files are auto-generated and should not be edited manually.`,
+		Example: `  # Regenerate all TypeScript definition files
+  alab types
+
+  # Run after modifying schema to update autocomplete
+  alab schema apply && alab types
+
+  # Typical workflow: update schema, apply changes, regenerate types
+  alab schema edit && alab schema apply && alab types`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := writeTypeDefinitions(); err != nil {
 				return fmt.Errorf("failed to write type definitions: %w", err)
@@ -32,4 +52,7 @@ func typesCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	setupCommandHelp(cmd)
+	return cmd
 }

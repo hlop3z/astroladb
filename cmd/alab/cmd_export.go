@@ -21,6 +21,24 @@ func exportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export schema (openapi, graphql, typescript, go, python, rust, all)",
+		Long: `Export the database schema in various formats for API documentation or code generation.
+
+Formats: openapi, graphql, typescript, go, python, rust, all.
+OpenAPI/GraphQL generate single files. Other formats split by namespace into subdirectories.`,
+		Example: `  # Export schema as OpenAPI specification
+  alab export --format openapi
+
+  # Export to TypeScript definitions in a custom directory
+  alab export --format typescript --dir ./generated
+
+  # Export to all formats at once
+  alab export --format all --dir ./exports
+
+  # Export GraphQL schema to stdout
+  alab export --format graphql --stdout
+
+  # Export Rust types using mik_sdk style
+  alab export --format rust --mik`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newSchemaOnlyClient()
 			if err != nil {
@@ -107,6 +125,7 @@ func exportCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&stdout, "stdout", false, "Print to stdout")
 	cmd.Flags().BoolVar(&mik, "mik", false, "Use mik_sdk style for Rust")
 
+	setupCommandHelp(cmd)
 	return cmd
 }
 

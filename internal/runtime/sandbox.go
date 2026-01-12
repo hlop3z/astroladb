@@ -881,6 +881,11 @@ func (s *Sandbox) SaveMetadata(projectDir string) error {
 	return s.meta.Save(projectDir)
 }
 
+// SaveMetadataToFile saves the metadata to a custom file path.
+func (s *Sandbox) SaveMetadataToFile(filePath string) error {
+	return s.meta.SaveToFile(filePath)
+}
+
 // ClearMetadata resets the metadata for a fresh evaluation.
 func (s *Sandbox) ClearMetadata() {
 	s.meta = metadata.New()

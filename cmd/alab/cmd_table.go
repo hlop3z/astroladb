@@ -18,11 +18,18 @@ func tableCmd() *cobra.Command {
 		Short: "Create a new table schema file",
 		Long: `Create a new table schema file in the schemas directory.
 
-Both namespace and table_name are normalized to lowercase snake_case.
-Examples:
-  alab table auth User       -> schemas/auth/user.js
-  alab table Blog post-item  -> schemas/blog/post_item.js
-  alab table API UserProfile -> schemas/api/user_profile.js`,
+Both namespace and table_name are normalized to lowercase snake_case.`,
+		Example: `  # Create a user table in the auth namespace
+  alab table auth User
+  # Output: schemas/auth/user.js
+
+  # Create a post_item table in the blog namespace
+  alab table Blog post-item
+  # Output: schemas/blog/post_item.js
+
+  # Create a user_profile table in the API namespace
+  alab table API UserProfile
+  # Output: schemas/api/user_profile.js`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Normalize namespace and table name to lowercase snake_case
@@ -84,6 +91,7 @@ Examples:
 		},
 	}
 
+	setupCommandHelp(cmd)
 	return cmd
 }
 

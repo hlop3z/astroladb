@@ -79,8 +79,11 @@ func Dim(text string) string {
 	return theme.Dim.Render(text)
 }
 
-// Header renders text as a header (bold primary).
-func Header(text string) string {
+// Header renders text as a header (bold). Optionally accepts a color function (e.g., ui.Success).
+func Header(text string, colorFn ...func(string) string) string {
+	if len(colorFn) > 0 {
+		return colorFn[0](Bold(text))
+	}
 	return theme.Header.Render(text)
 }
 

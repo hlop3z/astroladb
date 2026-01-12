@@ -18,6 +18,24 @@ func migrateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "migrate",
 		Short: "Apply pending migrations",
+		Long: `Apply pending migrations to the database.
+
+Safety features: Git integration checks uncommitted changes, destructive operations require confirmation,
+and dry run mode previews SQL without executing. Use --commit to auto-commit after successful migration.`,
+		Example: `  # Apply all pending migrations with confirmation
+  alab migrate
+
+  # Preview SQL that would be executed without applying
+  alab migrate --dry
+
+  # Apply migrations and auto-commit to git
+  alab migrate --commit
+
+  # Skip safety checks and confirmation prompts
+  alab migrate --force
+
+  # Apply migrations that include DROP operations
+  alab migrate --confirm-destroy`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
@@ -183,5 +201,6 @@ func migrateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&confirmDestroy, "confirm-destroy", false, "Confirm DROP operations")
 	cmd.Flags().BoolVar(&commit, "commit", false, "Auto-commit migration files to git")
 
+	setupCommandHelp(cmd)
 	return cmd
 }

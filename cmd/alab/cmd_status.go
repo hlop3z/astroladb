@@ -16,6 +16,17 @@ func statusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show applied/pending migrations",
+		Long: `Display status of all migrations (applied/pending).
+
+Shows revision ID, name, status, and timestamp. Use --json for CI/CD (exits with code 1 if pending).`,
+		Example: `  # Show migration status in human-readable format
+  alab status
+
+  # Output migration status as JSON for CI/CD integration
+  alab status --json
+
+  # Check if migrations are pending (exits with code 1 if pending)
+  alab status --json && echo "All migrations applied"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -133,5 +144,6 @@ func statusCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON for CI/CD")
 
+	setupCommandHelp(cmd)
 	return cmd
 }
