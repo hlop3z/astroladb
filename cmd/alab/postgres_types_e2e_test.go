@@ -39,33 +39,28 @@ func TestE2E_Postgres_AllColumnTypes(t *testing.T) {
 			env := setupTestEnv(t)
 
 			// Migration with ALL column types
-			env.writeMigration(t, "001", "create_all_types_table", `
-export function up(m) {
-  m.create_table("types.all_columns", t => {
-    // Primary key
-    t.id()
+			env.writeMigration(t, "001", "create_all_types_table", testutil.SimpleMigration(
+				`    m.create_table("types.all_columns", t => {
+      // Primary key
+      t.id()
 
-    // Primitive types
-    t.uuid("external_id")
-    t.string("short_text", 100)
-    t.text("long_text")
-    t.integer("count")
-    t.float("ratio")
-    t.decimal("price", 10, 2)
-    t.boolean("is_active")
-    t.date("birth_date")
-    t.time("start_time")
-    t.datetime("created_at")
-    t.json("metadata")
-    t.base64("encoded_data")
-    t.enum("status", ["pending", "active", "archived"])
-  })
-}
-
-export function down(m) {
-  m.drop_table("types.all_columns")
-}
-`)
+      // Primitive types
+      t.uuid("external_id")
+      t.string("short_text", 100)
+      t.text("long_text")
+      t.integer("count")
+      t.float("ratio")
+      t.decimal("price", 10, 2)
+      t.boolean("is_active")
+      t.date("birth_date")
+      t.time("start_time")
+      t.datetime("created_at")
+      t.json("metadata")
+      t.base64("encoded_data")
+      t.enum("status", ["pending", "active", "archived"])
+    })`,
+				`    m.drop_table("types.all_columns")`,
+			))
 
 			client := env.newClient(t, dbURL)
 
@@ -117,32 +112,27 @@ func TestE2E_Postgres_ColumnModifiers(t *testing.T) {
 			env := setupTestEnv(t)
 
 			// Migration with all modifiers
-			env.writeMigration(t, "001", "create_modifiers_table", `
-export function up(m) {
-  m.create_table("test.modifiers", t => {
-    t.id()
+			env.writeMigration(t, "001", "create_modifiers_table", testutil.SimpleMigration(
+				`    m.create_table("test.modifiers", t => {
+      t.id()
 
-    // optional() - nullable column
-    t.string("optional_field", 100).optional()
+      // optional() - nullable column
+      t.string("optional_field", 100).optional()
 
-    // unique() - unique constraint
-    t.string("unique_field", 100).unique()
+      // unique() - unique constraint
+      t.string("unique_field", 100).unique()
 
-    // default() - default value
-    t.string("with_default", 50).default("hello")
-    t.integer("count_default").default(0)
-    t.boolean("flag_default").default(true)
+      // default() - default value
+      t.string("with_default", 50).default("hello")
+      t.integer("count_default").default(0)
+      t.boolean("flag_default").default(true)
 
-    // Combined modifiers
-    t.string("optional_unique", 100).optional().unique()
-    t.integer("optional_default").optional().default(42)
-  })
-}
-
-export function down(m) {
-  m.drop_table("test.modifiers")
-}
-`)
+      // Combined modifiers
+      t.string("optional_unique", 100).optional().unique()
+      t.integer("optional_default").optional().default(42)
+    })`,
+				`    m.drop_table("test.modifiers")`,
+			))
 
 			client := env.newClient(t, dbURL)
 
@@ -211,37 +201,32 @@ func TestE2E_Postgres_SemanticTypes(t *testing.T) {
 			env := setupTestEnv(t)
 
 			// Migration with semantic types
-			env.writeMigration(t, "001", "create_semantic_table", `
-export function up(m) {
-  m.create_table("user.profile", t => {
-    t.id()
+			env.writeMigration(t, "001", "create_semantic_table", testutil.SimpleMigration(
+				`    m.create_table("user.profile", t => {
+      t.id()
 
-    // Identity and authentication
-    t.email("email")
-    t.username("username")
-    t.password_hash("password")
-    t.phone("phone").optional()
+      // Identity and authentication
+      t.email("email")
+      t.username("username")
+      t.password_hash("password")
+      t.phone("phone").optional()
 
-    // Text content
-    t.name("display_name")
-    t.title("job_title")
-    t.slug("profile_slug")
-    t.body("bio")
-    t.summary("short_bio")
+      // Text content
+      t.name("display_name")
+      t.title("job_title")
+      t.slug("profile_slug")
+      t.body("bio")
+      t.summary("short_bio")
 
-    // URLs and network
-    t.url("website").optional()
+      // URLs and network
+      t.url("website").optional()
 
-    // Boolean flag
-    t.flag("is_verified")
-    t.flag("is_premium", true)
-  })
-}
-
-export function down(m) {
-  m.drop_table("user.profile")
-}
-`)
+      // Boolean flag
+      t.flag("is_verified")
+      t.flag("is_premium", true)
+    })`,
+				`    m.drop_table("user.profile")`,
+			))
 
 			client := env.newClient(t, dbURL)
 
@@ -305,23 +290,18 @@ func TestE2E_Postgres_HelperMethods(t *testing.T) {
 			env := setupTestEnv(t)
 
 			// Migration with helper methods
-			env.writeMigration(t, "001", "create_helpers_table", `
-export function up(m) {
-  m.create_table("app.item", t => {
-    t.id()
-    t.string("name", 100)
+			env.writeMigration(t, "001", "create_helpers_table", testutil.SimpleMigration(
+				`    m.create_table("app.item", t => {
+      t.id()
+      t.string("name", 100)
 
-    // Helper methods
-    t.timestamps()
-    t.soft_delete()
-    t.sortable()
-  })
-}
-
-export function down(m) {
-  m.drop_table("app.item")
-}
-`)
+      // Helper methods
+      t.timestamps()
+      t.soft_delete()
+      t.sortable()
+    })`,
+				`    m.drop_table("app.item")`,
+			))
 
 			client := env.newClient(t, dbURL)
 
@@ -360,37 +340,32 @@ func TestE2E_Postgres_Relationships(t *testing.T) {
 			env := setupTestEnv(t)
 
 			// Migration with relationships
-			env.writeMigration(t, "001", "create_relationship_tables", `
-export function up(m) {
-  m.create_table("auth.user", t => {
-    t.id()
-    t.email("email")
-    t.timestamps()
-  })
+			env.writeMigration(t, "001", "create_relationship_tables", testutil.SimpleMigration(
+				`    m.create_table("auth.user", t => {
+      t.id()
+      t.email("email")
+      t.timestamps()
+    })
 
-  m.create_table("blog.post", t => {
-    t.id()
-    t.string("title", 200)
-    t.belongs_to("auth.user").as("author")
-    t.belongs_to("auth.user").as("editor").optional()
-    t.timestamps()
-  })
+    m.create_table("blog.post", t => {
+      t.id()
+      t.string("title", 200)
+      t.belongs_to("auth.user").as("author")
+      t.belongs_to("auth.user").as("editor").optional()
+      t.timestamps()
+    })
 
-  m.create_table("blog.comment", t => {
-    t.id()
-    t.text("content")
-    t.belongs_to("blog.post")
-    t.belongs_to("auth.user").optional()
-    t.timestamps()
-  })
-}
-
-export function down(m) {
-  m.drop_table("blog.comment")
-  m.drop_table("blog.post")
-  m.drop_table("auth.user")
-}
-`)
+    m.create_table("blog.comment", t => {
+      t.id()
+      t.text("content")
+      t.belongs_to("blog.post")
+      t.belongs_to("auth.user").optional()
+      t.timestamps()
+    })`,
+				`    m.drop_table("blog.comment")
+    m.drop_table("blog.post")
+    m.drop_table("auth.user")`,
+			))
 
 			client := env.newClient(t, dbURL)
 
@@ -428,37 +403,32 @@ func TestE2E_Postgres_Indexes(t *testing.T) {
 			env := setupTestEnv(t)
 
 			// Migration with various indexes
-			env.writeMigration(t, "001", "create_indexed_table", `
-export function up(m) {
-  m.create_table("catalog.product", t => {
-    t.id()
-    t.string("sku", 50).unique()
-    t.string("name", 200)
-    t.decimal("price", 10, 2)
-    t.string("status", 20).default("active")
-    t.uuid("category_id").optional()
-    t.timestamps()
-  })
+			env.writeMigration(t, "001", "create_indexed_table", testutil.SimpleMigration(
+				`    m.create_table("catalog.product", t => {
+      t.id()
+      t.string("sku", 50).unique()
+      t.string("name", 200)
+      t.decimal("price", 10, 2)
+      t.string("status", 20).default("active")
+      t.uuid("category_id").optional()
+      t.timestamps()
+    })
 
-  // Single column index
-  m.create_index("catalog.product", ["status"])
+    // Single column index
+    m.create_index("catalog.product", ["status"])
 
-  // Composite index
-  m.create_index("catalog.product", ["category_id", "price"])
+    // Composite index
+    m.create_index("catalog.product", ["category_id", "price"])
 
-  // Named index
-  m.create_index("catalog.product", ["name"], { name: "idx_product_name" })
+    // Named index
+    m.create_index("catalog.product", ["name"], { name: "idx_product_name" })
 
-  // Unique composite index
-  m.create_index("catalog.product", ["category_id", "sku"], { unique: true, name: "idx_unique_category_sku" })
-}
-
-export function down(m) {
-  m.drop_index("idx_product_name")
-  m.drop_index("idx_unique_category_sku")
-  m.drop_table("catalog.product")
-}
-`)
+    // Unique composite index
+    m.create_index("catalog.product", ["category_id", "sku"], { unique: true, name: "idx_unique_category_sku" })`,
+				`    m.drop_index("idx_product_name")
+    m.drop_index("idx_unique_category_sku")
+    m.drop_table("catalog.product")`,
+			))
 
 			client := env.newClient(t, dbURL)
 
@@ -485,35 +455,25 @@ func TestE2E_Postgres_AddColumn(t *testing.T) {
 			env := setupTestEnv(t)
 
 			// Initial table
-			env.writeMigration(t, "001", "create_initial_table", `
-export function up(m) {
-  m.create_table("app.user", t => {
-    t.id()
-    t.email("email")
-  })
-}
-
-export function down(m) {
-  m.drop_table("app.user")
-}
-`)
+			env.writeMigration(t, "001", "create_initial_table", testutil.SimpleMigration(
+				`    m.create_table("app.user", t => {
+      t.id()
+      t.email("email")
+    })`,
+				`    m.drop_table("app.user")`,
+			))
 
 			// Add columns with various modifiers
-			env.writeMigration(t, "002", "add_columns", `
-export function up(m) {
-  m.add_column("app.user", c => c.string("name", 100))
-  m.add_column("app.user", c => c.integer("age").optional())
-  m.add_column("app.user", c => c.boolean("is_active").default(true))
-  m.add_column("app.user", c => c.string("status", 20).default("pending"))
-}
-
-export function down(m) {
-  m.drop_column("app.user", "name")
-  m.drop_column("app.user", "age")
-  m.drop_column("app.user", "is_active")
-  m.drop_column("app.user", "status")
-}
-`)
+			env.writeMigration(t, "002", "add_columns", testutil.SimpleMigration(
+				`    m.add_column("app.user", c => c.string("name", 100))
+    m.add_column("app.user", c => c.integer("age").optional())
+    m.add_column("app.user", c => c.boolean("is_active").default(true))
+    m.add_column("app.user", c => c.string("status", 20).default("pending"))`,
+				`    m.drop_column("app.user", "name")
+    m.drop_column("app.user", "age")
+    m.drop_column("app.user", "is_active")
+    m.drop_column("app.user", "status")`,
+			))
 
 			client := env.newClient(t, dbURL)
 
@@ -545,28 +505,18 @@ func TestE2E_Postgres_Rollback(t *testing.T) {
 			db, dbURL := setup.setupFunc(t)
 			env := setupTestEnv(t)
 
-			env.writeMigration(t, "001", "create_table", `
-export function up(m) {
-  m.create_table("test.item", t => {
-    t.id()
-    t.string("name", 100)
-  })
-}
+			env.writeMigration(t, "001", "create_table", testutil.SimpleMigration(
+				`    m.create_table("test.item", t => {
+      t.id()
+      t.string("name", 100)
+    })`,
+				`    m.drop_table("test.item")`,
+			))
 
-export function down(m) {
-  m.drop_table("test.item")
-}
-`)
-
-			env.writeMigration(t, "002", "add_column", `
-export function up(m) {
-  m.add_column("test.item", c => c.text("description").optional())
-}
-
-export function down(m) {
-  m.drop_column("test.item", "description")
-}
-`)
+			env.writeMigration(t, "002", "add_column", testutil.SimpleMigration(
+				`    m.add_column("test.item", c => c.text("description").optional())`,
+				`    m.drop_column("test.item", "description")`,
+			))
 
 			client := env.newClient(t, dbURL)
 
@@ -607,37 +557,32 @@ func TestE2E_Postgres_TableNaming(t *testing.T) {
 			env := setupTestEnv(t)
 
 			// Migration with various namespaces
-			env.writeMigration(t, "001", "create_namespaced_tables", `
-export function up(m) {
-  m.create_table("auth.user", t => {
-    t.id()
-    t.email("email")
-  })
+			env.writeMigration(t, "001", "create_namespaced_tables", testutil.SimpleMigration(
+				`    m.create_table("auth.user", t => {
+      t.id()
+      t.email("email")
+    })
 
-  m.create_table("auth.session", t => {
-    t.id()
-    t.uuid("user_id")
-    t.datetime("expires_at")
-  })
+    m.create_table("auth.session", t => {
+      t.id()
+      t.uuid("user_id")
+      t.datetime("expires_at")
+    })
 
-  m.create_table("blog.post", t => {
-    t.id()
-    t.string("title", 200)
-  })
+    m.create_table("blog.post", t => {
+      t.id()
+      t.string("title", 200)
+    })
 
-  m.create_table("catalog.product", t => {
-    t.id()
-    t.string("name", 200)
-  })
-}
-
-export function down(m) {
-  m.drop_table("catalog.product")
-  m.drop_table("blog.post")
-  m.drop_table("auth.session")
-  m.drop_table("auth.user")
-}
-`)
+    m.create_table("catalog.product", t => {
+      t.id()
+      t.string("name", 200)
+    })`,
+				`    m.drop_table("catalog.product")
+    m.drop_table("blog.post")
+    m.drop_table("auth.session")
+    m.drop_table("auth.user")`,
+			))
 
 			client := env.newClient(t, dbURL)
 

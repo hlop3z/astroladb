@@ -17,7 +17,7 @@ export * from "./migration";
 import { SQLExpr } from "./globals";
 import { TableBuilder, ColBuilder } from "./column";
 import { SchemaBuilder, TableDefinition, TableChain, ColumnDefinitions } from "./schema";
-import { MigrationBuilder } from "./migration";
+import { MigrationBuilder, MigrationDefinition } from "./migration";
 
 declare global {
   /** Wraps a string as a raw SQL expression. */
@@ -44,4 +44,31 @@ declare global {
 
   /** Defines a single table using an object (preferred API). */
   function table(columns: ColumnDefinitions): TableChain;
+
+  /**
+   * Defines a database migration with up and down functions.
+   *
+   * Provides full IntelliSense for both up() and down() functions.
+   * The up() function applies changes, down() reverses them.
+   *
+   * @param definition - Object with up() and down() methods
+   *
+   * @example
+   * // migrations/001_create_users.js
+   * export default migration({
+   *   up(m) {
+   *     m.create_table("auth.user", t => {
+   *       t.id()
+   *       t.email("email").unique()
+   *       t.username("username").unique()
+   *       t.password_hash("password")
+   *       t.timestamps()
+   *     })
+   *   },
+   *   down(m) {
+   *     m.drop_table("auth.user")
+   *   }
+   * })
+   */
+  function migration(definition: MigrationDefinition): void;
 }

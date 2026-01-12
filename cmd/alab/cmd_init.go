@@ -71,12 +71,12 @@ This command creates:
 			}
 			created.AddSuccess("types/*.d.ts")
 
-			// Create jsconfig.json for IDE autocomplete if it doesn't exist
-			jsconfigPath := "jsconfig.json"
+			// Create tsconfig.json for IDE autocomplete if it doesn't exist
+			jsconfigPath := "tsconfig.json"
 			if _, err := os.Stat(jsconfigPath); os.IsNotExist(err) {
-				jsconfigContent := mustReadTemplate("templates/jsconfig.json.tmpl")
+				jsconfigContent := mustReadTemplate("templates/tsconfig.json.tmpl")
 				if err := os.WriteFile(jsconfigPath, []byte(jsconfigContent), 0644); err != nil {
-					return fmt.Errorf("failed to create jsconfig.json: %w", err)
+					return fmt.Errorf("failed to create tsconfig.json: %w", err)
 				}
 				created.AddSuccess(jsconfigPath)
 			}

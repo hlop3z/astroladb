@@ -814,39 +814,16 @@ func (s *Sandbox) RunFile(path string) ([]ast.Operation, error) {
 		return nil, err
 	}
 
-	// Check for export function up(m) { ... } format
-	// If an 'up' function exists, call it with a migration builder
-	if upFn := s.vm.Get("up"); upFn != nil && upFn != goja.Undefined() {
-		fn, ok := goja.AssertFunction(upFn)
-		if ok {
-			migrationObj := s.createMigrationObject()
-			_, err := fn(goja.Undefined(), migrationObj)
-			if err != nil {
-				return nil, alerr.Wrap(alerr.ErrJSExecution, err, "error calling up() function").
-					WithFile(path, 0)
-			}
-		}
+	// The migration() wrapper function handles calling up() internally
+	// Operations are collected in s.operations by the migration builder
+
+	// Migration files must use: export default migration({ up, down })
+	if len(s.operations) == 0 {
+		return nil, alerr.New(alerr.ErrJSExecution, "migration file must use migration({ up, down }) wrapper").
+			WithFile(path, 0)
 	}
 
-	// Return operations collected from migration() DSL or up() function
-	// If no operations were collected, fall back to table definitions
-	if len(s.operations) > 0 {
-		return s.operations, nil
-	}
-
-	// Convert table definitions to operations (for schema files used as migrations)
-	ops := make([]ast.Operation, 0, len(s.tables))
-	for _, table := range s.tables {
-		op := &ast.CreateTable{
-			TableOp:     ast.TableOp{Namespace: table.Namespace, Name: table.Name},
-			Columns:     table.Columns,
-			Indexes:     table.Indexes,
-			ForeignKeys: make([]*ast.ForeignKeyDef, 0),
-		}
-		ops = append(ops, op)
-	}
-
-	return ops, nil
+	return s.operations, nil
 }
 
 // readFile reads a file's contents.

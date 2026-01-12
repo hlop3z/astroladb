@@ -60,19 +60,14 @@ func TestE2E_UTC_DatetimeStorage(t *testing.T) {
 			env := setupTestEnv(t)
 
 			// Create migration with datetime columns
-			env.writeMigration(t, "001", "create_events_table", `
-export function up(m) {
-  m.create_table("test.datetime_test", t => {
-    t.id()
-    t.string("name", 100)
-    t.datetime("scheduled_at")
-  })
-}
-
-export function down(m) {
-  m.drop_table("test.datetime_test")
-}
-`)
+			env.writeMigration(t, "001", "create_events_table", testutil.SimpleMigration(
+			`      m.create_table("test.datetime_test", t => {
+        t.id()
+        t.string("name", 100)
+        t.datetime("scheduled_at")
+      })`,
+			`      m.drop_table("test.datetime_test")`,
+		))
 
 			// Apply migration
 			client, err := astroladb.New(
@@ -195,19 +190,14 @@ func TestE2E_UTC_TimestampOperations(t *testing.T) {
 			env := setupTestEnv(t)
 
 			// Create migration
-			env.writeMigration(t, "001", "create_test_table", `
-export function up(m) {
-  m.create_table("test.time_ops", t => {
-    t.id()
-    t.datetime("start_time")
-    t.datetime("end_time")
-  })
-}
-
-export function down(m) {
-  m.drop_table("test.time_ops")
-}
-`)
+			env.writeMigration(t, "001", "create_test_table", testutil.SimpleMigration(
+			`      m.create_table("test.time_ops", t => {
+        t.id()
+        t.datetime("start_time")
+        t.datetime("end_time")
+      })`,
+			`      m.drop_table("test.time_ops")`,
+		))
 
 			// Apply migration
 			client, err := astroladb.New(

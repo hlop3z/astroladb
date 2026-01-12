@@ -551,30 +551,25 @@ func TestE2E_DryRunWorkflow_MultipleTables(t *testing.T) {
 	_, pgURL := testutil.SetupPostgresWithURL(t)
 	env := setupTestEnv(t)
 
-	// Migration with 2 tables and an index - using export function up(m) format
-	env.writeMigration(t, "001", "relationships", `
-export function up(m) {
-  m.create_table("auth.user", t => {
-    t.id()
-    t.string("email", 255).unique()
-    t.string("username", 50).unique()
-    t.timestamps()
-  })
-  m.create_table("blog.post", t => {
-    t.id()
-    t.uuid("author_id")
-    t.string("title", 200)
-    t.text("body")
-    t.timestamps()
-  })
-  m.create_index("blog.post", ["author_id"])
-}
-
-export function down(m) {
-  m.drop_table("blog.post")
-  m.drop_table("auth.user")
-}
-`)
+	// Migration with 2 tables and an index
+	env.writeMigration(t, "001", "relationships", testutil.SimpleMigration(
+		`    m.create_table("auth.user", t => {
+      t.id()
+      t.string("email", 255).unique()
+      t.string("username", 50).unique()
+      t.timestamps()
+    })
+    m.create_table("blog.post", t => {
+      t.id()
+      t.uuid("author_id")
+      t.string("title", 200)
+      t.text("body")
+      t.timestamps()
+    })
+    m.create_index("blog.post", ["author_id"])`,
+		`    m.drop_table("blog.post")
+    m.drop_table("auth.user")`,
+	))
 
 	client := env.newClient(t, pgURL)
 
@@ -613,43 +608,38 @@ func TestE2E_DryRunWorkflow_WithRelationships(t *testing.T) {
 	env := setupTestEnv(t)
 
 	// Migration with relationships using belongs_to
-	env.writeMigration(t, "001", "relationships", `
-export function up(m) {
-  m.create_table("auth.user", t => {
-    t.id()
-    t.email("email")
-    t.string("username", 50).unique()
-    t.boolean("is_active").default(true)
-    t.timestamps()
-  })
+	env.writeMigration(t, "001", "relationships", testutil.SimpleMigration(
+		`    m.create_table("auth.user", t => {
+      t.id()
+      t.email("email")
+      t.string("username", 50).unique()
+      t.boolean("is_active").default(true)
+      t.timestamps()
+    })
 
-  m.create_table("blog.post", t => {
-    t.id()
-    t.belongs_to("auth.user").as("author")
-    t.belongs_to("auth.user").as("editor").optional()
-    t.string("title", 200)
-    t.text("body")
-    t.slug("slug")
-    t.enum("status", ["draft", "published", "archived"]).default("draft")
-    t.timestamps()
-    t.soft_delete()
-  })
+    m.create_table("blog.post", t => {
+      t.id()
+      t.belongs_to("auth.user").as("author")
+      t.belongs_to("auth.user").as("editor").optional()
+      t.string("title", 200)
+      t.text("body")
+      t.slug("slug")
+      t.enum("status", ["draft", "published", "archived"]).default("draft")
+      t.timestamps()
+      t.soft_delete()
+    })
 
-  m.create_table("blog.comment", t => {
-    t.id()
-    t.belongs_to("blog.post")
-    t.belongs_to("auth.user").optional()
-    t.text("content")
-    t.timestamps()
-  })
-}
-
-export function down(m) {
-  m.drop_table("blog.comment")
-  m.drop_table("blog.post")
-  m.drop_table("auth.user")
-}
-`)
+    m.create_table("blog.comment", t => {
+      t.id()
+      t.belongs_to("blog.post")
+      t.belongs_to("auth.user").optional()
+      t.text("content")
+      t.timestamps()
+    })`,
+		`    m.drop_table("blog.comment")
+    m.drop_table("blog.post")
+    m.drop_table("auth.user")`,
+	))
 
 	client := env.newClient(t, pgURL)
 

@@ -7,7 +7,7 @@ import (
 
 // Type definition template paths
 const (
-	templateJSConfig     = "templates/types/jsconfig.json"
+	templateJSConfig     = "templates/types/tsconfig.json"
 	templateIndexDTS     = "templates/types/index.d.ts"
 	templateGlobalsDTS   = "templates/types/globals.d.ts"
 	templateColumnDTS    = "templates/types/column.d.ts"
@@ -40,9 +40,9 @@ func writeTypeDefinitions() error {
 		}
 	}
 
-	// Write jsconfig.json in project root for IDE support
+	// Write tsconfig.json in project root for IDE support
 	jsconfigContent := mustReadTemplate(templateJSConfig)
-	if err := os.WriteFile("jsconfig.json", []byte(jsconfigContent), 0644); err != nil {
+	if err := os.WriteFile("tsconfig.json", []byte(jsconfigContent), 0644); err != nil {
 		return err
 	}
 

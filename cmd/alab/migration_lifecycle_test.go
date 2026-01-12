@@ -262,11 +262,14 @@ func verifyMigrationFile(t *testing.T, path string) error {
 
 	contentStr := string(content)
 
-	// Check for required functions
-	if !strings.Contains(contentStr, "export function up(m)") {
+	// Check for required migration wrapper
+	if !strings.Contains(contentStr, "export default migration") {
+		return fmt.Errorf("missing export default migration() wrapper")
+	}
+	if !strings.Contains(contentStr, "up(m)") {
 		return fmt.Errorf("missing up() function")
 	}
-	if !strings.Contains(contentStr, "export function down(m)") {
+	if !strings.Contains(contentStr, "down(m)") {
 		return fmt.Errorf("missing down() function")
 	}
 

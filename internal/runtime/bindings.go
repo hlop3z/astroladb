@@ -93,26 +93,41 @@ func (s *Sandbox) createSchemaObject(namespace string) *goja.Object {
 }
 
 // BindMigration binds the migration() DSL function for migration files.
-// Usage: migration(m => { m.create_table(...), m.add_column(...) })
+// Usage: migration({ up(m) { ... }, down(m) { ... } })
 func (s *Sandbox) BindMigration() {
 	s.vm.Set("migration", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
-			panic(s.vm.ToValue("migration() requires a builder function"))
+			panic(s.vm.ToValue("migration() requires a definition object"))
 		}
 
-		builderFn, ok := goja.AssertFunction(call.Arguments[0])
+		// Expect an object with up() and down() methods
+		defObj, ok := call.Arguments[0].(*goja.Object)
 		if !ok {
-			panic(s.vm.ToValue("migration() argument must be a function"))
+			panic(s.vm.ToValue("migration() argument must be an object with up() and down() methods"))
+		}
+
+		// Get the up() function
+		upVal := defObj.Get("up")
+		if upVal == nil || goja.IsUndefined(upVal) || goja.IsNull(upVal) {
+			panic(s.vm.ToValue("migration definition must have an up() method"))
+		}
+
+		upFn, ok := goja.AssertFunction(upVal)
+		if !ok {
+			panic(s.vm.ToValue("migration up property must be a function"))
 		}
 
 		// Create migration builder object
 		migrationObj := s.createMigrationObject()
 
-		// Call the builder function
-		_, err := builderFn(goja.Undefined(), migrationObj)
+		// Call the up() function with the migration builder
+		_, err := upFn(goja.Undefined(), migrationObj)
 		if err != nil {
-			panic(s.vm.ToValue("error in migration builder: " + err.Error()))
+			panic(s.vm.ToValue("error in migration up() function: " + err.Error()))
 		}
+
+		// Note: down() is not executed here - it's only called during rollback
+		// The down() function is accessed separately when needed
 
 		return goja.Undefined()
 	})

@@ -750,8 +750,9 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 	sb.WriteString(name)
 	sb.WriteString("\n\n")
 
-	// Write up function
-	sb.WriteString("export function up(m) {\n")
+	// Write migration wrapper with up function
+	sb.WriteString("export default migration({\n")
+	sb.WriteString("  up(m) {\n")
 
 	for _, op := range ops {
 		switch o := op.(type) {
@@ -778,14 +779,14 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 		case *ast.DropForeignKey:
 			c.writeDropForeignKey(&sb, o)
 		default:
-			sb.WriteString("  // Unsupported operation\n")
+			sb.WriteString("    // Unsupported operation\n")
 		}
 	}
 
-	sb.WriteString("}\n")
+	sb.WriteString("  },\n\n")
 
 	// Write down function (reverse operations)
-	sb.WriteString("\nexport function down(m) {\n")
+	sb.WriteString("  down(m) {\n")
 	for i := len(ops) - 1; i >= 0; i-- {
 		switch o := ops[i].(type) {
 		case *ast.CreateTable:
@@ -793,9 +794,9 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 			if o.Namespace != "" {
 				ref = o.Namespace + "." + o.Name
 			}
-			sb.WriteString(fmt.Sprintf("  m.drop_table(\"%s\")\n", ref))
+			sb.WriteString(fmt.Sprintf("    m.drop_table(\"%s\")\n", ref))
 		case *ast.DropTable:
-			sb.WriteString(fmt.Sprintf("  // TODO: Recreate table %s\n", o.Name))
+			sb.WriteString(fmt.Sprintf("    // TODO: Recreate table %s\n", o.Name))
 		case *ast.RenameTable:
 			oldRef := o.OldName
 			newRef := o.NewName
@@ -803,35 +804,35 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 				oldRef = o.Namespace + "." + o.OldName
 				newRef = o.Namespace + "." + o.NewName
 			}
-			sb.WriteString(fmt.Sprintf("  m.rename_table(\"%s\", \"%s\")\n", newRef, oldRef))
+			sb.WriteString(fmt.Sprintf("    m.rename_table(\"%s\", \"%s\")\n", newRef, oldRef))
 		case *ast.AddColumn:
 			ref := o.Table_
 			if o.Namespace != "" {
 				ref = o.Namespace + "." + o.Table_
 			}
-			sb.WriteString(fmt.Sprintf("  m.drop_column(\"%s\", \"%s\")\n", ref, o.Column.Name))
+			sb.WriteString(fmt.Sprintf("    m.drop_column(\"%s\", \"%s\")\n", ref, o.Column.Name))
 		case *ast.DropColumn:
-			sb.WriteString(fmt.Sprintf("  // TODO: Recreate column %s\n", o.Name))
+			sb.WriteString(fmt.Sprintf("    // TODO: Recreate column %s\n", o.Name))
 		case *ast.RenameColumn:
 			ref := o.Table_
 			if o.Namespace != "" {
 				ref = o.Namespace + "." + o.Table_
 			}
-			sb.WriteString(fmt.Sprintf("  m.rename_column(\"%s\", \"%s\", \"%s\")\n", ref, o.NewName, o.OldName))
+			sb.WriteString(fmt.Sprintf("    m.rename_column(\"%s\", \"%s\", \"%s\")\n", ref, o.NewName, o.OldName))
 		case *ast.AlterColumn:
 			ref := o.Table_
 			if o.Namespace != "" {
 				ref = o.Namespace + "." + o.Table_
 			}
-			sb.WriteString(fmt.Sprintf("  // TODO: Reverse alter_column on %s.%s\n", ref, o.Name))
+			sb.WriteString(fmt.Sprintf("    // TODO: Reverse alter_column on %s.%s\n", ref, o.Name))
 		case *ast.CreateIndex:
 			indexName := o.Name
 			if indexName == "" {
 				indexName = fmt.Sprintf("idx_%s_%s", o.Table_, strings.Join(o.Columns, "_"))
 			}
-			sb.WriteString(fmt.Sprintf("  m.drop_index(\"%s\")\n", indexName))
+			sb.WriteString(fmt.Sprintf("    m.drop_index(\"%s\")\n", indexName))
 		case *ast.DropIndex:
-			sb.WriteString(fmt.Sprintf("  // TODO: Recreate index %s\n", o.Name))
+			sb.WriteString(fmt.Sprintf("    // TODO: Recreate index %s\n", o.Name))
 		case *ast.AddForeignKey:
 			fkName := o.Name
 			if fkName == "" {
@@ -841,12 +842,13 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 			if o.Namespace != "" {
 				ref = o.Namespace + "." + o.Table_
 			}
-			sb.WriteString(fmt.Sprintf("  m.drop_foreign_key(\"%s\", \"%s\")\n", ref, fkName))
+			sb.WriteString(fmt.Sprintf("    m.drop_foreign_key(\"%s\", \"%s\")\n", ref, fkName))
 		case *ast.DropForeignKey:
-			sb.WriteString(fmt.Sprintf("  // TODO: Recreate foreign key %s\n", o.Name))
+			sb.WriteString(fmt.Sprintf("    // TODO: Recreate foreign key %s\n", o.Name))
 		}
 	}
-	sb.WriteString("}\n")
+	sb.WriteString("  }\n")
+	sb.WriteString("})\n")
 
 	return sb.String()
 }
@@ -858,7 +860,7 @@ func (c *Client) writeCreateTable(sb *strings.Builder, op *ast.CreateTable) {
 		ref = op.Namespace + "." + op.Name
 	}
 
-	sb.WriteString(fmt.Sprintf("  m.create_table(\"%s\", t => {\n", ref))
+	sb.WriteString(fmt.Sprintf("    m.create_table(\"%s\", t => {\n", ref))
 
 	// Sort columns: id first, timestamps last, others alphabetically
 	sortedColumns := c.sortColumnsForDisplay(op.Columns)
@@ -1095,7 +1097,7 @@ func (c *Client) writeDropTable(sb *strings.Builder, op *ast.DropTable) {
 	if op.Namespace != "" {
 		ref = op.Namespace + "." + op.Name
 	}
-	sb.WriteString(fmt.Sprintf("  m.drop_table(\"%s\")\n", ref))
+	sb.WriteString(fmt.Sprintf("    m.drop_table(\"%s\")\n", ref))
 }
 
 // writeRenameTable writes a rename_table DSL call.
@@ -1106,7 +1108,7 @@ func (c *Client) writeRenameTable(sb *strings.Builder, op *ast.RenameTable) {
 		oldRef = op.Namespace + "." + op.OldName
 		newRef = op.Namespace + "." + op.NewName
 	}
-	sb.WriteString(fmt.Sprintf("  m.rename_table(\"%s\", \"%s\")\n", oldRef, newRef))
+	sb.WriteString(fmt.Sprintf("    m.rename_table(\"%s\", \"%s\")\n", oldRef, newRef))
 }
 
 // writeRenameColumn writes a rename_column DSL call.
@@ -1115,7 +1117,7 @@ func (c *Client) writeRenameColumn(sb *strings.Builder, op *ast.RenameColumn) {
 	if op.Namespace != "" {
 		ref = op.Namespace + "." + op.Table_
 	}
-	sb.WriteString(fmt.Sprintf("  m.rename_column(\"%s\", \"%s\", \"%s\")\n", ref, op.OldName, op.NewName))
+	sb.WriteString(fmt.Sprintf("    m.rename_column(\"%s\", \"%s\", \"%s\")\n", ref, op.OldName, op.NewName))
 }
 
 // writeAddColumn writes an add_column DSL call.
@@ -1126,7 +1128,7 @@ func (c *Client) writeAddColumn(sb *strings.Builder, op *ast.AddColumn) {
 	}
 
 	dslMethod := typeToDSLMethod(op.Column.Type)
-	sb.WriteString(fmt.Sprintf("  m.add_column(\"%s\", c => c.%s(\"%s\"", ref, dslMethod, op.Column.Name))
+	sb.WriteString(fmt.Sprintf("    m.add_column(\"%s\", c => c.%s(\"%s\"", ref, dslMethod, op.Column.Name))
 
 	// Add type args
 	for _, arg := range op.Column.TypeArgs {
@@ -1188,7 +1190,7 @@ func (c *Client) writeDropColumn(sb *strings.Builder, op *ast.DropColumn) {
 	if op.Namespace != "" {
 		ref = op.Namespace + "." + op.Table_
 	}
-	sb.WriteString(fmt.Sprintf("  m.drop_column(\"%s\", \"%s\")\n", ref, op.Name))
+	sb.WriteString(fmt.Sprintf("    m.drop_column(\"%s\", \"%s\")\n", ref, op.Name))
 }
 
 // writeCreateIndex writes a create_index DSL call.
@@ -1203,7 +1205,7 @@ func (c *Client) writeCreateIndex(sb *strings.Builder, op *ast.CreateIndex) {
 		cols[i] = fmt.Sprintf("\"%s\"", col)
 	}
 
-	sb.WriteString(fmt.Sprintf("  m.create_index(\"%s\", [%s]", ref, strings.Join(cols, ", ")))
+	sb.WriteString(fmt.Sprintf("    m.create_index(\"%s\", [%s]", ref, strings.Join(cols, ", ")))
 
 	if op.Unique || op.Name != "" {
 		sb.WriteString(", {")
@@ -1223,7 +1225,7 @@ func (c *Client) writeCreateIndex(sb *strings.Builder, op *ast.CreateIndex) {
 
 // writeDropIndex writes a drop_index DSL call.
 func (c *Client) writeDropIndex(sb *strings.Builder, op *ast.DropIndex) {
-	sb.WriteString(fmt.Sprintf("  m.drop_index(\"%s\")\n", op.Name))
+	sb.WriteString(fmt.Sprintf("    m.drop_index(\"%s\")\n", op.Name))
 }
 
 // writeAlterColumn writes an alter_column DSL call.
@@ -1233,7 +1235,7 @@ func (c *Client) writeAlterColumn(sb *strings.Builder, op *ast.AlterColumn) {
 		ref = op.Namespace + "." + op.Table_
 	}
 
-	sb.WriteString(fmt.Sprintf("  m.alter_column(\"%s\", \"%s\", c => c", ref, op.Name))
+	sb.WriteString(fmt.Sprintf("    m.alter_column(\"%s\", \"%s\", c => c", ref, op.Name))
 
 	if op.NewType != "" {
 		dslMethod := typeToDSLMethod(op.NewType)
@@ -1295,7 +1297,7 @@ func (c *Client) writeAddForeignKey(sb *strings.Builder, op *ast.AddForeignKey) 
 		refCols[i] = fmt.Sprintf("\"%s\"", col)
 	}
 
-	sb.WriteString(fmt.Sprintf("  m.add_foreign_key(\"%s\", [%s], \"%s\", [%s]",
+	sb.WriteString(fmt.Sprintf("    m.add_foreign_key(\"%s\", [%s], \"%s\", [%s]",
 		ref, strings.Join(cols, ", "), op.RefTable, strings.Join(refCols, ", ")))
 
 	// Add options if present
@@ -1322,7 +1324,7 @@ func (c *Client) writeDropForeignKey(sb *strings.Builder, op *ast.DropForeignKey
 	if op.Namespace != "" {
 		ref = op.Namespace + "." + op.Table_
 	}
-	sb.WriteString(fmt.Sprintf("  m.drop_foreign_key(\"%s\", \"%s\")\n", ref, op.Name))
+	sb.WriteString(fmt.Sprintf("    m.drop_foreign_key(\"%s\", \"%s\")\n", ref, op.Name))
 }
 
 // dryRunMigrations outputs the SQL that would be executed without running it.
