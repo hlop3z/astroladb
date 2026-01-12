@@ -4,6 +4,7 @@ package runtime
 
 import (
 	"io"
+	"log/slog"
 	"math/rand"
 	"os"
 	"sort"
@@ -449,8 +450,14 @@ func (s *Sandbox) parseColumnDef(obj any) *ast.ColumnDef {
 		col.PrimaryKey = pk
 	}
 	if def, exists := m["default"]; exists {
+		slog.Debug("parseColumnDef: found default in map",
+			"column", name,
+			"default", def)
 		col.Default = s.convertValue(def)
 		col.DefaultSet = true
+	} else {
+		slog.Debug("parseColumnDef: NO default in map",
+			"column", name)
 	}
 	if backfill, exists := m["backfill"]; exists {
 		col.Backfill = s.convertValue(backfill)

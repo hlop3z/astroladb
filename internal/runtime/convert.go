@@ -2,6 +2,8 @@
 package runtime
 
 import (
+	"log/slog"
+
 	"github.com/hlop3z/astroladb/internal/ast"
 )
 
@@ -37,8 +39,14 @@ func (c *ColumnConverter) ToAST(col *ColumnDef) *ast.ColumnDef {
 
 	// Set default if present
 	if col.Default != nil {
+		slog.Debug("convert: column has default",
+			"column", col.Name,
+			"default", col.Default)
 		astCol.Default = c.convertValue(col.Default)
 		astCol.DefaultSet = true
+	} else {
+		slog.Debug("convert: column has NO default",
+			"column", col.Name)
 	}
 
 	// Set backfill if present

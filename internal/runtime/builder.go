@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"log/slog"
 	"strings"
 
 	"github.com/dop251/goja"
@@ -1183,6 +1184,11 @@ func (tc *TableChain) ToResult() goja.Value {
 // Helper functions for converting defs to maps (used by both TableBuilder and TableChain)
 
 func columnDefToMap(col *ColumnDef) map[string]any {
+	slog.Debug("columnDefToMap: converting column",
+		"name", col.Name,
+		"type", col.Type,
+		"default", col.Default)
+
 	m := map[string]any{
 		"name":     col.Name,
 		"type":     col.Type,
@@ -1199,7 +1205,13 @@ func columnDefToMap(col *ColumnDef) map[string]any {
 		m["primary_key"] = true
 	}
 	if col.Default != nil {
+		slog.Debug("columnDefToMap: adding default to map",
+			"column", col.Name,
+			"default", col.Default)
 		m["default"] = col.Default
+	} else {
+		slog.Debug("columnDefToMap: NO default for column",
+			"column", col.Name)
 	}
 	if col.Backfill != nil {
 		m["backfill"] = col.Backfill

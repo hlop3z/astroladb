@@ -1030,16 +1030,17 @@ func (c *Client) writeColumn(sb *strings.Builder, col *ast.ColumnDef) {
 	if col.Unique {
 		call.WriteString(".unique()")
 	}
+	// Handle default values (same internal type handling as in writeAddColumn)
 	if col.DefaultSet {
 		switch v := col.Default.(type) {
 		case bool:
 			call.WriteString(fmt.Sprintf(".default(%t)", v))
 		case int:
 			call.WriteString(fmt.Sprintf(".default(%d)", v))
-		case int64:
+		case int64: // Internal: JavaScript numbers from Goja
 			call.WriteString(fmt.Sprintf(".default(%d)", v))
-		case float64:
-			// Check if it's actually an integer
+		case float64: // Internal: JavaScript numbers from Goja
+			// Check if it's actually an integer (write without decimal point)
 			if v == float64(int64(v)) {
 				call.WriteString(fmt.Sprintf(".default(%d)", int64(v)))
 			} else {
@@ -1151,26 +1152,47 @@ func (c *Client) writeAddColumn(sb *strings.Builder, op *ast.AddColumn) {
 		sb.WriteString(".unique()")
 	}
 	if op.Column.DefaultSet {
+		// IMPORTANT: int64 and float64 here are INTERNAL Go types from Goja's JavaScript engine.
+		// Users NEVER write these types in schemas or migrations (see CONTRIBUTING.md).
+		// The actual schema DSL only exposes JS-safe types: integer() for 32-bit, decimal() for precision.
+		// When JavaScript passes default values like `0` or `4.5` through Goja, they arrive as
+		// int64/float64 in Go. We convert them back to JavaScript literals for the migration file.
 		switch v := op.Column.Default.(type) {
 		case bool:
 			sb.WriteString(fmt.Sprintf(".default(%t)", v))
 		case int:
 			sb.WriteString(fmt.Sprintf(".default(%d)", v))
-		case float64:
-			sb.WriteString(fmt.Sprintf(".default(%v)", v))
+		case int64: // Internal: JavaScript numbers come through Goja as int64
+			sb.WriteString(fmt.Sprintf(".default(%d)", v))
+		case float64: // Internal: JavaScript numbers come through Goja as float64
+			// Check if it's actually an integer (write without decimal point)
+			if v == float64(int64(v)) {
+				sb.WriteString(fmt.Sprintf(".default(%d)", int64(v)))
+			} else {
+				sb.WriteString(fmt.Sprintf(".default(%v)", v))
+			}
 		case string:
 			sb.WriteString(fmt.Sprintf(".default(\"%s\")", v))
+		case *ast.SQLExpr: // SQL expressions like NOW(), CURRENT_TIMESTAMP, etc.
+			sb.WriteString(fmt.Sprintf(".default(sql(\"%s\"))", v.Expr))
 		}
 	}
 	// Add backfill for existing rows
+	// Same internal type handling as default values (see comment above)
 	if op.Column.BackfillSet {
 		switch v := op.Column.Backfill.(type) {
 		case bool:
 			sb.WriteString(fmt.Sprintf(".backfill(%t)", v))
 		case int:
 			sb.WriteString(fmt.Sprintf(".backfill(%d)", v))
-		case float64:
-			sb.WriteString(fmt.Sprintf(".backfill(%v)", v))
+		case int64: // Internal: JavaScript numbers come through Goja as int64
+			sb.WriteString(fmt.Sprintf(".backfill(%d)", v))
+		case float64: // Internal: JavaScript numbers come through Goja as float64
+			if v == float64(int64(v)) {
+				sb.WriteString(fmt.Sprintf(".backfill(%d)", int64(v)))
+			} else {
+				sb.WriteString(fmt.Sprintf(".backfill(%v)", v))
+			}
 		case string:
 			// Check if it's a sql() expression
 			if strings.HasPrefix(v, "sql(") {
@@ -1178,6 +1200,8 @@ func (c *Client) writeAddColumn(sb *strings.Builder, op *ast.AddColumn) {
 			} else {
 				sb.WriteString(fmt.Sprintf(".backfill(\"%s\")", v))
 			}
+		case *ast.SQLExpr:
+			sb.WriteString(fmt.Sprintf(".backfill(sql(\"%s\"))", v.Expr))
 		}
 	}
 
