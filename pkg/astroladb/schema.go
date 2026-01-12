@@ -256,6 +256,7 @@ func (c *Client) SchemaDiff() ([]ast.Operation, error) {
 	}
 
 	// Step 3: Get the current database schema via introspection (already canonical)
+	// Use the desired schema to build a table name mapping for correct namespace/table parsing
 	ctx := context.Background()
 	intro := introspect.New(c.db, c.dialect)
 	if intro == nil {
@@ -264,7 +265,9 @@ func (c *Client) SchemaDiff() ([]ast.Operation, error) {
 		}
 	}
 
-	actualSchema, err := intro.IntrospectSchema(ctx)
+	// Build mapping from desired schema to resolve namespace/table name ambiguity
+	mapping := introspect.BuildTableNameMapping(desiredSchema)
+	actualSchema, err := intro.IntrospectSchemaWithMapping(ctx, mapping)
 	if err != nil {
 		return nil, &SchemaError{
 			Message: "failed to introspect database",

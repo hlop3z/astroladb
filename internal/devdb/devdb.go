@@ -74,12 +74,14 @@ func (d *DevDatabase) NormalizeSchema(ctx context.Context, schema *engine.Schema
 	}
 
 	// Introspect dev database to get normalized form
+	// Use the input schema to build a table name mapping for correct namespace parsing
 	intro := introspect.New(d.db, d.dialect)
 	if intro == nil {
 		return nil, fmt.Errorf("failed to create introspector for dev database")
 	}
 
-	normalized, err := intro.IntrospectSchema(ctx)
+	mapping := introspect.BuildTableNameMapping(schema)
+	normalized, err := intro.IntrospectSchemaWithMapping(ctx, mapping)
 	if err != nil {
 		return nil, fmt.Errorf("failed to introspect dev database: %w", err)
 	}

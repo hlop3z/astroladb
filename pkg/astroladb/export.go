@@ -1977,7 +1977,7 @@ func exportGraphQL(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 		}
 		typeName := strutil.ToPascalCase(table.FullName())
 		fieldName := lowerFirst(typeName)
-		sb.WriteString(fmt.Sprintf("  %s(id: ID!): %s\n", fieldName, typeName))
+		sb.WriteString(fmt.Sprintf("  %s: %s\n", fieldName, typeName))
 	}
 	sb.WriteString("}\n")
 
