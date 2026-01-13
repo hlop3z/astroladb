@@ -58,7 +58,7 @@ func testTableWithFK() *ast.TableDef {
 
 func TestExportOpenAPI_BasicStructure(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{Pretty: true}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportOpenAPI(tables, cfg)
 	if err != nil {
@@ -101,7 +101,7 @@ func TestExportOpenAPI_BasicStructure(t *testing.T) {
 
 func TestExportOpenAPI_SchemaProperties(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{Pretty: true}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportOpenAPI(tables, cfg)
 	if err != nil {
@@ -159,7 +159,7 @@ func TestExportOpenAPI_SchemaProperties(t *testing.T) {
 
 func TestExportOpenAPI_XDBExtension(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{Pretty: true}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportOpenAPI(tables, cfg)
 	if err != nil {
@@ -193,7 +193,7 @@ func TestExportOpenAPI_XDBExtension(t *testing.T) {
 
 func TestExportTypeScript_BasicInterface(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportTypeScript(tables, cfg)
 	if err != nil {
@@ -231,7 +231,7 @@ func TestExportTypeScript_BasicInterface(t *testing.T) {
 
 func TestExportTypeScript_EnumUnionType(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportTypeScript(tables, cfg)
 	if err != nil {
@@ -248,7 +248,7 @@ func TestExportTypeScript_EnumUnionType(t *testing.T) {
 
 func TestExportTypeScript_AllTypes(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportTypeScript(tables, cfg)
 	if err != nil {
@@ -287,7 +287,7 @@ func TestExportTypeScript_AllTypes(t *testing.T) {
 
 func TestExportGo_BasicStruct(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportGo(tables, cfg)
 	if err != nil {
@@ -317,7 +317,7 @@ func TestExportGo_BasicStruct(t *testing.T) {
 
 func TestExportGo_NullableFields(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportGo(tables, cfg)
 	if err != nil {
@@ -339,7 +339,7 @@ func TestExportGo_NullableFields(t *testing.T) {
 
 func TestExportGo_AllTypes(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportGo(tables, cfg)
 	if err != nil {
@@ -377,7 +377,7 @@ func TestExportGo_AllTypes(t *testing.T) {
 
 func TestExportPython_BasicDataclass(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportPython(tables, cfg)
 	if err != nil {
@@ -410,7 +410,7 @@ func TestExportPython_BasicDataclass(t *testing.T) {
 
 func TestExportPython_EnumClass(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportPython(tables, cfg)
 	if err != nil {
@@ -436,7 +436,7 @@ func TestExportPython_EnumClass(t *testing.T) {
 
 func TestExportPython_OptionalFields(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportPython(tables, cfg)
 	if err != nil {
@@ -461,7 +461,7 @@ func TestExportPython_OptionalFields(t *testing.T) {
 
 func TestExportPython_AllTypes(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportPython(tables, cfg)
 	if err != nil {
@@ -500,7 +500,7 @@ func TestExportPython_AllTypes(t *testing.T) {
 
 func TestExportRust_BasicStruct(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportRust(tables, cfg)
 	if err != nil {
@@ -530,7 +530,7 @@ func TestExportRust_BasicStruct(t *testing.T) {
 
 func TestExportRust_EnumWithSerde(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportRust(tables, cfg)
 	if err != nil {
@@ -576,7 +576,7 @@ func TestExportRust_EnumWithSerde(t *testing.T) {
 
 func TestExportRust_OptionTypes(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	data, err := exportRust(tables, cfg)
 	if err != nil {
@@ -611,7 +611,7 @@ func TestExportRust_ReservedKeywords(t *testing.T) {
 		},
 	}
 
-	cfg := &ExportConfig{}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 	data, err := exportRust([]*ast.TableDef{table}, cfg)
 	if err != nil {
 		t.Fatalf("exportRust failed: %v", err)
@@ -636,7 +636,7 @@ func TestExportRust_ReservedKeywords(t *testing.T) {
 
 func TestExportRust_AllTypes(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{} // Default: no chrono
+	cfg := &exportContext{ExportConfig: &ExportConfig{}} // Default: no chrono
 
 	data, err := exportRust(tables, cfg)
 	if err != nil {
@@ -671,7 +671,7 @@ func TestExportRust_AllTypes(t *testing.T) {
 
 func TestExportRust_WithChrono(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{UseChrono: true}
+	cfg := &exportContext{ExportConfig: &ExportConfig{UseChrono: true}}
 
 	data, err := exportRust(tables, cfg)
 	if err != nil {
@@ -708,7 +708,7 @@ func TestExportRust_WithChrono(t *testing.T) {
 
 func TestExport_EnumValuesConsistent(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{Pretty: true}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	// Get all exports
 	openapi, _ := exportOpenAPI(tables, cfg)
@@ -765,7 +765,7 @@ func TestExport_EnumValuesConsistent(t *testing.T) {
 
 func TestExport_NullableConsistent(t *testing.T) {
 	tables := []*ast.TableDef{testTable()}
-	cfg := &ExportConfig{Pretty: true}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
 
 	// Get all exports
 	openapi, _ := exportOpenAPI(tables, cfg)

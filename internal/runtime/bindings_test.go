@@ -1158,8 +1158,10 @@ func TestSandbox_BindMigration(t *testing.T) {
 
 	t.Run("drop_table operation", func(t *testing.T) {
 		code := `
-			migration(function(m) {
-				m.drop_table('auth.old_users');
+			migration({
+				up: function(m) {
+					m.drop_table('auth.old_users');
+				}
 			});
 		`
 		err := sb.Run(code)
