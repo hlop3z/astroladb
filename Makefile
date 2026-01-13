@@ -13,7 +13,20 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 # -----------------------------
 # OS detection
 # -----------------------------
-ifeq ($(OS),Windows_NT)
+# Detect if running in MINGW/Git Bash on Windows
+ifdef MSYSTEM
+	# Git Bash / MINGW on Windows - use Unix commands
+	BINARY_EXT := .exe
+	USER_BIN := $(HOME)/bin
+	MKDIR := mkdir -p
+	RM := rm -rf
+	LS := ls -la
+	GREEN := \033[0;32m
+	YELLOW := \033[0;33m
+	RED := \033[0;31m
+	NC := \033[0m
+else ifeq ($(OS),Windows_NT)
+	# Native Windows CMD
 	BINARY_EXT := .exe
 	USER_BIN := $(USERPROFILE)\bin
 	MKDIR := mkdir
@@ -24,6 +37,7 @@ ifeq ($(OS),Windows_NT)
 	RED :=
 	NC :=
 else
+	# Unix/Linux/macOS
 	BINARY_EXT :=
 	USER_BIN := $(HOME)/bin
 	MKDIR := mkdir -p
