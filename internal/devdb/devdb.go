@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/dialect"
@@ -97,19 +98,81 @@ func (d *DevDatabase) applySchema(ctx context.Context, schema *engine.Schema) er
 
 		// Execute DDL
 		if _, err := d.db.ExecContext(ctx, ddl); err != nil {
-			return fmt.Errorf("failed to execute DDL for table %s: %w\nDDL: %s", table.QualifiedName(), err, ddl)
+			return d.formatSQLError(err, "table", table.QualifiedName(), ddl)
 		}
 
 		// Create indexes
 		for _, idx := range table.Indexes {
 			idxDDL := d.generateCreateIndex(table, idx)
 			if _, err := d.db.ExecContext(ctx, idxDDL); err != nil {
-				return fmt.Errorf("failed to create index %s: %w\nDDL: %s", idx.Name, err, idxDDL)
+				return d.formatSQLError(err, "index", idx.Name, idxDDL)
 			}
 		}
 	}
 
 	return nil
+}
+
+// formatSQLError converts raw SQLite errors into user-friendly messages with actionable advice.
+func (d *DevDatabase) formatSQLError(err error, objectType, objectName, ddl string) error {
+	errMsg := err.Error()
+
+	// Detect common error patterns and provide friendly messages
+	switch {
+	case strings.Contains(errMsg, "already exists"):
+		return fmt.Errorf(
+			"duplicate %s definition detected: '%s'\n\n"+
+			"This usually means:\n"+
+			"  • The %s is defined multiple times in your schema files\n"+
+			"  • There are conflicting index definitions\n\n"+
+			"How to fix:\n"+
+			"  1. Search your schema files for duplicate definitions of '%s'\n"+
+			"  2. Remove any duplicate %s definitions\n"+
+			"  3. Run 'alab check' again\n\n"+
+			"Technical details: %s",
+			objectType, objectName,
+			objectType,
+			objectName,
+			objectType,
+			errMsg,
+		)
+
+	case strings.Contains(errMsg, "no such table"):
+		return fmt.Errorf(
+			"missing table reference in %s '%s'\n\n"+
+			"The %s references a table that doesn't exist or hasn't been created yet.\n\n"+
+			"How to fix:\n"+
+			"  1. Check that all referenced tables are defined in your schema\n"+
+			"  2. Ensure table names are spelled correctly\n"+
+			"  3. Verify that foreign key references point to existing tables\n\n"+
+			"Technical details: %s",
+			objectType, objectName,
+			objectType,
+			errMsg,
+		)
+
+	case strings.Contains(errMsg, "syntax error"):
+		return fmt.Errorf(
+			"SQL syntax error in %s '%s'\n\n"+
+			"The generated SQL has a syntax error. This is likely a bug in astroladb.\n\n"+
+			"Generated SQL:\n%s\n\n"+
+			"Technical details: %s",
+			objectType, objectName,
+			ddl,
+			errMsg,
+		)
+
+	default:
+		// Generic error with DDL for debugging
+		return fmt.Errorf(
+			"failed to create %s '%s'\n\n"+
+			"Generated SQL:\n%s\n\n"+
+			"Error: %s",
+			objectType, objectName,
+			ddl,
+			errMsg,
+		)
+	}
 }
 
 // generateCreateTable generates CREATE TABLE DDL for a table definition.
@@ -258,7 +321,7 @@ func (d *DevDatabase) generateCreateIndex(table *ast.TableDef, idx *ast.IndexDef
 		columns += d.dialect.QuoteIdent(col)
 	}
 
-	return fmt.Sprintf("CREATE %sINDEX %s ON %s (%s)",
+	return fmt.Sprintf("CREATE %sINDEX IF NOT EXISTS %s ON %s (%s)",
 		unique,
 		d.dialect.QuoteIdent(indexName),
 		d.dialect.QuoteIdent(tableName),

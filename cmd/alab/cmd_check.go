@@ -73,8 +73,9 @@ The command exits with status code 1 if validation fails or drift is detected.`,
 						"error": err.Error(),
 					})
 				} else {
-					fmt.Fprintln(os.Stderr, ui.Error("error")+": drift check failed")
-					fmt.Fprintf(os.Stderr, "  %v\n", err)
+					// Format error in a user-friendly panel
+					errorContent := formatCheckError(err)
+					fmt.Fprintln(os.Stderr, ui.RenderErrorPanel("Drift check failed", errorContent))
 				}
 				os.Exit(1)
 			}
@@ -129,9 +130,9 @@ func outputJSON(data map[string]any) {
 
 // printDriftDetails prints colored drift details.
 func printDriftDetails(result *astroladb.DriftResult) {
-	fmt.Printf("  Expected: %s\n", ui.Dim(truncateHash(result.ExpectedHash)))
-	fmt.Printf("  Actual:   %s\n", ui.Dim(truncateHash(result.ActualHash)))
-	fmt.Println()
+	// fmt.Printf("  Expected: %s\n", ui.Dim(truncateHash(result.ExpectedHash)))
+	// fmt.Printf("  Actual:   %s\n", ui.Dim(truncateHash(result.ActualHash)))
+	// fmt.Println()
 
 	printDriftSection(ui.Error("Missing tables")+" (in migrations but not in database)", "-", result.MissingTables, ui.Failed)
 	printDriftSection(ui.Warning("Extra tables")+" (in database but not in migrations)", "+", result.ExtraTables, ui.Warning)
@@ -146,8 +147,21 @@ func printDriftDetails(result *astroladb.DriftResult) {
 		fmt.Println()
 	}
 
-	fmt.Println(ui.Help("help") + ": create a migration to reconcile differences:")
-	fmt.Println("  alab new reconcile_drift")
+	// Provide context-aware help based on drift type
+	hasMissingTables := len(result.MissingTables) > 0
+	hasExtraTables := len(result.ExtraTables) > 0
+	hasTableDiffs := len(result.TableDiffs) > 0
+	onlyMissingTables := hasMissingTables && !hasExtraTables && !hasTableDiffs
+
+	if onlyMissingTables {
+		// Tables exist in migrations but not in database - need to run migrations
+		fmt.Println(ui.Help("help") + ": apply pending migrations:")
+		fmt.Println("  alab migrate")
+	} else {
+		// There's actual drift (extra tables, modified tables, etc.) - need new migration
+		fmt.Println(ui.Help("help") + ": create a migration to reconcile differences:")
+		fmt.Println("  alab new reconcile_drift")
+	}
 }
 
 // printTableDiffItems prints missing/extra/modified items for a table diff.
@@ -161,6 +175,13 @@ func printTableDiffItems(itemType string, missing, extra, modified []string) {
 	for _, item := range modified {
 		fmt.Printf("      %s %s %s\n", ui.Info("~"), itemType, item)
 	}
+}
+
+// formatCheckError formats check errors in a more readable way.
+func formatCheckError(err error) string {
+	// The error from devdb already contains helpful formatting and advice
+	// Just return it as-is since it's already well-formatted
+	return err.Error()
 }
 
 // truncateHash returns the first 12 characters of a hash.

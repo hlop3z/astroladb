@@ -1,12 +1,13 @@
 package astroladb
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -754,7 +755,41 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 	sb.WriteString("export default migration({\n")
 	sb.WriteString("  up(m) {\n")
 
+	// Track operation sections for organizing comments
+	var lastOpType string
+	hasIndexes := false
+
+	// First pass: check if we have standalone indexes
 	for _, op := range ops {
+		if _, ok := op.(*ast.CreateIndex); ok {
+			hasIndexes = true
+			break
+		}
+	}
+
+	for _, op := range ops {
+		currentOpType := getOperationType(op)
+
+		// Add section headers when switching operation types
+		if currentOpType != lastOpType && currentOpType != "" {
+			if lastOpType != "" {
+				sb.WriteString("\n")
+			}
+			switch currentOpType {
+			case "table":
+				// Don't add a section header for tables, we'll comment each table individually
+			case "index":
+				if hasIndexes {
+					sb.WriteString("    // Indexes\n")
+				}
+			case "column":
+				sb.WriteString("    // Columns\n")
+			case "foreignkey":
+				sb.WriteString("    // Foreign Keys\n")
+			}
+			lastOpType = currentOpType
+		}
+
 		switch o := op.(type) {
 		case *ast.CreateTable:
 			c.writeCreateTable(&sb, o)
@@ -850,7 +885,57 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 	sb.WriteString("  }\n")
 	sb.WriteString("})\n")
 
-	return sb.String()
+	// Beautify the generated JavaScript code
+	return beautifyJavaScript(sb.String())
+}
+
+// getOperationType returns the operation type category for section grouping.
+func getOperationType(op ast.Operation) string {
+	switch op.(type) {
+	case *ast.CreateTable, *ast.DropTable, *ast.RenameTable:
+		return "table"
+	case *ast.CreateIndex, *ast.DropIndex:
+		return "index"
+	case *ast.AddColumn, *ast.DropColumn, *ast.RenameColumn, *ast.AlterColumn:
+		return "column"
+	case *ast.AddForeignKey, *ast.DropForeignKey:
+		return "foreignkey"
+	default:
+		return ""
+	}
+}
+
+// beautifyJavaScript formats JavaScript code using Prettier for professional-quality formatting.
+// It tries to use npx prettier, and falls back to unformatted code if Prettier is unavailable.
+func beautifyJavaScript(code string) string {
+	// Try to format with prettier via npx
+	cmd := exec.Command("npx", "--yes", "prettier@latest",
+		"--parser", "babel",
+		"--tab-width", "2",
+		"--no-semi",
+		"--single-quote=false",
+		"--trailing-comma", "none",
+		"--arrow-parens", "avoid",
+		"--print-width", "80")
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdin = strings.NewReader(code)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		// Notify user that Prettier is not available
+		fmt.Fprintln(os.Stderr, "⚠️  Warning: Prettier not found. Migration generated without formatting.")
+		fmt.Fprintln(os.Stderr, "   To enable beautiful formatting, install Node.js from: https://nodejs.org")
+		fmt.Fprintln(os.Stderr, "   Or run: npm install -g prettier")
+		fmt.Fprintln(os.Stderr)
+
+		// Return unformatted code - migration will still work
+		return code
+	}
+
+	return stdout.String()
 }
 
 // writeCreateTable writes a create_table DSL call.
@@ -860,10 +945,12 @@ func (c *Client) writeCreateTable(sb *strings.Builder, op *ast.CreateTable) {
 		ref = op.Namespace + "." + op.Name
 	}
 
+	// Add table comment
+	sb.WriteString(fmt.Sprintf("\n    // Table: %s\n", ref))
 	sb.WriteString(fmt.Sprintf("    m.create_table(\"%s\", t => {\n", ref))
 
 	// Sort columns: id first, timestamps last, others alphabetically
-	sortedColumns := c.sortColumnsForDisplay(op.Columns)
+	sortedColumns := c.sortColumnsForDatabase(op.Columns)
 
 	// Track which columns to skip (for timestamps detection)
 	skip := make(map[int]bool)
@@ -911,58 +998,6 @@ func (c *Client) writeCreateTable(sb *strings.Builder, op *ast.CreateTable) {
 	}
 }
 
-// sortColumnsForDisplay sorts columns for migration display:
-// 1. id/primary key first
-// 2. Other columns alphabetically
-// 3. timestamps (created_at, updated_at) last
-func (c *Client) sortColumnsForDisplay(columns []*ast.ColumnDef) []*ast.ColumnDef {
-	if len(columns) == 0 {
-		return columns
-	}
-
-	// Make a copy to avoid modifying the original
-	sorted := make([]*ast.ColumnDef, len(columns))
-	copy(sorted, columns)
-
-	// Sort using custom ordering
-	sort.SliceStable(sorted, func(i, j int) bool {
-		col1, col2 := sorted[i], sorted[j]
-
-		// Priority 1: id/primary key columns first
-		if col1.PrimaryKey && !col2.PrimaryKey {
-			return true
-		}
-		if !col1.PrimaryKey && col2.PrimaryKey {
-			return false
-		}
-
-		// Priority 2: timestamp columns last
-		isTimestamp1 := col1.Name == "created_at" || col1.Name == "updated_at" || col1.Name == "deleted_at"
-		isTimestamp2 := col2.Name == "created_at" || col2.Name == "updated_at" || col2.Name == "deleted_at"
-
-		if isTimestamp1 && !isTimestamp2 {
-			return false
-		}
-		if !isTimestamp1 && isTimestamp2 {
-			return true
-		}
-
-		// Priority 3: created_at before updated_at before deleted_at
-		if isTimestamp1 && isTimestamp2 {
-			order := map[string]int{
-				"created_at": 1,
-				"updated_at": 2,
-				"deleted_at": 3,
-			}
-			return order[col1.Name] < order[col2.Name]
-		}
-
-		// Priority 4: alphabetically by name
-		return col1.Name < col2.Name
-	})
-
-	return sorted
-}
 
 // typeToDSLMethod converts internal type names to DSL method names.
 // Some internal types have different names than their DSL methods.
@@ -1229,6 +1264,7 @@ func (c *Client) writeCreateIndex(sb *strings.Builder, op *ast.CreateIndex) {
 		cols[i] = fmt.Sprintf("\"%s\"", col)
 	}
 
+	sb.WriteString(fmt.Sprintf("    // Index: %s\n", ref))
 	sb.WriteString(fmt.Sprintf("    m.create_index(\"%s\", [%s]", ref, strings.Join(cols, ", ")))
 
 	if op.Unique || op.Name != "" {

@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
@@ -11,6 +13,8 @@ import (
 
 // initCmd creates the schemas/ and migrations/ directories.
 func initCmd() *cobra.Command {
+	var withDemo bool
+
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize project structure (creates schemas/, migrations/, types/ dirs)",
@@ -20,9 +24,14 @@ This command creates:
 - schemas/ directory for your schema definitions
 - migrations/ directory for migration files
 - types/ directory for TypeScript type definitions
-- alab.yaml configuration file (if it doesn't exist)`,
+- alab.yaml configuration file (if it doesn't exist)
+
+Use --demo to include example schemas (auth.user, auth.role, blog.post).`,
 		Example: `  # Initialize a new project
   alab init
+
+  # Initialize with demo schemas
+  alab init --demo
 
   # This creates the following structure:
   # ├── alab.yaml
@@ -81,17 +90,75 @@ This command creates:
 				created.AddSuccess(jsconfigPath)
 			}
 
+			// Copy demo schemas if --demo flag is set
+			if withDemo {
+				if err := copyDemoSchemas(cfg.SchemasDir, created); err != nil {
+					return fmt.Errorf("failed to copy demo schemas: %w", err)
+				}
+			}
+
 			// Show success panel with created files
+			nextSteps := "\nNext steps:\n  1. Edit alab.yaml to configure your database\n"
+			if withDemo {
+				nextSteps += "  2. Review demo schemas in " + cfg.SchemasDir + "/\n  3. Run 'alab new init' to create your first migration"
+			} else {
+				nextSteps += "  2. Create schema files in " + cfg.SchemasDir + "/\n  3. Run 'alab new <name>' to create your first migration"
+			}
+
 			view := ui.NewSuccessView(
 				"Project Initialized",
-				"Created:\n"+created.String()+"\n"+
-					ui.Help("\nNext steps:\n  1. Edit alab.yaml to configure your database\n  2. Create schema files in "+cfg.SchemasDir+"/\n  3. Run 'alab new <name>' to create your first migration"),
+				"Created:\n"+created.String()+"\n"+ui.Help(nextSteps),
 			)
 			fmt.Println(view.Render())
 			return nil
 		},
 	}
 
+	cmd.Flags().BoolVar(&withDemo, "demo", false, "Include demo schemas (auth.user, auth.role, blog.post)")
+
 	setupCommandHelp(cmd)
 	return cmd
+}
+
+// copyDemoSchemas copies demo schema files from embedded templates to the project's schemas directory.
+func copyDemoSchemas(schemasDir string, created *ui.List) error {
+	// Walk through all files in templates/schemas
+	return fs.WalkDir(templates, "templates/schemas", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip the root schemas directory itself
+		if path == "templates/schemas" {
+			return nil
+		}
+
+		// Get relative path from templates/schemas
+		relPath := strings.TrimPrefix(path, "templates/schemas/")
+
+		// Create full destination path
+		destPath := filepath.Join(schemasDir, relPath)
+
+		if d.IsDir() {
+			// Create directory
+			if err := os.MkdirAll(destPath, 0755); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
+			}
+		} else {
+			// Read file content from embedded FS
+			content, err := templates.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("failed to read template file %s: %w", path, err)
+			}
+
+			// Write file to destination
+			if err := os.WriteFile(destPath, content, 0644); err != nil {
+				return fmt.Errorf("failed to write file %s: %w", destPath, err)
+			}
+
+			created.AddSuccess(destPath)
+		}
+
+		return nil
+	})
 }
