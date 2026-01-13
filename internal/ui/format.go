@@ -3,44 +3,12 @@ package ui
 import (
 	"fmt"
 	"strings"
-
-	"github.com/charmbracelet/lipgloss"
+	"time"
 )
 
-// Box renders content in a bordered box with a title.
-func Box(title, content string) string {
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Border.GetForeground()).
-		Padding(0, 1)
-
-	titleRendered := theme.Header.Render(title)
-	return boxStyle.Render(titleRendered + "\n\n" + content)
-}
-
-// Section renders a section with a header and separator.
-func Section(title, content string) string {
-	header := theme.Header.Render(title)
-	separator := theme.Dim.Render(strings.Repeat("─", len(title)))
-	return lipgloss.JoinVertical(lipgloss.Left, header, separator, content)
-}
-
-// RenderTitle renders a large title with separator.
-func RenderTitle(title string) string {
-	return theme.Header.Render(title) + "\n" + theme.Dim.Render(strings.Repeat("─", len(title)))
-}
-
-// RenderSubtitle renders a subtitle (smaller than title).
-func RenderSubtitle(subtitle string) string {
-	return theme.Primary.Render(subtitle)
-}
-
-// FormatKeyValue formats a key-value pair.
-func FormatKeyValue(key, value string) string {
-	return theme.Dim.Render(key+": ") + value
-}
-
-// FormatCount formats a count with singular/plural form.
+// FormatCount formats a count with singular/plural forms.
+// Example: FormatCount(1, "file", "files") => "1 file"
+// Example: FormatCount(5, "file", "files") => "5 files"
 func FormatCount(count int, singular, plural string) string {
 	if count == 1 {
 		return fmt.Sprintf("%d %s", count, singular)
@@ -48,95 +16,64 @@ func FormatCount(count int, singular, plural string) string {
 	return fmt.Sprintf("%d %s", count, plural)
 }
 
-// Indent indents all lines in content by the given number of spaces.
-func Indent(content string, spaces int) string {
-	indent := strings.Repeat(" ", spaces)
-	lines := strings.Split(content, "\n")
+// FormatDuration formats a time.Duration in a human-readable way.
+func FormatDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%.2fs", d.Seconds())
+	}
+	if d < time.Hour {
+		minutes := int(d.Minutes())
+		seconds := int(d.Seconds()) % 60
+		return fmt.Sprintf("%dm%ds", minutes, seconds)
+	}
+
+	hours := int(d.Hours())
+	minutes := int(d.Minutes()) % 60
+	return fmt.Sprintf("%dh%dm", hours, minutes)
+}
+
+// FormatChange formats an old → new value change with colors.
+// Example: FormatChange("", "old_name", "new_name") => "old_name → new_name"
+func FormatChange(prefix, oldValue, newValue string) string {
+	arrow := Dim("→")
+	old := Red(oldValue)
+	new := Green(newValue)
+
+	if prefix != "" {
+		return fmt.Sprintf("%s %s %s %s", prefix, old, arrow, new)
+	}
+	return fmt.Sprintf("%s %s %s", old, arrow, new)
+}
+
+// Indent indents each line of text with the given number of spaces.
+func Indent(text string, spaces int) string {
+	prefix := strings.Repeat(" ", spaces)
+	lines := strings.Split(text, "\n")
 	for i, line := range lines {
 		if line != "" {
-			lines[i] = indent + line
+			lines[i] = prefix + line
 		}
 	}
 	return strings.Join(lines, "\n")
 }
 
-// padRight pads a string to the right with spaces, accounting for ANSI codes.
+// padRight pads a string to the right with spaces to reach the desired width.
 func padRight(s string, width int) string {
-	// Use lipgloss.Width to get visual width (ignoring ANSI codes)
-	visualWidth := lipgloss.Width(s)
-	if visualWidth >= width {
+	if len(s) >= width {
 		return s
 	}
-	return s + strings.Repeat(" ", width-visualWidth)
+	return s + fmt.Sprintf("%*s", width-len(s), "")
 }
 
-// Panel rendering functions.
-
-// RenderSuccessPanel renders content in a success-styled panel.
-func RenderSuccessPanel(title, content string) string {
-	panelStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Success.GetForeground()).
-		Padding(1, 2)
-
-	titleRendered := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(theme.Success.GetForeground()).
-		Render("✓ " + title)
-
-	return panelStyle.Render(titleRendered + "\n\n" + content)
+// Help returns help text with dimmed styling.
+func Help(text string) string {
+	return Dim(text)
 }
 
-// RenderWarningPanel renders content in a warning-styled panel.
-func RenderWarningPanel(title, content string) string {
-	panelStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Warning.GetForeground()).
-		Padding(1, 2)
-
-	titleRendered := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(theme.Warning.GetForeground()).
-		Render("⚠ " + title)
-
-	return panelStyle.Render(titleRendered + "\n\n" + content)
-}
-
-// RenderErrorPanel renders content in an error-styled panel.
-func RenderErrorPanel(title, content string) string {
-	panelStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Error.GetForeground()).
-		Padding(1, 2)
-
-	titleRendered := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(theme.Error.GetForeground()).
-		Render("✗ " + title)
-
-	return panelStyle.Render(titleRendered + "\n\n" + content)
-}
-
-// RenderInfoPanel renders content in an info-styled panel.
-func RenderInfoPanel(title, content string) string {
-	panelStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Info.GetForeground()).
-		Padding(1, 2)
-
-	titleRendered := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(theme.Info.GetForeground()).
-		Render("→ " + title)
-
-	return panelStyle.Render(titleRendered + "\n\n" + content)
-}
-
-// FormatError formats an error for CLI display.
-// This is a simplified version that handles common error cases.
-func FormatError(err error) string {
-	if err == nil {
-		return ""
-	}
-	return Error("error") + ": " + err.Error() + "\n"
+// Note returns note text with special formatting.
+func Note(text string) string {
+	return Dim("Note: " + text)
 }

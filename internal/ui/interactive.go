@@ -7,159 +7,135 @@ import (
 	"strings"
 )
 
-// PromptConfig configures an interactive prompt
-type PromptConfig struct {
-	Message      string
-	DefaultValue string
-	Required     bool
-	Validator    func(string) error
-}
-
-// Prompt displays a styled prompt and reads user input
-func Prompt(cfg PromptConfig) (string, error) {
+// Confirm prompts the user for yes/no confirmation.
+// Returns true if user confirms (yes/y), false otherwise.
+func Confirm(message string, defaultYes bool) bool {
 	reader := bufio.NewReader(os.Stdin)
 
-	// Format prompt message with icon and styling
-	prompt := Primary("? ") + cfg.Message
-	if cfg.DefaultValue != "" {
-		prompt += Dim(fmt.Sprintf(" (%s)", cfg.DefaultValue))
+	// Format prompt with default indicator
+	var prompt string
+	if defaultYes {
+		prompt = fmt.Sprintf("%s %s ", message, Dim("[Y/n]"))
+	} else {
+		prompt = fmt.Sprintf("%s %s ", message, Dim("[y/N]"))
 	}
-	prompt += Primary(": ")
 
 	fmt.Print(prompt)
 
+	// Read user input
 	input, err := reader.ReadString('\n')
 	if err != nil {
-		return "", err
+		return defaultYes
+	}
+
+	// Trim whitespace
+	input = strings.TrimSpace(strings.ToLower(input))
+
+	// Empty input uses default
+	if input == "" {
+		return defaultYes
+	}
+
+	// Check for yes/no
+	return input == "y" || input == "yes"
+}
+
+// PromptConfig configures a text prompt.
+type PromptConfig struct {
+	Message      string // Prompt message
+	DefaultValue string // Default value (shown if user presses enter)
+	Required     bool   // Whether input is required
+	Validate     func(string) error // Optional validation function
+}
+
+// Prompt prompts the user for text input with configuration.
+func Prompt(config PromptConfig) (string, error) {
+	reader := bufio.NewReader(os.Stdin)
+
+	// Format prompt with default value if provided
+	var prompt string
+	if config.DefaultValue != "" {
+		prompt = fmt.Sprintf("%s %s: ", config.Message, Dim(fmt.Sprintf("[%s]", config.DefaultValue)))
+	} else {
+		prompt = fmt.Sprintf("%s: ", config.Message)
+	}
+
+	for {
+		fmt.Print(prompt)
+
+		// Read user input
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return "", err
+		}
+
+		// Trim whitespace
+		input = strings.TrimSpace(input)
+
+		// Use default if empty
+		if input == "" && config.DefaultValue != "" {
+			input = config.DefaultValue
+		}
+
+		// Check if required
+		if input == "" && config.Required {
+			fmt.Println(Error("Input is required"))
+			continue
+		}
+
+		// Validate if validator provided
+		if config.Validate != nil {
+			if err := config.Validate(input); err != nil {
+				fmt.Println(Error(err.Error()))
+				continue
+			}
+		}
+
+		return input, nil
+	}
+}
+
+// PromptSelect prompts the user to select from a list of options.
+func PromptSelect(message string, options []string, defaultIndex int) (int, error) {
+	reader := bufio.NewReader(os.Stdin)
+
+	// Show message
+	fmt.Println(message)
+	fmt.Println()
+
+	// Show options
+	for i, option := range options {
+		marker := " "
+		if i == defaultIndex {
+			marker = "▸"
+		}
+		fmt.Printf("  %s %d) %s\n", Dim(marker), i+1, option)
+	}
+	fmt.Println()
+
+	// Prompt for selection
+	prompt := fmt.Sprintf("Select option %s: ", Dim(fmt.Sprintf("[1-%d]", len(options))))
+	fmt.Print(prompt)
+
+	// Read input
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return defaultIndex, err
 	}
 
 	input = strings.TrimSpace(input)
 
 	// Use default if empty
-	if input == "" && cfg.DefaultValue != "" {
-		input = cfg.DefaultValue
-	}
-
-	// Validate required
-	if cfg.Required && input == "" {
-		return "", fmt.Errorf("input is required")
-	}
-
-	// Run custom validator
-	if cfg.Validator != nil {
-		if err := cfg.Validator(input); err != nil {
-			return "", err
-		}
-	}
-
-	return input, nil
-}
-
-// Confirm displays a yes/no confirmation dialog
-func Confirm(message string, defaultYes bool) bool {
-	var suffix string
-	if defaultYes {
-		suffix = Dim(" (Y/n)")
-	} else {
-		suffix = Dim(" (y/N)")
-	}
-
-	fmt.Print(Warning("? ") + message + suffix + Primary(": "))
-
-	var input string
-	fmt.Scanln(&input)
-
-	input = strings.ToLower(strings.TrimSpace(input))
-
 	if input == "" {
-		return defaultYes
+		return defaultIndex, nil
 	}
 
-	return input == "y" || input == "yes"
-}
-
-// Select displays a menu selection prompt
-func Select(message string, options []string) (int, string, error) {
-	fmt.Println(Primary("? ") + message)
-	fmt.Println()
-
-	for i, opt := range options {
-		fmt.Printf("  %s %s\n", Dim(fmt.Sprintf("%d.", i+1)), opt)
+	// Parse selection
+	var selection int
+	_, err = fmt.Sscanf(input, "%d", &selection)
+	if err != nil || selection < 1 || selection > len(options) {
+		return defaultIndex, fmt.Errorf("invalid selection")
 	}
 
-	fmt.Println()
-	fmt.Print(Primary("Select: "))
-
-	var choice int
-	_, err := fmt.Scanln(&choice)
-	if err != nil {
-		return -1, "", err
-	}
-
-	if choice < 1 || choice > len(options) {
-		return -1, "", fmt.Errorf("invalid selection: must be between 1 and %d", len(options))
-	}
-
-	return choice - 1, options[choice-1], nil
-}
-
-// ProgressReporter shows real-time progress for long-running operations
-type ProgressReporter struct {
-	Total   int
-	Current int
-	Message string
-}
-
-// NewProgressReporter creates a new progress reporter
-func NewProgressReporter(total int) *ProgressReporter {
-	return &ProgressReporter{
-		Total:   total,
-		Current: 0,
-	}
-}
-
-// Update updates the progress and re-renders
-func (p *ProgressReporter) Update(current int, message string) {
-	p.Current = current
-	p.Message = message
-	p.render()
-}
-
-// render renders the progress bar
-func (p *ProgressReporter) render() {
-	if p.Total == 0 {
-		return
-	}
-
-	percent := float64(p.Current) / float64(p.Total) * 100
-	barWidth := 20
-	filled := int(percent / 100 * float64(barWidth))
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
-
-	// Clear line and render
-	fmt.Printf("\r  %s %s %s %.0f%% %s",
-		Dim("["),
-		Success(bar),
-		Dim("]"),
-		percent,
-		p.Message,
-	)
-}
-
-// Done marks the progress as complete
-func (p *ProgressReporter) Done(message string) {
-	// Clear progress line
-	fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
-
-	// Print done message
-	fmt.Printf("  %s %s\n", Done("✓"), message)
-}
-
-// Fail marks the progress as failed
-func (p *ProgressReporter) Fail(message string) {
-	// Clear progress line
-	fmt.Print("\r" + strings.Repeat(" ", 80) + "\r")
-
-	// Print failure message
-	fmt.Printf("  %s %s\n", Failed("✗"), message)
+	return selection - 1, nil
 }
