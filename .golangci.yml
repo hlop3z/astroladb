@@ -1,0 +1,50 @@
+# https://golangci-lint.run/docs/welcome/install/local/
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  allow-parallel-runners: true
+  concurrency: 4
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-use-default: true
+
+  exclude-rules:
+    # Ignore test files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - dupl
+        - funlen
+        - unused
+
+    # Ignore generated code
+    - path: ".*\\.pb\\.go$"
+    - path: ".*\\.mock\\.go$"
+
+linters:
+  default: none
+  enable:
+    # Core correctness - the most important checks
+    - govet
+    - ineffassign
+
+    # Code quality
+    - dupl
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+
+  dupl:
+    threshold: 150
