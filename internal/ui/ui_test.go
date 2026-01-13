@@ -1,369 +1,302 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/gdamore/tcell/v2"
 )
 
-// TestStyles verifies that all style functions work correctly.
-func TestStyles(t *testing.T) {
+// ===========================================================================
+// Color Tests
+// ===========================================================================
+
+func TestColorize(t *testing.T) {
 	tests := []struct {
 		name     string
-		fn       func(string) string
-		input    string
+		text     string
+		color    tcell.Color
 		contains string
 	}{
-		{"Primary", Primary, "test", "test"},
-		{"Success", Success, "test", "test"},
-		{"Error", Error, "test", "test"},
-		{"Warning", Warning, "test", "test"},
-		{"Info", Info, "test", "test"},
-		{"Dim", Dim, "test", "test"},
-		{"Header", Header, "test", "test"},
-		{"Done", Done, "test", "✓"},
-		{"Failed", Failed, "test", "✗"},
-		{"Progress", Progress, "test", "test"},
+		{"red text", "error", tcell.ColorRed, "\033[31m"},
+		{"green text", "success", tcell.ColorGreen, "\033[32m"},
+		{"blue text", "info", tcell.ColorBlue, "\033[34m"},
+		{"yellow text", "warning", tcell.ColorYellow, "\033[33m"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := tt.fn(tt.input)
-			if !strings.Contains(output, tt.contains) {
-				t.Errorf("%s() output %q does not contain %q", tt.name, output, tt.contains)
+			result := Colorize(tt.text, tt.color)
+			if !strings.Contains(result, tt.contains) {
+				t.Errorf("Colorize(%q, %v) should contain %q", tt.text, tt.color, tt.contains)
+			}
+			if !strings.Contains(result, tt.text) {
+				t.Errorf("Colorize should contain original text %q", tt.text)
+			}
+			if !strings.HasSuffix(result, "\033[0m") {
+				t.Error("Colorize should end with reset sequence")
 			}
 		})
 	}
 }
 
-// TestTable verifies table rendering.
-func TestTable(t *testing.T) {
-	table := NewTable("Name", "Status", "Count")
-	table.AddRow("Migration 001", "Applied", "5")
-	table.AddRow("Migration 002", "Pending", "3")
-
-	output := table.String()
-
-	// Verify headers are present
-	if !strings.Contains(output, "Name") {
-		t.Error("Table output missing 'Name' header")
-	}
-	if !strings.Contains(output, "Status") {
-		t.Error("Table output missing 'Status' header")
-	}
-	if !strings.Contains(output, "Count") {
-		t.Error("Table output missing 'Count' header")
-	}
-
-	// Verify row data is present
-	if !strings.Contains(output, "Migration 001") {
-		t.Error("Table output missing 'Migration 001'")
-	}
-	if !strings.Contains(output, "Applied") {
-		t.Error("Table output missing 'Applied'")
-	}
-	if !strings.Contains(output, "Pending") {
-		t.Error("Table output missing 'Pending'")
+func TestColorize_UnknownColor(t *testing.T) {
+	// Use a color not in the basic 16-color map
+	result := Colorize("test", tcell.ColorTeal)
+	if result != "test" {
+		t.Errorf("Colorize with unmapped color should return original text, got %q", result)
 	}
 }
 
-// TestEmptyTable verifies empty table handling.
-func TestEmptyTable(t *testing.T) {
-	table := NewTable()
-	output := table.String()
+// ===========================================================================
+// Format Tests
+// ===========================================================================
 
-	if output != "" {
-		t.Errorf("Empty table should return empty string, got: %q", output)
+func TestSuccess(t *testing.T) {
+	result := Success("test message")
+	if !strings.Contains(result, "test message") {
+		t.Error("Success should contain the message")
 	}
 }
 
-// TestTablePadding verifies table handles different row lengths.
-func TestTablePadding(t *testing.T) {
-	table := NewTable("A", "B", "C")
-	table.AddRow("1", "2") // Only 2 cells, should pad with empty string
-
-	output := table.String()
-	if !strings.Contains(output, "1") {
-		t.Error("Table output missing padded row data")
+func TestError(t *testing.T) {
+	result := Error("test error")
+	if !strings.Contains(result, "test error") {
+		t.Error("Error should contain the message")
 	}
 }
 
-// TestList verifies list rendering.
-func TestList(t *testing.T) {
-	list := NewList()
-	list.Add("Normal item")
-	list.AddSuccess("Success item")
-	list.AddError("Error item")
-	list.AddWarning("Warning item")
-	list.AddInfo("Info item")
-
-	output := list.String()
-
-	// Verify markers and content
-	if !strings.Contains(output, "Normal item") {
-		t.Error("List missing normal item")
-	}
-	if !strings.Contains(output, "Success item") {
-		t.Error("List missing success item")
-	}
-	if !strings.Contains(output, "✓") {
-		t.Error("List missing success marker")
-	}
-	if !strings.Contains(output, "✗") {
-		t.Error("List missing error marker")
-	}
-	if !strings.Contains(output, "!") {
-		t.Error("List missing warning marker")
-	}
-	if !strings.Contains(output, "→") {
-		t.Error("List missing info marker")
+func TestWarning(t *testing.T) {
+	result := Warning("test warning")
+	if !strings.Contains(result, "test warning") {
+		t.Error("Warning should contain the message")
 	}
 }
 
-// TestFormatKeyValue verifies key-value formatting.
-func TestFormatKeyValue(t *testing.T) {
-	output := FormatKeyValue("revision", "001")
-
-	if !strings.Contains(output, "revision") {
-		t.Error("FormatKeyValue missing key")
-	}
-	if !strings.Contains(output, "001") {
-		t.Error("FormatKeyValue missing value")
-	}
-	if !strings.Contains(output, ":") {
-		t.Error("FormatKeyValue missing colon separator")
+func TestInfo(t *testing.T) {
+	result := Info("test info")
+	if !strings.Contains(result, "test info") {
+		t.Error("Info should contain the message")
 	}
 }
 
-// TestFormatCount verifies count formatting with singular/plural.
-func TestFormatCount(t *testing.T) {
-	tests := []struct {
-		count    int
-		singular string
-		plural   string
-		expected string
-	}{
-		{1, "item", "items", "1 item"},
-		{0, "item", "items", "0 items"},
-		{5, "item", "items", "5 items"},
-		{1, "migration", "migrations", "1 migration"},
-		{3, "migration", "migrations", "3 migrations"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.expected, func(t *testing.T) {
-			output := FormatCount(tt.count, tt.singular, tt.plural)
-			if output != tt.expected {
-				t.Errorf("FormatCount(%d, %q, %q) = %q, want %q",
-					tt.count, tt.singular, tt.plural, output, tt.expected)
-			}
-		})
+func TestDim(t *testing.T) {
+	result := Dim("dim text")
+	if !strings.Contains(result, "dim text") {
+		t.Error("Dim should contain the text")
 	}
 }
 
-// TestIndent verifies indentation.
-func TestIndent(t *testing.T) {
-	input := "line1\nline2\nline3"
-	output := Indent(input, 4)
+func TestBold(t *testing.T) {
+	result := Bold("bold text")
+	if !strings.Contains(result, "bold text") {
+		t.Error("Bold should contain the text")
+	}
+	if !strings.Contains(result, "\033[1m") {
+		t.Error("Bold should contain bold ANSI sequence")
+	}
+}
 
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		if line != "" && !strings.HasPrefix(line, "    ") {
-			t.Errorf("Line not indented correctly: %q", line)
+// ===========================================================================
+// WrapText Tests
+// ===========================================================================
+
+func TestWrapText_ShortText(t *testing.T) {
+	result := wrapText("short", 40)
+	if len(result) != 1 {
+		t.Errorf("Short text should not wrap, got %d lines", len(result))
+	}
+	if result[0] != "short" {
+		t.Errorf("wrapText should return original text, got %q", result[0])
+	}
+}
+
+func TestWrapText_LongText(t *testing.T) {
+	text := "This is a very long line that should be wrapped into multiple lines"
+	result := wrapText(text, 20)
+	if len(result) < 2 {
+		t.Errorf("Long text should wrap, got %d lines", len(result))
+	}
+	for i, line := range result {
+		if len(line) > 20 {
+			t.Errorf("Line %d exceeds width: %q (len=%d)", i, line, len(line))
 		}
 	}
 }
 
-// TestBox verifies box rendering.
-func TestBox(t *testing.T) {
-	output := Box("Title", "Content goes here")
-
-	if !strings.Contains(output, "Title") {
-		t.Error("Box missing title")
-	}
-	if !strings.Contains(output, "Content goes here") {
-		t.Error("Box missing content")
+func TestWrapText_ZeroWidth(t *testing.T) {
+	result := wrapText("test", 0)
+	if len(result) != 1 || result[0] != "test" {
+		t.Error("Zero width should return original text")
 	}
 }
 
-// TestSection verifies section rendering.
-func TestSection(t *testing.T) {
-	output := Section("Section Title", "Section content")
-
-	if !strings.Contains(output, "Section Title") {
-		t.Error("Section missing title")
-	}
-	if !strings.Contains(output, "Section content") {
-		t.Error("Section missing content")
-	}
-	if !strings.Contains(output, "─") {
-		t.Error("Section missing separator")
+func TestWrapText_NegativeWidth(t *testing.T) {
+	result := wrapText("test", -5)
+	if len(result) != 1 || result[0] != "test" {
+		t.Error("Negative width should return original text")
 	}
 }
 
-// TestRenderTitle verifies title rendering.
-func TestRenderTitle(t *testing.T) {
-	output := RenderTitle("My Title")
-
-	if !strings.Contains(output, "My Title") {
-		t.Error("RenderTitle missing title text")
-	}
-	if !strings.Contains(output, "─") {
-		t.Error("RenderTitle missing separator")
+func TestWrapText_NoSpaces(t *testing.T) {
+	text := "verylongwordwithoutanyspaces"
+	result := wrapText(text, 10)
+	if len(result) == 0 {
+		t.Error("wrapText should return at least one line")
 	}
 }
 
-// TestThemeCustomization verifies theme can be customized.
-func TestThemeCustomization(t *testing.T) {
-	// Save original theme
-	original := GetTheme()
-	defer SetTheme(original)
+// ===========================================================================
+// Component Tests
+// ===========================================================================
 
-	// Set custom theme
-	customTheme := DefaultTheme()
-	SetTheme(customTheme)
-
-	// Verify we can get it back
-	retrieved := GetTheme()
-	if retrieved != customTheme {
-		t.Error("Theme customization failed")
+func TestBadge(t *testing.T) {
+	result := Badge("success", BadgeSuccess)
+	if !strings.Contains(result, "success") {
+		t.Errorf("Badge should contain the text")
 	}
 }
 
-// TestPadRight verifies right padding.
-func TestPadRight(t *testing.T) {
-	tests := []struct {
-		input  string
-		width  int
-		output string
-	}{
-		{"abc", 5, "abc  "},
-		{"hello", 5, "hello"},
-		{"hi", 10, "hi        "},
-		{"", 3, "   "},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			output := padRight(tt.input, tt.width)
-			if output != tt.output {
-				t.Errorf("padRight(%q, %d) = %q, want %q",
-					tt.input, tt.width, output, tt.output)
-			}
-			if len(output) != tt.width {
-				t.Errorf("padRight(%q, %d) length = %d, want %d",
-					tt.input, tt.width, len(output), tt.width)
-			}
-		})
+func TestHeader(t *testing.T) {
+	result := Header("Test Header")
+	if !strings.Contains(result, "Test Header") {
+		t.Error("Header should contain the title")
 	}
 }
 
-// TestColorAliases verifies color alias functions.
-func TestColorAliases(t *testing.T) {
-	tests := []struct {
-		name string
-		fn   func(string) string
-	}{
-		{"Green", Green},
-		{"Yellow", Yellow},
-		{"Red", Red},
-		{"Cyan", Cyan},
-		{"Bold", Bold},
-		{"Muted", Muted},
-	}
+// ===========================================================================
+// Panel Tests
+// ===========================================================================
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			output := tt.fn("test")
-			if !strings.Contains(output, "test") {
-				t.Errorf("%s() output %q does not contain %q", tt.name, output, "test")
-			}
-		})
+func TestRenderSuccessPanel(t *testing.T) {
+	result := RenderSuccessPanel("Success", "Operation completed")
+	if !strings.Contains(result, "Success") {
+		t.Error("Panel should contain title")
+	}
+	if !strings.Contains(result, "Operation completed") {
+		t.Error("Panel should contain content")
 	}
 }
 
-// TestBadges verifies badge rendering functions.
-func TestBadges(t *testing.T) {
-	tests := []struct {
-		name     string
-		fn       func() string
-		contains string
-	}{
-		{"Applied", RenderAppliedBadge, "Applied"},
-		{"Pending", RenderPendingBadge, "Pending"},
-		{"Error", RenderErrorBadge, "Error"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			output := tt.fn()
-			if !strings.Contains(output, tt.contains) {
-				t.Errorf("%s badge output %q does not contain %q", tt.name, output, tt.contains)
-			}
-		})
+func TestRenderErrorPanel(t *testing.T) {
+	result := RenderErrorPanel("Error", "Something went wrong")
+	if !strings.Contains(result, "Error") {
+		t.Error("Panel should contain title")
 	}
 }
 
-// TestRenderSubtitle verifies subtitle rendering.
-func TestRenderSubtitle(t *testing.T) {
-	output := RenderSubtitle("My Subtitle")
-
-	if !strings.Contains(output, "My Subtitle") {
-		t.Error("RenderSubtitle missing subtitle text")
+func TestRenderInfoPanel(t *testing.T) {
+	result := RenderInfoPanel("Info", "Information message")
+	if !strings.Contains(result, "Info") {
+		t.Error("Panel should contain title")
 	}
 }
 
-// TestPanels verifies panel rendering functions.
-func TestPanels(t *testing.T) {
-	tests := []struct {
-		name     string
-		fn       func(string, string) string
-		title    string
-		content  string
-		marker   string
-	}{
-		{"Success", RenderSuccessPanel, "Success Title", "Content", "✓"},
-		{"Warning", RenderWarningPanel, "Warning Title", "Content", "⚠"},
-		{"Error", RenderErrorPanel, "Error Title", "Content", "✗"},
-		{"Info", RenderInfoPanel, "Info Title", "Content", "→"},
-	}
+// ===========================================================================
+// List Tests
+// ===========================================================================
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			output := tt.fn(tt.title, tt.content)
-			if !strings.Contains(output, tt.title) {
-				t.Errorf("%s panel missing title", tt.name)
-			}
-			if !strings.Contains(output, tt.content) {
-				t.Errorf("%s panel missing content", tt.name)
-			}
-			if !strings.Contains(output, tt.marker) {
-				t.Errorf("%s panel missing marker %q", tt.name, tt.marker)
-			}
-		})
+func TestList(t *testing.T) {
+	list := NewList()
+	list.Add("Item 1")
+	list.Add("Item 2")
+	list.Add("Item 3")
+
+	result := list.String()
+	if !strings.Contains(result, "Item 1") {
+		t.Error("List should contain Item 1")
+	}
+	if !strings.Contains(result, "Item 2") {
+		t.Error("List should contain Item 2")
 	}
 }
 
-// TestFormatError verifies error formatting.
-func TestFormatError(t *testing.T) {
-	tests := []struct {
-		name string
-		err  error
-		want string
-	}{
-		{"Nil", nil, ""},
-		{"Generic", fmt.Errorf("something went wrong"), "error"},
+func TestList_WithStatus(t *testing.T) {
+	list := NewList()
+	list.AddSuccess("Success item")
+	list.AddError("Error item")
+
+	result := list.String()
+	if !strings.Contains(result, "Success item") {
+		t.Error("List should contain success item")
+	}
+	if !strings.Contains(result, "Error item") {
+		t.Error("List should contain error item")
+	}
+}
+
+// ===========================================================================
+// Grid Tests
+// ===========================================================================
+
+func TestGrid(t *testing.T) {
+	grid := NewGrid("Key", "Value", 40, 15)
+	grid.AddRow("Name", "Test")
+	grid.AddRow("Version", "1.0.0")
+
+	result := grid.String()
+	if !strings.Contains(result, "Name") {
+		t.Error("Grid should contain Name key")
+	}
+	if !strings.Contains(result, "Test") {
+		t.Error("Grid should contain Test value")
+	}
+}
+
+// ===========================================================================
+// Table Tests
+// ===========================================================================
+
+func TestTable(t *testing.T) {
+	table := NewTable("Col1", "Col2", "Col3")
+	table.AddRow("A", "B", "C")
+	table.AddRow("D", "E", "F")
+
+	result := table.Render()
+	if result == nil {
+		t.Error("Table.Render() should not return nil")
+	}
+}
+
+// ===========================================================================
+// Theme Tests
+// ===========================================================================
+
+func TestTheme(t *testing.T) {
+	if Theme.Success == 0 {
+		t.Error("Theme.Success should be defined")
+	}
+	if Theme.Error == 0 {
+		t.Error("Theme.Error should be defined")
+	}
+	if Theme.Warning == 0 {
+		t.Error("Theme.Warning should be defined")
+	}
+	if Theme.Info == 0 {
+		t.Error("Theme.Info should be defined")
+	}
+	if Theme.Primary == 0 {
+		t.Error("Theme.Primary should be defined")
+	}
+}
+
+// ===========================================================================
+// Context Tests
+// ===========================================================================
+
+func TestContextView(t *testing.T) {
+	ctx := &ContextView{
+		Pairs: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			output := FormatError(tt.err)
-			if tt.want == "" && output != "" {
-				t.Errorf("FormatError(%v) = %q, want empty string", tt.err, output)
-			}
-			if tt.want != "" && !strings.Contains(output, tt.want) {
-				t.Errorf("FormatError(%v) output %q does not contain %q", tt.err, output, tt.want)
-			}
-		})
+	result := ctx.String()
+	if !strings.Contains(result, "key1") {
+		t.Error("Context should contain key1")
+	}
+	if !strings.Contains(result, "value1") {
+		t.Error("Context should contain value1")
 	}
 }
