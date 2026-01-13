@@ -160,11 +160,18 @@ func (c *Client) MigrationRun(opts ...MigrationOption) error {
 		return c.dryRunMigrations(ctx, plan, cfg.Output)
 	}
 
-	// Execute the plan
-	if err := c.runner.Run(ctx, plan); err != nil {
+	// Execute the plan (with or without locking)
+	var execErr error
+	if cfg.SkipLock {
+		execErr = c.runner.Run(ctx, plan)
+	} else {
+		execErr = c.runner.RunWithLock(ctx, plan, cfg.LockTimeout)
+	}
+
+	if execErr != nil {
 		return &MigrationError{
 			Operation: "execute migrations",
-			Cause:     err,
+			Cause:     execErr,
 		}
 	}
 
@@ -247,11 +254,18 @@ func (c *Client) MigrationRollback(steps int, opts ...MigrationOption) error {
 		return c.dryRunMigrations(ctx, plan, cfg.Output)
 	}
 
-	// Execute the rollback
-	if err := c.runner.Run(ctx, plan); err != nil {
+	// Execute the rollback (with or without locking)
+	var execErr error
+	if cfg.SkipLock {
+		execErr = c.runner.Run(ctx, plan)
+	} else {
+		execErr = c.runner.RunWithLock(ctx, plan, cfg.LockTimeout)
+	}
+
+	if execErr != nil {
 		return &MigrationError{
 			Operation: "execute rollback",
-			Cause:     err,
+			Cause:     execErr,
 		}
 	}
 
@@ -450,6 +464,76 @@ func (c *Client) MigrationPlan() (*engine.Plan, error) {
 
 	// Create execution plan
 	return engine.PlanMigrations(migrations, applied, "", engine.Up)
+}
+
+// -----------------------------------------------------------------------------
+// Migration Lock Management
+// -----------------------------------------------------------------------------
+
+// MigrationLockInfo contains information about the current migration lock state.
+type MigrationLockInfo struct {
+	// Locked indicates whether the lock is currently held.
+	Locked bool
+
+	// LockedAt is when the lock was acquired (nil if not locked).
+	LockedAt *time.Time
+
+	// LockedBy identifies which process holds the lock (hostname:pid).
+	LockedBy string
+}
+
+// MigrationLockStatus returns the current state of the migration lock.
+// Use this to check if another process is running migrations.
+func (c *Client) MigrationLockStatus() (*MigrationLockInfo, error) {
+	ctx, cancel := c.context()
+	defer cancel()
+
+	// Ensure lock table exists
+	if err := c.runner.VersionManager().EnsureLockTable(ctx); err != nil {
+		return nil, &MigrationError{
+			Operation: "ensure lock table",
+			Cause:     err,
+		}
+	}
+
+	info, err := c.runner.VersionManager().GetLockInfo(ctx)
+	if err != nil {
+		return nil, &MigrationError{
+			Operation: "get lock info",
+			Cause:     err,
+		}
+	}
+
+	if info == nil {
+		return &MigrationLockInfo{Locked: false}, nil
+	}
+
+	return &MigrationLockInfo{
+		Locked:   info.Locked,
+		LockedAt: info.LockedAt,
+		LockedBy: info.LockedBy,
+	}, nil
+}
+
+// MigrationReleaseLock forcefully releases a stuck migration lock.
+// Use this only to recover from stuck locks when a process crashed
+// while holding the lock.
+//
+// WARNING: Only use this when you are certain no other migration is running.
+// Forcefully releasing an active lock can cause concurrent migrations.
+func (c *Client) MigrationReleaseLock() error {
+	ctx, cancel := c.context()
+	defer cancel()
+
+	if err := c.runner.VersionManager().ForceReleaseLock(ctx); err != nil {
+		return &MigrationError{
+			Operation: "release lock",
+			Cause:     err,
+		}
+	}
+
+	c.log("Migration lock released")
+	return nil
 }
 
 // LintPendingMigrations checks pending migrations for destructive operations.

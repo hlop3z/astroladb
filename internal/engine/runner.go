@@ -52,6 +52,36 @@ func (r *Runner) Run(ctx context.Context, plan *Plan) error {
 	return nil
 }
 
+// RunWithLock executes all migrations in the plan with distributed locking.
+// This prevents concurrent migration execution across multiple processes.
+// The lock is automatically released after execution (success or failure).
+//
+// Parameters:
+//   - lockTimeout: Maximum time to wait for lock acquisition (0 = default 30s)
+//
+// This is the recommended method for production deployments.
+func (r *Runner) RunWithLock(ctx context.Context, plan *Plan, lockTimeout time.Duration) error {
+	if plan.IsEmpty() {
+		return nil
+	}
+
+	// Acquire the migration lock
+	if err := r.versions.AcquireLock(ctx, lockTimeout); err != nil {
+		return err
+	}
+
+	// Ensure lock is released when done (success or failure)
+	defer func() {
+		// Use background context for release in case ctx is cancelled
+		releaseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		r.versions.ReleaseLock(releaseCtx)
+	}()
+
+	// Run the migrations
+	return r.Run(ctx, plan)
+}
+
 // RunDryRun returns the SQL that would be executed without actually running it.
 // Useful for review before applying migrations.
 func (r *Runner) RunDryRun(ctx context.Context, plan *Plan) ([]string, error) {

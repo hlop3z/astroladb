@@ -13,7 +13,8 @@ import (
 
 // migrateCmd applies pending migrations.
 func migrateCmd() *cobra.Command {
-	var dryRun, force, confirmDestroy, commit bool
+	var dryRun, force, confirmDestroy, commit, skipLock bool
+	var lockTimeout time.Duration
 
 	cmd := &cobra.Command{
 		Use:   "migrate",
@@ -21,7 +22,8 @@ func migrateCmd() *cobra.Command {
 		Long: `Apply pending migrations to the database.
 
 Safety features: Git integration checks uncommitted changes, destructive operations require confirmation,
-and dry run mode previews SQL without executing. Use --commit to auto-commit after successful migration.`,
+dry run mode previews SQL without executing, and distributed locking prevents concurrent migrations.
+Use --commit to auto-commit after successful migration.`,
 		Example: `  # Apply all pending migrations with confirmation
   alab migrate
 
@@ -35,7 +37,13 @@ and dry run mode previews SQL without executing. Use --commit to auto-commit aft
   alab migrate --force
 
   # Apply migrations that include DROP operations
-  alab migrate --confirm-destroy`,
+  alab migrate --confirm-destroy
+
+  # Skip distributed locking (CI environments)
+  alab migrate --skip-lock
+
+  # Set custom lock timeout
+  alab migrate --lock-timeout 60s`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
@@ -163,6 +171,12 @@ and dry run mode previews SQL without executing. Use --commit to auto-commit aft
 			if force {
 				opts = append(opts, astroladb.Force())
 			}
+			if skipLock {
+				opts = append(opts, astroladb.SkipLock())
+			}
+			if lockTimeout > 0 {
+				opts = append(opts, astroladb.LockTimeout(lockTimeout))
+			}
 
 			// Apply migrations with timing
 			start := time.Now()
@@ -200,6 +214,8 @@ and dry run mode previews SQL without executing. Use --commit to auto-commit aft
 	cmd.Flags().BoolVar(&force, "force", false, "Skip safety warnings")
 	cmd.Flags().BoolVar(&confirmDestroy, "confirm-destroy", false, "Confirm DROP operations")
 	cmd.Flags().BoolVar(&commit, "commit", false, "Auto-commit migration files to git")
+	cmd.Flags().BoolVar(&skipLock, "skip-lock", false, "Skip distributed locking (use in CI)")
+	cmd.Flags().DurationVar(&lockTimeout, "lock-timeout", 0, "Lock acquisition timeout (default 30s)")
 
 	setupCommandHelp(cmd)
 	return cmd

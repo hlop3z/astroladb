@@ -177,6 +177,7 @@ func main() {
 		resetCmd(),
 		verifyCmd(),
 		httpCmd(),
+		lockCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

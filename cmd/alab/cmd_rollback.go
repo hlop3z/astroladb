@@ -13,7 +13,8 @@ import (
 
 // rollbackCmd rolls back migrations.
 func rollbackCmd() *cobra.Command {
-	var dryRun, commit bool
+	var dryRun, commit, skipLock bool
+	var lockTimeout time.Duration
 
 	cmd := &cobra.Command{
 		Use:   "rollback [steps]",
@@ -38,7 +39,10 @@ after a successful rollback.`,
   alab rollback 3
 
   # Preview rollback SQL without executing (dry run)
-  alab rollback 2 --dry`,
+  alab rollback 2 --dry
+
+  # Skip distributed locking (CI environments)
+  alab rollback --skip-lock`,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
@@ -113,6 +117,12 @@ after a successful rollback.`,
 			if dryRun {
 				opts = append(opts, astroladb.DryRunTo(os.Stdout))
 			}
+			if skipLock {
+				opts = append(opts, astroladb.SkipLock())
+			}
+			if lockTimeout > 0 {
+				opts = append(opts, astroladb.LockTimeout(lockTimeout))
+			}
 
 			// Execute rollback with timing
 			start := time.Now()
@@ -147,6 +157,8 @@ after a successful rollback.`,
 
 	cmd.Flags().BoolVar(&dryRun, "dry", false, "Print SQL without executing")
 	cmd.Flags().BoolVar(&commit, "commit", false, "Auto-commit migration files to git")
+	cmd.Flags().BoolVar(&skipLock, "skip-lock", false, "Skip distributed locking (use in CI)")
+	cmd.Flags().DurationVar(&lockTimeout, "lock-timeout", 0, "Lock acquisition timeout (default 30s)")
 
 	setupCommandHelp(cmd)
 	return cmd

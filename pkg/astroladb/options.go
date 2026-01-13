@@ -133,6 +133,15 @@ type MigrationConfig struct {
 	// Force skips chain integrity verification.
 	// Use with caution - this can lead to inconsistent state.
 	Force bool
+
+	// SkipLock disables distributed locking for migrations.
+	// Use in CI environments where you're certain only one runner exists.
+	// Default: false (locking is enabled by default)
+	SkipLock bool
+
+	// LockTimeout is the maximum time to wait for the migration lock.
+	// Default: 30 seconds
+	LockTimeout time.Duration
 }
 
 // MigrationOption is a functional option for migration operations.
@@ -177,6 +186,28 @@ func Steps(n int) MigrationOption {
 func Force() MigrationOption {
 	return func(c *MigrationConfig) {
 		c.Force = true
+	}
+}
+
+// SkipLock disables distributed locking for migrations.
+// Use in CI environments where you're certain only one migration runner exists.
+//
+// WARNING: Without locking, concurrent migration attempts may cause conflicts.
+// Only use this when you control the execution environment (e.g., CI pipelines).
+func SkipLock() MigrationOption {
+	return func(c *MigrationConfig) {
+		c.SkipLock = true
+	}
+}
+
+// LockTimeout sets the maximum time to wait for the migration lock.
+// Default is 30 seconds if not specified.
+//
+// If the lock is not acquired within this timeout, the migration fails with
+// an error indicating which process currently holds the lock.
+func LockTimeout(d time.Duration) MigrationOption {
+	return func(c *MigrationConfig) {
+		c.LockTimeout = d
 	}
 }
 
