@@ -1,0 +1,21 @@
+# https://github.com/evilmartians/lefthook
+# Install: go install github.com/evilmartians/lefthook@latest
+# Setup:   lefthook install
+
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: gofmt -l -w {staged_files}
+      stage_fixed: true
+
+    golangci-lint:
+      glob: "*.go"
+      run: golangci-lint run --fix {staged_files}
+      stage_fixed: true
+
+pre-push:
+  commands:
+    test:
+      run: go test -race ./...

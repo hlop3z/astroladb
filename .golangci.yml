@@ -1,4 +1,4 @@
-# https://golangci-lint.run/docs/welcome/install/local/
+# https://golangci-lint.run/usage/configuration/
 version: "2"
 
 run:
@@ -8,23 +8,24 @@ run:
   concurrency: 4
 
 output:
-  format: colored-line-number
+  formats:
+    - format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
 
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-use-default: true
 
   exclude-rules:
-    # Ignore test files
+    # Relax rules for test files
     - path: _test\.go
       linters:
-        - gocyclo
+        - errcheck
+        - gosec
         - dupl
         - funlen
-        - unused
+        - gocyclo
 
     # Ignore generated code
     - path: ".*\\.pb\\.go$"
@@ -33,18 +34,44 @@ issues:
 linters:
   default: none
   enable:
-    # Core correctness - the most important checks
-    - govet
-    - ineffassign
+    # Correctness - catch real bugs
+    - govet           # Reports suspicious constructs
+    - staticcheck     # Comprehensive static analysis
+    - errcheck        # Unchecked errors (critical for Go)
+    - ineffassign     # Useless assignments
+    - unused          # Unused code
+
+    # Simplification
+    - gosimple        # Simplify code
+
+    # Security
+    - gosec           # Security problems
 
     # Code quality
-    - dupl
+    - dupl            # Code duplication
+    - gofmt           # Formatting
+    - goimports       # Import organization
 
 linters-settings:
   govet:
     enable-all: true
     disable:
-      - fieldalignment
+      - fieldalignment  # Too noisy, minor optimization
+
+  staticcheck:
+    checks: ["all"]
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: false  # Allow _ = err for intentional ignores
+
+  gosec:
+    excludes:
+      - G104  # Unhandled errors (errcheck handles this)
+      - G304  # File path from variable (common in CLI tools)
 
   dupl:
     threshold: 150
+
+  goimports:
+    local-prefixes: github.com/hlop3z/astroladb

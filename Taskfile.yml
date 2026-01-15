@@ -56,11 +56,33 @@ tasks:
   lint:
     desc: Run golangci-lint
     cmds:
-      - echo "Linting..."
-      - golangci-lint run
+      - golangci-lint run ./...
+
+  vuln:
+    desc: Run govulncheck for security vulnerabilities
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  check:
+    desc: Run all checks (lint + vuln + test)
+    cmds:
+      - task: lint
+      - task: vuln
+      - task: test
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test -race ./...
+
+  setup:
+    desc: Install dev tools (lefthook, golangci-lint)
+    cmds:
+      - go install github.com/evilmartians/lefthook@latest
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - lefthook install
 
   clean:
     desc: Remove build artifacts
     cmds:
-      - echo "Cleaning..."
       - rm -rf {{.BUILD_DIR}}

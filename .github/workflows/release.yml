@@ -73,8 +73,8 @@ jobs:
 
           echo "Version: $(grep VERSION $GITHUB_OUTPUT | cut -d= -f2)"
 
-  test:
-    name: Test
+  check:
+    name: Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -89,11 +89,19 @@ jobs:
           cache: true
 
       - name: Run tests
-        run: go test -v ./...
+        run: go test -race ./...
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+      - name: Run govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
   build:
     name: Build ${{ matrix.os }}-${{ matrix.arch }}
-    needs: [version, test]
+    needs: [version, check]
     runs-on: ubuntu-latest
     strategy:
       matrix:
