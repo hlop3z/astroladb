@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
+
+	"github.com/hlop3z/astroladb/internal/ui"
 )
 
 // resetCmd drops all tables and re-runs migrations.

@@ -9,11 +9,12 @@ import (
 	"fmt"
 	"strings"
 
+	_ "modernc.org/sqlite"
+
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/dialect"
 	"github.com/hlop3z/astroladb/internal/engine"
 	"github.com/hlop3z/astroladb/internal/introspect"
-	_ "modernc.org/sqlite"
 )
 
 // DevDatabase represents an ephemeral database used for schema normalization.
@@ -122,14 +123,14 @@ func (d *DevDatabase) formatSQLError(err error, objectType, objectName, ddl stri
 	case strings.Contains(errMsg, "already exists"):
 		return fmt.Errorf(
 			"duplicate %s definition detected: '%s'\n\n"+
-			"This usually means:\n"+
-			"  • The %s is defined multiple times in your schema files\n"+
-			"  • There are conflicting index definitions\n\n"+
-			"How to fix:\n"+
-			"  1. Search your schema files for duplicate definitions of '%s'\n"+
-			"  2. Remove any duplicate %s definitions\n"+
-			"  3. Run 'alab check' again\n\n"+
-			"Technical details: %s",
+				"This usually means:\n"+
+				"  • The %s is defined multiple times in your schema files\n"+
+				"  • There are conflicting index definitions\n\n"+
+				"How to fix:\n"+
+				"  1. Search your schema files for duplicate definitions of '%s'\n"+
+				"  2. Remove any duplicate %s definitions\n"+
+				"  3. Run 'alab check' again\n\n"+
+				"Technical details: %s",
 			objectType, objectName,
 			objectType,
 			objectName,
@@ -140,12 +141,12 @@ func (d *DevDatabase) formatSQLError(err error, objectType, objectName, ddl stri
 	case strings.Contains(errMsg, "no such table"):
 		return fmt.Errorf(
 			"missing table reference in %s '%s'\n\n"+
-			"The %s references a table that doesn't exist or hasn't been created yet.\n\n"+
-			"How to fix:\n"+
-			"  1. Check that all referenced tables are defined in your schema\n"+
-			"  2. Ensure table names are spelled correctly\n"+
-			"  3. Verify that foreign key references point to existing tables\n\n"+
-			"Technical details: %s",
+				"The %s references a table that doesn't exist or hasn't been created yet.\n\n"+
+				"How to fix:\n"+
+				"  1. Check that all referenced tables are defined in your schema\n"+
+				"  2. Ensure table names are spelled correctly\n"+
+				"  3. Verify that foreign key references point to existing tables\n\n"+
+				"Technical details: %s",
 			objectType, objectName,
 			objectType,
 			errMsg,
@@ -154,9 +155,9 @@ func (d *DevDatabase) formatSQLError(err error, objectType, objectName, ddl stri
 	case strings.Contains(errMsg, "syntax error"):
 		return fmt.Errorf(
 			"SQL syntax error in %s '%s'\n\n"+
-			"The generated SQL has a syntax error. This is likely a bug in astroladb.\n\n"+
-			"Generated SQL:\n%s\n\n"+
-			"Technical details: %s",
+				"The generated SQL has a syntax error. This is likely a bug in astroladb.\n\n"+
+				"Generated SQL:\n%s\n\n"+
+				"Technical details: %s",
 			objectType, objectName,
 			ddl,
 			errMsg,
@@ -166,8 +167,8 @@ func (d *DevDatabase) formatSQLError(err error, objectType, objectName, ddl stri
 		// Generic error with DDL for debugging
 		return fmt.Errorf(
 			"failed to create %s '%s'\n\n"+
-			"Generated SQL:\n%s\n\n"+
-			"Error: %s",
+				"Generated SQL:\n%s\n\n"+
+				"Error: %s",
 			objectType, objectName,
 			ddl,
 			errMsg,

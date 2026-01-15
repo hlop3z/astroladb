@@ -5,8 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
+
+	"github.com/hlop3z/astroladb/internal/ui"
 )
 
 // metaCmd exports schema metadata to a JSON file.

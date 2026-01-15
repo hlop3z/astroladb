@@ -111,12 +111,13 @@ type TableNameMapping map[string]struct {
 // Otherwise, it falls back to naive first-underscore splitting.
 //
 // Example with mapping:
-//   mapping["my_app_users"] = {Namespace: "my_app", Name: "users"}
-//   parseTableName("my_app_users", mapping) -> ("my_app", "users")  ✓ Correct!
+//
+//	mapping["my_app_users"] = {Namespace: "my_app", Name: "users"}
+//	parseTableName("my_app_users", mapping) -> ("my_app", "users")  ✓ Correct!
 //
 // Example without mapping (fallback):
-//   parseTableName("my_app_users", nil) -> ("my", "app_users")  ✗ Wrong, but unavoidable
 //
+//	parseTableName("my_app_users", nil) -> ("my", "app_users")  ✗ Wrong, but unavoidable
 func parseTableName(sqlName string, mapping TableNameMapping) (namespace, name string) {
 	// First, try to find it in the mapping (from schema files)
 	if mapping != nil {

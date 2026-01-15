@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hlop3z/astroladb/pkg/astroladb"
 	"gopkg.in/yaml.v3"
+
+	"github.com/hlop3z/astroladb/pkg/astroladb"
 )
 
 // DatabaseConfig represents the database section of alab.yaml.

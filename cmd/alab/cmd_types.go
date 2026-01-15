@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
+
+	"github.com/hlop3z/astroladb/internal/ui"
 )
 
 // typesCmd regenerates the TypeScript definition files for IDE autocomplete.

@@ -1082,7 +1082,6 @@ func (c *Client) writeCreateTable(sb *strings.Builder, op *ast.CreateTable) {
 	}
 }
 
-
 // typeToDSLMethod converts internal type names to DSL method names.
 // Some internal types have different names than their DSL methods.
 func typeToDSLMethod(internalType string) string {

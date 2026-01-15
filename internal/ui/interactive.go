@@ -61,10 +61,10 @@ func Confirm(message string, defaultYes bool) bool {
 
 // PromptConfig configures a text prompt.
 type PromptConfig struct {
-	Message      string              // Prompt message
-	DefaultValue string              // Default value (shown if user presses enter)
-	Required     bool                // Whether input is required
-	Validate     func(string) error  // Optional validation function
+	Message      string             // Prompt message
+	DefaultValue string             // Default value (shown if user presses enter)
+	Required     bool               // Whether input is required
+	Validate     func(string) error // Optional validation function
 }
 
 // Prompt prompts the user for text input using tview InputField.

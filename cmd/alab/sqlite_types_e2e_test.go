@@ -24,7 +24,7 @@ func TestE2E_SQLite_AllColumnTypes(t *testing.T) {
 
 	// Migration with ALL column types
 	env.writeMigration(t, "001", "create_all_types_table", testutil.SimpleMigration(
-			`      m.create_table("types.all_columns", t => {
+		`      m.create_table("types.all_columns", t => {
         // Primary key
         t.id()
     
@@ -43,8 +43,8 @@ func TestE2E_SQLite_AllColumnTypes(t *testing.T) {
         t.base64("encoded_data")
         t.enum("status", ["pending", "active", "archived"])
       })`,
-			`      m.drop_table("types.all_columns")`,
-		))
+		`      m.drop_table("types.all_columns")`,
+	))
 
 	client := env.newClient(t, "sqlite://"+dbPath)
 
@@ -94,7 +94,7 @@ func TestE2E_SQLite_ColumnModifiers(t *testing.T) {
 
 	// Migration with all modifiers
 	env.writeMigration(t, "001", "create_modifiers_table", testutil.SimpleMigration(
-			`      m.create_table("test.modifiers", t => {
+		`      m.create_table("test.modifiers", t => {
         t.id()
     
         // optional() - nullable column
@@ -112,8 +112,8 @@ func TestE2E_SQLite_ColumnModifiers(t *testing.T) {
         t.string("optional_unique", 100).optional().unique()
         t.integer("optional_default").optional().default(42)
       })`,
-			`      m.drop_table("test.modifiers")`,
-		))
+		`      m.drop_table("test.modifiers")`,
+	))
 
 	client := env.newClient(t, "sqlite://"+dbPath)
 
@@ -178,7 +178,7 @@ func TestE2E_SQLite_SemanticTypes(t *testing.T) {
 
 	// Migration with semantic types
 	env.writeMigration(t, "001", "create_semantic_table", testutil.SimpleMigration(
-			`      m.create_table("user.profile", t => {
+		`      m.create_table("user.profile", t => {
         t.id()
     
         // Identity and authentication
@@ -201,8 +201,8 @@ func TestE2E_SQLite_SemanticTypes(t *testing.T) {
         t.flag("is_verified")
         t.flag("is_premium", true)
       })`,
-			`      m.drop_table("user.profile")`,
-		))
+		`      m.drop_table("user.profile")`,
+	))
 
 	client := env.newClient(t, "sqlite://"+dbPath)
 
@@ -264,7 +264,7 @@ func TestE2E_SQLite_HelperMethods(t *testing.T) {
 
 	// Migration with helper methods
 	env.writeMigration(t, "001", "create_helpers_table", testutil.SimpleMigration(
-			`      m.create_table("app.item", t => {
+		`      m.create_table("app.item", t => {
         t.id()
         t.string("name", 100)
     
@@ -273,8 +273,8 @@ func TestE2E_SQLite_HelperMethods(t *testing.T) {
         t.soft_delete()
         t.sortable()
       })`,
-			`      m.drop_table("app.item")`,
-		))
+		`      m.drop_table("app.item")`,
+	))
 
 	client := env.newClient(t, "sqlite://"+dbPath)
 
@@ -310,7 +310,7 @@ func TestE2E_SQLite_Relationships(t *testing.T) {
 
 	// Migration with relationships
 	env.writeMigration(t, "001", "create_relationship_tables", testutil.SimpleMigration(
-			`      m.create_table("auth.user", t => {
+		`      m.create_table("auth.user", t => {
         t.id()
         t.email("email")
         t.timestamps()
@@ -331,10 +331,10 @@ func TestE2E_SQLite_Relationships(t *testing.T) {
         t.belongs_to("auth.user").optional()
         t.timestamps()
       })`,
-			`      m.drop_table("blog.comment")
+		`      m.drop_table("blog.comment")
       m.drop_table("blog.post")
       m.drop_table("auth.user")`,
-		))
+	))
 
 	client := env.newClient(t, "sqlite://"+dbPath)
 
@@ -371,7 +371,7 @@ func TestE2E_SQLite_Indexes(t *testing.T) {
 
 	// Migration with various indexes
 	env.writeMigration(t, "001", "create_indexed_table", testutil.SimpleMigration(
-			`      m.create_table("catalog.product", t => {
+		`      m.create_table("catalog.product", t => {
         t.id()
         t.string("sku", 50).unique()
         t.string("name", 200)
@@ -392,10 +392,10 @@ func TestE2E_SQLite_Indexes(t *testing.T) {
     
       // Unique composite index
       m.create_index("catalog.product", ["category_id", "sku"], { unique: true, name: "idx_unique_category_sku" })`,
-			`      m.drop_index("idx_product_name")
+		`      m.drop_index("idx_product_name")
       m.drop_index("idx_unique_category_sku")
       m.drop_table("catalog.product")`,
-		))
+	))
 
 	client := env.newClient(t, "sqlite://"+dbPath)
 
@@ -420,24 +420,24 @@ func TestE2E_SQLite_AddColumn(t *testing.T) {
 
 	// Initial table
 	env.writeMigration(t, "001", "create_initial_table", testutil.SimpleMigration(
-			`      m.create_table("app.user", t => {
+		`      m.create_table("app.user", t => {
         t.id()
         t.email("email")
       })`,
-			`      m.drop_table("app.user")`,
-		))
+		`      m.drop_table("app.user")`,
+	))
 
 	// Add columns with various modifiers
 	env.writeMigration(t, "002", "add_columns", testutil.SimpleMigration(
-			`      m.add_column("app.user", c => c.string("name", 100))
+		`      m.add_column("app.user", c => c.string("name", 100))
       m.add_column("app.user", c => c.integer("age").optional())
       m.add_column("app.user", c => c.boolean("is_active").default(true))
       m.add_column("app.user", c => c.string("status", 20).default("pending"))`,
-			`      m.drop_column("app.user", "name")
+		`      m.drop_column("app.user", "name")
       m.drop_column("app.user", "age")
       m.drop_column("app.user", "is_active")
       m.drop_column("app.user", "status")`,
-		))
+	))
 
 	client := env.newClient(t, "sqlite://"+dbPath)
 
@@ -467,17 +467,17 @@ func TestE2E_SQLite_Rollback(t *testing.T) {
 	dbPath := filepath.Join(env.tmpDir, "rollback_test.db")
 
 	env.writeMigration(t, "001", "create_table", testutil.SimpleMigration(
-			`      m.create_table("test.item", t => {
+		`      m.create_table("test.item", t => {
         t.id()
         t.string("name", 100)
       })`,
-			`      m.drop_table("test.item")`,
-		))
+		`      m.drop_table("test.item")`,
+	))
 
 	env.writeMigration(t, "002", "add_column", testutil.SimpleMigration(
-			`      m.add_column("test.item", c => c.text("description").optional())`,
-			`      m.drop_column("test.item", "description")`,
-		))
+		`      m.add_column("test.item", c => c.text("description").optional())`,
+		`      m.drop_column("test.item", "description")`,
+	))
 
 	client := env.newClient(t, "sqlite://"+dbPath)
 
@@ -516,7 +516,7 @@ func TestE2E_SQLite_TableNaming(t *testing.T) {
 
 	// Migration with various namespaces
 	env.writeMigration(t, "001", "create_namespaced_tables", testutil.SimpleMigration(
-			`      m.create_table("auth.user", t => {
+		`      m.create_table("auth.user", t => {
         t.id()
         t.email("email")
       })
@@ -536,11 +536,11 @@ func TestE2E_SQLite_TableNaming(t *testing.T) {
         t.id()
         t.string("name", 200)
       })`,
-			`      m.drop_table("catalog.product")
+		`      m.drop_table("catalog.product")
       m.drop_table("blog.post")
       m.drop_table("auth.session")
       m.drop_table("auth.user")`,
-		))
+	))
 
 	client := env.newClient(t, "sqlite://"+dbPath)
 

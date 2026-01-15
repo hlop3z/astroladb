@@ -5,10 +5,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/hlop3z/astroladb/internal/git"
 	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
-	"github.com/spf13/cobra"
 )
 
 // migrateCmd applies pending migrations.

@@ -55,8 +55,8 @@ var Layout = struct {
 	SummaryHeight int
 
 	// Table column expansion (0 = no expand, 1+ = flex weight)
-	TableExpandMain   int // Main/name column expansion
-	TableExpandOther  int // Other columns expansion
+	TableExpandMain  int // Main/name column expansion
+	TableExpandOther int // Other columns expansion
 
 	// Checksum display truncation
 	ChecksumDisplayLen int

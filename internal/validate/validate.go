@@ -308,7 +308,7 @@ func SnakeCase(s string) error {
 		err := newError(ErrInvalidSnakeCase, "name must be snake_case").
 			With("got", s)
 		if suggestion != s && IsSnakeCase(suggestion) {
-			err.With("suggestion", suggestion)
+			_ = err.With("suggestion", suggestion) //nolint:errcheck
 		}
 		return err
 	}

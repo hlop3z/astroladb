@@ -6,12 +6,13 @@ import (
 	"os"
 	"testing"
 
+	_ "modernc.org/sqlite"
+
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/dialect"
 	"github.com/hlop3z/astroladb/internal/drift"
 	"github.com/hlop3z/astroladb/internal/engine"
 	"github.com/hlop3z/astroladb/internal/introspect"
-	_ "modernc.org/sqlite"
 )
 
 // TestDriftDetectionWithNormalization tests the complete drift detection flow

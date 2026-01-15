@@ -71,9 +71,14 @@ tasks:
       - task: test
 
   test:
-    desc: Run tests
+    desc: Run tests (without race detector)
     cmds:
-      - go test -race ./...
+      - go test ./...
+
+  test-race:
+    desc: Run tests with race detector (requires gcc)
+    cmds:
+      - CGO_ENABLED=1 go test -race ./...
 
   setup:
     desc: Install dev tools (lefthook, golangci-lint)

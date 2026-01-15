@@ -6,9 +6,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
-	"github.com/spf13/cobra"
 )
 
 // rollbackCmd rolls back migrations.
@@ -43,7 +44,7 @@ after a successful rollback.`,
 
   # Skip distributed locking (CI environments)
   alab rollback --skip-lock`,
-		Args:  cobra.MaximumNArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {

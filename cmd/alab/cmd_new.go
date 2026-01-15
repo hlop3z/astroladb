@@ -12,9 +12,10 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/spf13/cobra"
+
 	"github.com/hlop3z/astroladb/internal/engine"
 	"github.com/hlop3z/astroladb/internal/ui"
-	"github.com/spf13/cobra"
 )
 
 // toSnakeCase converts a string to lowercase snake_case.
@@ -65,7 +66,7 @@ Migration names are automatically normalized to snake_case and prefixed with a s
   # Migration naming (auto-normalized):
   alab new CreateUsers    # -> 001_create_users.js
   alab new add-email      # -> 002_add_email.js`,
-		Args:  cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Normalize name to lowercase snake_case
 			name := toSnakeCase(args[0])

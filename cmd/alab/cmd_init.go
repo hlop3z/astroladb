@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
+
+	"github.com/hlop3z/astroladb/internal/ui"
 )
 
 // initCmd creates the schemas/ and migrations/ directories.

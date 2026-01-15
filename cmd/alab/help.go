@@ -5,9 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/hlop3z/astroladb/internal/ui"
 )
 
 // HelpMessage represents a structured help message for error conditions.

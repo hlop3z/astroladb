@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/spf13/cobra"
+
+	"github.com/hlop3z/astroladb/internal/ui"
 )
 
 // tableCmd creates a new table schema file.

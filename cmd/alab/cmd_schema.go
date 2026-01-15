@@ -6,9 +6,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/ui"
-	"github.com/spf13/cobra"
 )
 
 // schemaCmd shows the schema at a specific migration revision.

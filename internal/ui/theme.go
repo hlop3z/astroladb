@@ -22,9 +22,9 @@ var Theme = struct {
 	Highlight  tcell.Color // For selected/focused items
 
 	// Background colors (use ColorDefault to preserve terminal bg)
-	Background      tcell.Color
-	BackgroundAlt   tcell.Color
-	BackgroundDark  tcell.Color
+	Background     tcell.Color
+	BackgroundAlt  tcell.Color
+	BackgroundDark tcell.Color
 
 	// UI element colors
 	Border      tcell.Color
@@ -33,7 +33,7 @@ var Theme = struct {
 	Selection   tcell.Color
 }{
 	// Primary colors (black and white theme, except titles)
-	Primary:   tcell.ColorBlue,  // Keep blue for title bar
+	Primary:   tcell.ColorBlue, // Keep blue for title bar
 	Secondary: tcell.ColorWhite,
 	Success:   tcell.ColorWhite,
 	Warning:   tcell.ColorWhite,

@@ -10,7 +10,6 @@ var sectionTitleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bol
 // SectionTitle renders a section title (e.g., "Global Flags", "Setup", "Schema")
 func SectionTitle(text string) string { return sectionTitleStyle.Render(text) }
 
-
 // Lipgloss styles for consistent terminal output
 var (
 	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // Green

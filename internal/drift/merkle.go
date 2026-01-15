@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cbergoon/merkletree"
+
 	"github.com/hlop3z/astroladb/internal/alerr"
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/engine"

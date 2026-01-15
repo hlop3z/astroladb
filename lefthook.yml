@@ -12,7 +12,7 @@ pre-commit:
 
     golangci-lint:
       glob: "*.go"
-      run: golangci-lint run --fix {staged_files}
+      run: golangci-lint run --fix ./...
       stage_fixed: true
 
 pre-push:

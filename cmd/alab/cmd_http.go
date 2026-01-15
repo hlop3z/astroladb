@@ -11,10 +11,11 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/cobra"
+
 	"github.com/hlop3z/astroladb/internal/alerr"
 	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
-	"github.com/spf13/cobra"
 )
 
 // SSE clients for hot reload
@@ -29,13 +30,11 @@ var (
 	shownErrorsMu sync.Mutex
 )
 
-
 // HTML template paths
 const (
-	templateSwaggerHTML  = "templates/swagger.html"
+	templateSwaggerHTML = "templates/swagger.html"
 	templateGraphQLHTML = "templates/graphiql.html"
 )
-
 
 // handleSchemaError writes a user-friendly error response and logs to console.
 func handleSchemaError(w http.ResponseWriter, err error, endpoint string) {
@@ -402,7 +401,7 @@ func watchSchemas() {
 	}
 	watchDir := cfg.SchemasDir
 
-	filepath.Walk(watchDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(watchDir, func(path string, info os.FileInfo, err error) error { //nolint:errcheck
 		if err != nil {
 			return nil
 		}
