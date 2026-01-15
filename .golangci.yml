@@ -7,11 +7,49 @@ run:
   allow-parallel-runners: true
   concurrency: 4
 
-output:
-  formats:
-    - format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
+linters:
+  default: none
+  enable:
+    # Correctness - catch real bugs
+    - govet           # Reports suspicious constructs
+    - staticcheck     # Comprehensive static analysis
+    - errcheck        # Unchecked errors (critical for Go)
+    - ineffassign     # Useless assignments
+    - unused          # Unused code
+
+    # Security
+    - gosec           # Security problems
+
+    # Code quality
+    - dupl            # Code duplication
+
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment  # Too noisy, minor optimization
+
+    errcheck:
+      check-type-assertions: true
+      check-blank: false  # Allow _ = err for intentional ignores
+
+    gosec:
+      excludes:
+        - G104  # Unhandled errors (errcheck handles this)
+        - G304  # File path from variable (common in CLI tools)
+
+    dupl:
+      threshold: 150
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/hlop3z/astroladb
 
 issues:
   max-issues-per-linter: 0
@@ -24,54 +62,7 @@ issues:
         - errcheck
         - gosec
         - dupl
-        - funlen
-        - gocyclo
 
     # Ignore generated code
     - path: ".*\\.pb\\.go$"
     - path: ".*\\.mock\\.go$"
-
-linters:
-  default: none
-  enable:
-    # Correctness - catch real bugs
-    - govet           # Reports suspicious constructs
-    - staticcheck     # Comprehensive static analysis
-    - errcheck        # Unchecked errors (critical for Go)
-    - ineffassign     # Useless assignments
-    - unused          # Unused code
-
-    # Simplification
-    - gosimple        # Simplify code
-
-    # Security
-    - gosec           # Security problems
-
-    # Code quality
-    - dupl            # Code duplication
-    - gofmt           # Formatting
-    - goimports       # Import organization
-
-linters-settings:
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment  # Too noisy, minor optimization
-
-  staticcheck:
-    checks: ["all"]
-
-  errcheck:
-    check-type-assertions: true
-    check-blank: false  # Allow _ = err for intentional ignores
-
-  gosec:
-    excludes:
-      - G104  # Unhandled errors (errcheck handles this)
-      - G304  # File path from variable (common in CLI tools)
-
-  dupl:
-    threshold: 150
-
-  goimports:
-    local-prefixes: github.com/hlop3z/astroladb
