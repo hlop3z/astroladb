@@ -1,0 +1,66 @@
+version: "3"
+
+vars:
+  BINARY_NAME: alab
+  BUILD_DIR: bin
+  CMD_DIR: ./cmd/alab
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo dev
+
+tasks:
+  default:
+    desc: Build the project
+    cmds:
+      - task: build
+
+  build:
+    desc: Build binary into ./bin
+    cmds:
+      - echo "Building {{.BINARY_NAME}} {{.VERSION}}..."
+      - mkdir -p {{.BUILD_DIR}}
+      - >
+        go build
+        -ldflags "-s -w -X main.version={{.VERSION}}"
+        -o {{.BUILD_DIR}}/{{.BINARY_NAME}}{{exeExt}}
+        {{.CMD_DIR}}
+      - echo "Build complete"
+
+  build-dev:
+    desc: Build and install dev binary to ~/bin
+    cmds:
+      - echo "Building {{.BINARY_NAME}} (dev)..."
+      - mkdir -p ~/bin
+      - go build -ldflags "-s -w -X main.version=dev" -o ~/bin/{{.BINARY_NAME}}{{exeExt}} {{.CMD_DIR}}
+      - echo "Installed to ~/bin"
+
+  release:
+    desc: Build cross-platform release binaries
+    deps: [clean]
+    cmds:
+      - echo "Building release {{.VERSION}}..."
+      - mkdir -p {{.BUILD_DIR}}
+      - GOOS=linux   GOARCH=amd64 go build -ldflags "-s -w -X main.version={{.VERSION}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-amd64 {{.CMD_DIR}}
+      - GOOS=darwin  GOARCH=amd64 go build -ldflags "-s -w -X main.version={{.VERSION}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-amd64 {{.CMD_DIR}}
+      - GOOS=darwin  GOARCH=arm64 go build -ldflags "-s -w -X main.version={{.VERSION}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-arm64 {{.CMD_DIR}}
+      - GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.version={{.VERSION}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64.exe {{.CMD_DIR}}
+      - echo "Release built"
+      - ls -la {{.BUILD_DIR}}
+
+  install:
+    desc: Install using go install
+    cmds:
+      - echo "Installing {{.BINARY_NAME}}..."
+      - go install -ldflags "-s -w -X main.version={{.VERSION}}" {{.CMD_DIR}}
+      - echo "Installed to GOPATH/bin"
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - echo "Linting..."
+      - golangci-lint run
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - echo "Cleaning..."
+      - rm -rf {{.BUILD_DIR}}
