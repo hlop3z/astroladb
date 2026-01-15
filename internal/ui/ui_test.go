@@ -3,53 +3,10 @@ package ui
 import (
 	"strings"
 	"testing"
-
-	"github.com/gdamore/tcell/v2"
 )
 
 // ===========================================================================
 // Color Tests
-// ===========================================================================
-
-func TestColorize(t *testing.T) {
-	tests := []struct {
-		name     string
-		text     string
-		color    tcell.Color
-		contains string
-	}{
-		{"red text", "error", tcell.ColorRed, "\033[31m"},
-		{"green text", "success", tcell.ColorGreen, "\033[32m"},
-		{"blue text", "info", tcell.ColorBlue, "\033[34m"},
-		{"yellow text", "warning", tcell.ColorYellow, "\033[33m"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := Colorize(tt.text, tt.color)
-			if !strings.Contains(result, tt.contains) {
-				t.Errorf("Colorize(%q, %v) should contain %q", tt.text, tt.color, tt.contains)
-			}
-			if !strings.Contains(result, tt.text) {
-				t.Errorf("Colorize should contain original text %q", tt.text)
-			}
-			if !strings.HasSuffix(result, "\033[0m") {
-				t.Error("Colorize should end with reset sequence")
-			}
-		})
-	}
-}
-
-func TestColorize_UnknownColor(t *testing.T) {
-	// Use a color not in the basic 16-color map
-	result := Colorize("test", tcell.ColorTeal)
-	if result != "test" {
-		t.Errorf("Colorize with unmapped color should return original text, got %q", result)
-	}
-}
-
-// ===========================================================================
-// Format Tests
 // ===========================================================================
 
 func TestSuccess(t *testing.T) {
@@ -57,12 +14,18 @@ func TestSuccess(t *testing.T) {
 	if !strings.Contains(result, "test message") {
 		t.Error("Success should contain the message")
 	}
+	if !strings.Contains(result, "✓") {
+		t.Error("Success should contain checkmark icon")
+	}
 }
 
 func TestError(t *testing.T) {
 	result := Error("test error")
 	if !strings.Contains(result, "test error") {
 		t.Error("Error should contain the message")
+	}
+	if !strings.Contains(result, "✗") {
+		t.Error("Error should contain X icon")
 	}
 }
 
@@ -92,57 +55,12 @@ func TestBold(t *testing.T) {
 	if !strings.Contains(result, "bold text") {
 		t.Error("Bold should contain the text")
 	}
-	if !strings.Contains(result, "\033[1m") {
-		t.Error("Bold should contain bold ANSI sequence")
-	}
 }
 
-// ===========================================================================
-// WrapText Tests
-// ===========================================================================
-
-func TestWrapText_ShortText(t *testing.T) {
-	result := wrapText("short", 40)
-	if len(result) != 1 {
-		t.Errorf("Short text should not wrap, got %d lines", len(result))
-	}
-	if result[0] != "short" {
-		t.Errorf("wrapText should return original text, got %q", result[0])
-	}
-}
-
-func TestWrapText_LongText(t *testing.T) {
-	text := "This is a very long line that should be wrapped into multiple lines"
-	result := wrapText(text, 20)
-	if len(result) < 2 {
-		t.Errorf("Long text should wrap, got %d lines", len(result))
-	}
-	for i, line := range result {
-		if len(line) > 20 {
-			t.Errorf("Line %d exceeds width: %q (len=%d)", i, line, len(line))
-		}
-	}
-}
-
-func TestWrapText_ZeroWidth(t *testing.T) {
-	result := wrapText("test", 0)
-	if len(result) != 1 || result[0] != "test" {
-		t.Error("Zero width should return original text")
-	}
-}
-
-func TestWrapText_NegativeWidth(t *testing.T) {
-	result := wrapText("test", -5)
-	if len(result) != 1 || result[0] != "test" {
-		t.Error("Negative width should return original text")
-	}
-}
-
-func TestWrapText_NoSpaces(t *testing.T) {
-	text := "verylongwordwithoutanyspaces"
-	result := wrapText(text, 10)
-	if len(result) == 0 {
-		t.Error("wrapText should return at least one line")
+func TestPrimary(t *testing.T) {
+	result := Primary("primary text")
+	if !strings.Contains(result, "primary text") {
+		t.Error("Primary should contain the text")
 	}
 }
 
@@ -176,6 +94,9 @@ func TestRenderSuccessPanel(t *testing.T) {
 	if !strings.Contains(result, "Operation completed") {
 		t.Error("Panel should contain content")
 	}
+	if !strings.Contains(result, "╭") {
+		t.Error("Panel should have rounded border")
+	}
 }
 
 func TestRenderErrorPanel(t *testing.T) {
@@ -188,6 +109,13 @@ func TestRenderErrorPanel(t *testing.T) {
 func TestRenderInfoPanel(t *testing.T) {
 	result := RenderInfoPanel("Info", "Information message")
 	if !strings.Contains(result, "Info") {
+		t.Error("Panel should contain title")
+	}
+}
+
+func TestRenderWarningPanel(t *testing.T) {
+	result := RenderWarningPanel("Warning", "Warning message")
+	if !strings.Contains(result, "Warning") {
 		t.Error("Panel should contain title")
 	}
 }

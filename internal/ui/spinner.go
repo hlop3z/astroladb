@@ -42,7 +42,7 @@ func (s *Spinner) Start() {
 			case <-ticker.C:
 				s.mu.Lock()
 				frame := s.frames[i%len(s.frames)]
-				fmt.Fprintf(s.writer, "\r%s %s", Colorize(frame, Theme.Primary), s.message)
+				fmt.Fprintf(s.writer, "\r%s %s", Primary(frame), s.message)
 				i++
 				s.mu.Unlock()
 			}

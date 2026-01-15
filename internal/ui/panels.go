@@ -1,114 +1,59 @@
 package ui
 
 import (
-	"fmt"
-	"strings"
+	"github.com/charmbracelet/lipgloss"
+)
 
-	"github.com/gdamore/tcell/v2"
+// Panel styles using lipgloss
+var (
+	// Base panel style with rounded border
+	panelStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			Padding(1, 2).
+			Width(78)
+
+	// Title styles
+	successTitleStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("10")). // Green
+				Bold(true)
+
+	errorTitleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("9")). // Red
+			Bold(true)
+
+	warningTitleStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("11")). // Yellow
+				Bold(true)
+
+	infoTitleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("12")). // Blue
+			Bold(true)
 )
 
 // RenderSuccessPanel renders a success panel with a message.
 func RenderSuccessPanel(title, content string) string {
-	return renderPanel(title, content, "✓", Theme.Success)
+	titleLine := successTitleStyle.Render("✓ " + title)
+	style := panelStyle.BorderForeground(lipgloss.Color("10"))
+	return style.Render(titleLine + "\n\n" + content)
 }
 
 // RenderErrorPanel renders an error panel with a message.
 func RenderErrorPanel(title, content string) string {
-	return renderPanel(title, content, "✗", Theme.Error)
+	titleLine := errorTitleStyle.Render("✗ " + title)
+	style := panelStyle.BorderForeground(lipgloss.Color("9"))
+	return style.Render(titleLine + "\n\n" + content)
 }
 
 // RenderWarningPanel renders a warning panel with a message.
 func RenderWarningPanel(title, content string) string {
-	return renderPanel(title, content, "⚠", Theme.Warning)
+	titleLine := warningTitleStyle.Render("⚠ " + title)
+	style := panelStyle.BorderForeground(lipgloss.Color("11"))
+	return style.Render(titleLine + "\n\n" + content)
 }
 
 // RenderInfoPanel renders an info panel with a message.
 func RenderInfoPanel(title, content string) string {
-	return renderPanel(title, content, "ℹ", Theme.Info)
-}
-
-// renderPanel renders a styled panel with title and content.
-func renderPanel(title, content, icon string, color tcell.Color) string {
-	width := 80
-	var output strings.Builder
-
-	// Top border
-	output.WriteString("╭")
-	output.WriteString(strings.Repeat("─", width-2))
-	output.WriteString("╮\n")
-
-	// Title line
-	titleText := fmt.Sprintf(" %s %s ", icon, title)
-	padding := width - len(titleText) - 2
-	output.WriteString("│")
-	output.WriteString(Colorize(titleText, color))
-	output.WriteString(strings.Repeat(" ", padding))
-	output.WriteString("│\n")
-
-	// Empty line
-	output.WriteString("│")
-	output.WriteString(strings.Repeat(" ", width-2))
-	output.WriteString("│\n")
-
-	// Content lines
-	for _, line := range strings.Split(strings.TrimRight(content, "\n"), "\n") {
-		// Wrap long lines if needed
-		if len(line) > width-4 {
-			wrapped := wrapText(line, width-4)
-			for _, wl := range wrapped {
-				output.WriteString("│ ")
-				output.WriteString(wl)
-				output.WriteString(strings.Repeat(" ", width-len(wl)-3))
-				output.WriteString(" │\n")
-			}
-		} else {
-			output.WriteString("│ ")
-			output.WriteString(line)
-			output.WriteString(strings.Repeat(" ", width-len(line)-3))
-			output.WriteString(" │\n")
-		}
-	}
-
-	// Bottom border
-	output.WriteString("╰")
-	output.WriteString(strings.Repeat("─", width-2))
-	output.WriteString("╯")
-
-	return output.String()
-}
-
-// wrapText wraps text to fit within a given width.
-func wrapText(text string, width int) []string {
-	if width <= 0 {
-		return []string{text}
-	}
-	if len(text) <= width {
-		return []string{text}
-	}
-
-	var lines []string
-	for len(text) > width {
-		// Find last space before width (start from width-1 for safety)
-		breakPoint := width
-		maxIndex := width - 1
-		if maxIndex >= len(text) {
-			maxIndex = len(text) - 1
-		}
-		for i := maxIndex; i > 0; i-- {
-			if text[i] == ' ' {
-				breakPoint = i
-				break
-			}
-		}
-		// If no space found, break at width to avoid infinite loop
-		if breakPoint > len(text) {
-			breakPoint = len(text)
-		}
-		lines = append(lines, text[:breakPoint])
-		text = strings.TrimSpace(text[breakPoint:])
-	}
-	if len(text) > 0 {
-		lines = append(lines, text)
-	}
-	return lines
+	titleLine := infoTitleStyle.Render("ℹ " + title)
+	style := panelStyle.BorderForeground(lipgloss.Color("12"))
+	return style.Render(titleLine + "\n\n" + content)
 }
