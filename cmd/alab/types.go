@@ -19,7 +19,7 @@ const (
 // These are always overwritten to ensure they stay in sync.
 func writeTypeDefinitions() error {
 	typesDir := "types"
-	if err := os.MkdirAll(typesDir, 0755); err != nil {
+	if err := os.MkdirAll(typesDir, DirPerm); err != nil {
 		return err
 	}
 
@@ -35,14 +35,14 @@ func writeTypeDefinitions() error {
 	for name, templatePath := range files {
 		content := mustReadTemplate(templatePath)
 		path := filepath.Join(typesDir, name)
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), FilePerm); err != nil {
 			return err
 		}
 	}
 
 	// Write tsconfig.json in project root for IDE support
 	jsconfigContent := mustReadTemplate(templateJSConfig)
-	if err := os.WriteFile("tsconfig.json", []byte(jsconfigContent), 0644); err != nil {
+	if err := os.WriteFile("tsconfig.json", []byte(jsconfigContent), FilePerm); err != nil {
 		return err
 	}
 

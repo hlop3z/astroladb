@@ -5,10 +5,9 @@
 // Usage:
 //
 //	alab init                    # Create schemas/ and migrations/ dirs
-//	alab check                   # Validate all schema files
-//	alab diff                    # Show diff between schema and DB
-//	alab export --format X       # Export schema (openapi, jsonschema, typescript, go)
+//	alab status                  # Browse schema, history, drift (TUI)
 //	alab schema --at <rev>       # Show schema at a specific migration revision
+//	alab export --format X       # Export schema (openapi, jsonschema, typescript, go)
 //	alab new <name>              # Create migration (auto-generates if schema has changes)
 //	alab migrate                 # Apply pending migrations
 //	alab status                  # Show applied/pending migrations
@@ -75,18 +74,12 @@ func initLogger(level string) {
 func customHelp(cmd *cobra.Command) {
 	categories := []CommandCategory{
 		{
-			Title: "Setup",
+			Title: "Development",
 			Commands: []CommandInfo{
 				{"init", "Initialize project structure (schemas/, migrations/, types/)"},
 				{"table", "Create a new table schema file"},
-			},
-		},
-		{
-			Title: "Schema Management",
-			Commands: []CommandInfo{
-				{"check", "Validate schema files and detect issues"},
-				{"diff", "Show differences between schema and database"},
-				{"schema", "Show schema at a specific migration revision"},
+				{"http", "Start local server for live API documentation"},
+				{"export", "Export schema (openapi, graphql, typescript, go, python, rust)"},
 			},
 		},
 		{
@@ -96,23 +89,15 @@ func customHelp(cmd *cobra.Command) {
 				{"migrate", "Apply pending migrations"},
 				{"rollback", "Rollback migrations (default: 1 step)"},
 				{"reset", "Drop all tables and re-run migrations (dev only)"},
-				{"status", "Show applied/pending migrations"},
-				{"history", "Show applied migrations with details"},
 			},
 		},
 		{
-			Title: "Development",
+			Title: "Toolkit",
 			Commands: []CommandInfo{
-				{"http", "Start local server for live API documentation"},
-				{"export", "Export schema (openapi, graphql, typescript, go, python, rust)"},
-				{"meta", "Export schema metadata to JSON file"},
+				{"schema", "Show schema at a specific migration revision"},
+				{"status", "Show schema, history, verify, and drift (TUI)"},
 				{"types", "Regenerate TypeScript definitions for IDE"},
-			},
-		},
-		{
-			Title: "Verification",
-			Commands: []CommandInfo{
-				{"verify", "Verify migration chain integrity and git status"},
+				{"meta", "Export schema metadata to JSON file"},
 			},
 		},
 	}
@@ -126,8 +111,8 @@ func customHelp(cmd *cobra.Command) {
 	}
 
 	renderCategoryHelp(
-		"⏳ Alab - Database Migration Tool",
-		"★  Language-agnostic database migration tool using JavaScript DSL",
+		MainTitle,
+		MainSummary,
 		categories,
 		flags,
 	)
@@ -164,18 +149,14 @@ func main() {
 		initCmd(),
 		tableCmd(),
 		typesCmd(),
-		checkCmd(),
-		diffCmd(),
 		exportCmd(),
 		metaCmd(),
 		schemaCmd(),
 		newCmd(),
 		migrateCmd(),
 		statusCmd(),
-		historyCmd(),
 		rollbackCmd(),
 		resetCmd(),
-		verifyCmd(),
 		httpCmd(),
 		lockCmd(),
 	)

@@ -49,9 +49,6 @@ var helpMessages = map[string]HelpMessage{
 			"",
 			"  2. Or create the directory manually:",
 			"     mkdir -p %s",
-			"",
-			"  3. Or specify a different location:",
-			"     alab check --schemas-dir /path/to/schemas",
 		},
 	},
 	"migrations_dir_not_found": {
@@ -254,43 +251,57 @@ func setupCategoryHelp(cmd *cobra.Command, title, subtitle string, categories []
 // renderCategoryHelp renders help with commands organized by categories.
 func renderCategoryHelp(title, subtitle string, categories []CommandCategory, flags []struct{ flag, desc string }) {
 	dividerWidth := 80
+	divider := ui.Dim(strings.Repeat("─", dividerWidth))
 
+	// Header with app title
 	fmt.Println()
-	fmt.Println(ui.Header(title, ui.Success))
+	fmt.Println(ui.SectionTitle(title))
 	fmt.Println()
-	fmt.Println(ui.Dim(subtitle))
+	// Format subtitle: yellow star + dim text
+	if strings.HasPrefix(subtitle, "★") {
+		fmt.Println(ui.Yellow("★") + ui.Dim(strings.TrimPrefix(subtitle, "★")))
+	} else {
+		fmt.Println(ui.Dim(subtitle))
+	}
 	fmt.Println()
 
 	// Flags section first
 	if len(flags) > 0 {
 		fmt.Println()
-		fmt.Println(ui.Header("Global Flags", ui.Success))
-
-		flagsGrid := ui.NewGrid("Flag", "Description", dividerWidth, 22)
+		fmt.Println(ui.SectionTitle("Global Flags"))
+		fmt.Println(divider)
+		fmt.Printf(" %s %s\n", ui.Blue(padStr("Flag", 22)), ui.Blue("Description"))
+		fmt.Println(divider)
 		for _, f := range flags {
-			flagsGrid.AddRow(f.flag, f.desc)
+			fmt.Printf(" %s %s\n", ui.Cyan(padStr(f.flag, 22)), f.desc)
 		}
-
-		fmt.Print(flagsGrid.String())
+		fmt.Println(divider)
 	}
 
 	// Display each category with commands
 	for _, cat := range categories {
 		fmt.Println()
-		fmt.Println(ui.Header(cat.Title, ui.Success))
-
-		grid := ui.NewGrid("Command", "Description", dividerWidth, 16)
-
+		fmt.Println(ui.SectionTitle(cat.Title))
+		fmt.Println(divider)
+		fmt.Printf(" %s %s\n", ui.Blue(padStr("Command", 12)), ui.Blue("Description"))
+		fmt.Println(divider)
 		for _, cmd := range cat.Commands {
-			grid.AddRow(cmd.Name, cmd.Desc)
+			fmt.Printf(" %s %s\n", ui.Yellow(padStr(cmd.Name, 12)), cmd.Desc)
 		}
-
-		fmt.Print(grid.String())
+		fmt.Println(divider)
 	}
 
 	// Footer
 	fmt.Println()
 	fmt.Println(ui.Help("Use 'alab [command] --help' for more information about a command"))
+}
+
+// padStr pads a string to a fixed width with spaces.
+func padStr(s string, width int) string {
+	if len(s) >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-len(s))
 }
 
 // renderCommandHelp renders help for a specific command.
