@@ -57,7 +57,11 @@ func (d *Detector) Detect(ctx context.Context, expected *engine.Schema) (*Result
 			With("dialect", d.dialect.Name())
 	}
 
-	actual, err := inspector.IntrospectSchema(ctx)
+	// Use the expected schema to build a table name mapping for correct namespace parsing.
+	// This ensures the actual database introspection uses the same namespace/table name
+	// conventions as the expected schema from migrations.
+	mapping := introspect.BuildTableNameMapping(expected)
+	actual, err := inspector.IntrospectSchemaWithMapping(ctx, mapping)
 	if err != nil {
 		return nil, alerr.Wrap(alerr.EInternalError, err, "failed to introspect database schema")
 	}
