@@ -52,7 +52,7 @@ Both namespace and table_name are normalized to lowercase snake_case.`,
 
 			// Create the namespace directory
 			namespaceDir := filepath.Join(cfg.SchemasDir, namespace)
-			if err := os.MkdirAll(namespaceDir, 0755); err != nil {
+			if err := os.MkdirAll(namespaceDir, DirPerm); err != nil {
 				return fmt.Errorf("failed to create namespace directory: %w", err)
 			}
 
@@ -71,7 +71,7 @@ Both namespace and table_name are normalized to lowercase snake_case.`,
 			}
 
 			// Write the file
-			if err := os.WriteFile(schemaFile, []byte(content), 0644); err != nil {
+			if err := os.WriteFile(schemaFile, []byte(content), FilePerm); err != nil {
 				return fmt.Errorf("failed to write schema file: %w", err)
 			}
 
@@ -81,12 +81,11 @@ Both namespace and table_name are normalized to lowercase snake_case.`,
 			list.AddInfo(fmt.Sprintf("Namespace: %s", ui.Primary(namespace)))
 			list.AddInfo(fmt.Sprintf("Table:     %s", ui.Primary(tableName)))
 
-			view := ui.NewSuccessView(
-				"Schema File Created",
+			ui.ShowSuccess(
+				TitleSchemaFileCreated,
 				list.String()+"\n"+
 					ui.Help("Next steps:\n  1. Edit the schema file to define columns\n  2. Run 'alab new <name>' to generate a migration"),
 			)
-			fmt.Println(view.Render())
 			return nil
 		},
 	}

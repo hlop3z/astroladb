@@ -50,7 +50,7 @@ Use --demo to include example schemas (auth.user, auth.role, blog.post).`,
 			dirs := []string{cfg.SchemasDir, cfg.MigrationsDir, "types"}
 			gitkeepDirs := []string{cfg.SchemasDir, cfg.MigrationsDir}
 			for _, dir := range dirs {
-				if err := os.MkdirAll(dir, 0755); err != nil {
+				if err := os.MkdirAll(dir, DirPerm); err != nil {
 					return fmt.Errorf("failed to create %s: %w", dir, err)
 				}
 				created.AddSuccess(dir + "/")
@@ -59,7 +59,7 @@ Use --demo to include example schemas (auth.user, auth.role, blog.post).`,
 			for _, dir := range gitkeepDirs {
 				gitkeepPath := filepath.Join(dir, ".gitkeep")
 				if _, err := os.Stat(gitkeepPath); os.IsNotExist(err) {
-					if err := os.WriteFile(gitkeepPath, []byte{}, 0644); err != nil {
+					if err := os.WriteFile(gitkeepPath, []byte{}, FilePerm); err != nil {
 						return fmt.Errorf("failed to create %s: %w", gitkeepPath, err)
 					}
 				}
@@ -68,7 +68,7 @@ Use --demo to include example schemas (auth.user, auth.role, blog.post).`,
 			// Create alab.yaml if it doesn't exist
 			if _, err := os.Stat(configFile); os.IsNotExist(err) {
 				content := mustReadTemplate("templates/alab.yaml.tmpl")
-				if err := os.WriteFile(configFile, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(configFile, []byte(content), FilePerm); err != nil {
 					return fmt.Errorf("failed to create config file: %w", err)
 				}
 				created.AddSuccess(configFile)
@@ -84,7 +84,7 @@ Use --demo to include example schemas (auth.user, auth.role, blog.post).`,
 			jsconfigPath := "tsconfig.json"
 			if _, err := os.Stat(jsconfigPath); os.IsNotExist(err) {
 				jsconfigContent := mustReadTemplate("templates/tsconfig.json.tmpl")
-				if err := os.WriteFile(jsconfigPath, []byte(jsconfigContent), 0644); err != nil {
+				if err := os.WriteFile(jsconfigPath, []byte(jsconfigContent), FilePerm); err != nil {
 					return fmt.Errorf("failed to create tsconfig.json: %w", err)
 				}
 				created.AddSuccess(jsconfigPath)
@@ -105,11 +105,10 @@ Use --demo to include example schemas (auth.user, auth.role, blog.post).`,
 				nextSteps += "  2. Create schema files in " + cfg.SchemasDir + "/\n  3. Run 'alab new <name>' to create your first migration"
 			}
 
-			view := ui.NewSuccessView(
-				"Project Initialized",
+			ui.ShowSuccess(
+				TitleProjectInitialized,
 				"Created:\n"+created.String()+"\n"+ui.Help(nextSteps),
 			)
-			fmt.Println(view.Render())
 			return nil
 		},
 	}
@@ -141,7 +140,7 @@ func copyDemoSchemas(schemasDir string, created *ui.List) error {
 
 		if d.IsDir() {
 			// Create directory
-			if err := os.MkdirAll(destPath, 0755); err != nil {
+			if err := os.MkdirAll(destPath, DirPerm); err != nil {
 				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
 			}
 		} else {
@@ -152,7 +151,7 @@ func copyDemoSchemas(schemasDir string, created *ui.List) error {
 			}
 
 			// Write file to destination
-			if err := os.WriteFile(destPath, content, 0644); err != nil {
+			if err := os.WriteFile(destPath, content, FilePerm); err != nil {
 				return fmt.Errorf("failed to write file %s: %w", destPath, err)
 			}
 

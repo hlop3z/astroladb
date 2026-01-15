@@ -53,10 +53,7 @@ Use --commit to auto-commit after successful migration.`,
 			// Show context information
 			if !dryRun {
 				// Mask database URL for security
-				dbDisplay := cfg.Database.URL
-				if len(dbDisplay) > 40 {
-					dbDisplay = dbDisplay[:40] + "..."
-				}
+				dbDisplay := MaskDatabaseURL(cfg.Database.URL)
 
 				ctx := &ui.ContextView{
 					Pairs: map[string]string{
@@ -107,24 +104,20 @@ Use --commit to auto-commit after successful migration.`,
 
 			pendingCount := 0
 			for _, s := range statuses {
-				if s.Status == "pending" {
+				if s.Status == ui.StatusPending {
 					pendingCount++
 				}
 			}
 
 			// If no pending migrations, show success and exit
 			if pendingCount == 0 {
-				view := ui.NewSuccessView(
-					"Migrations Up to Date",
-					"No pending migrations to apply",
-				)
-				fmt.Println(view.Render())
+				ui.ShowSuccess(MsgMigrationsUpToDate, MsgNoUpToDate)
 				return nil
 			}
 
 			// Show pending migrations count
 			if !dryRun {
-				fmt.Println(ui.RenderTitle("Apply Migrations"))
+				fmt.Println(ui.RenderTitle(TitleApplyMigrations))
 				fmt.Println()
 				fmt.Printf("  %s\n\n", ui.Warning(ui.FormatCount(pendingCount, "pending migration", "pending migrations")))
 			}
@@ -142,10 +135,10 @@ Use --commit to auto-commit after successful migration.`,
 					}
 
 					fmt.Println(ui.RenderWarningPanel(
-						"Destructive Operations Detected",
+						TitleDestructiveOpsDetected,
 						list.String()+"\n"+
-							ui.Note("These operations will permanently delete data\n")+
-							ui.Help("Run with --confirm-destroy to proceed"),
+							ui.Note(WarnDestructiveOps+"\n")+
+							ui.Help(HelpUseConfirmDestroy),
 					))
 					os.Exit(1)
 				}
@@ -153,10 +146,10 @@ Use --commit to auto-commit after successful migration.`,
 				// Ask for confirmation (unless dry run or force)
 				if !force {
 					if !ui.Confirm(
-						fmt.Sprintf("Apply %s?", ui.FormatCount(pendingCount, "migration", "migrations")),
+						fmt.Sprintf(PromptApplyMigrations, ui.FormatCount(pendingCount, "migration", "migrations")),
 						true,
 					) {
-						fmt.Println(ui.Dim("Migration cancelled"))
+						fmt.Println(ui.Dim(MsgMigrationCancelled))
 						return nil
 					}
 					fmt.Println()
@@ -188,13 +181,13 @@ Use --commit to auto-commit after successful migration.`,
 
 			if !dryRun {
 				// Show success with timing
-				fmt.Println(ui.RenderSuccessPanel(
-					"Migrations Applied Successfully",
+				ui.ShowSuccess(
+					TitleMigrationsApplied,
 					fmt.Sprintf("Applied %s in %s",
 						ui.FormatCount(pendingCount, "migration", "migrations"),
 						ui.FormatDuration(elapsed),
 					),
-				))
+				)
 
 				// Auto-commit migration files (optional with --commit flag)
 				if commit {
@@ -202,7 +195,7 @@ Use --commit to auto-commit after successful migration.`,
 						fmt.Fprintf(os.Stderr, "\n"+ui.Warning("Warning")+": %v\n", err)
 					} else {
 						fmt.Println()
-						fmt.Println(ui.Success("✓") + " Migration files committed to git")
+						fmt.Println(ui.Success(MsgCommittedToGit))
 					}
 				}
 			}

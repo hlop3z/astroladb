@@ -212,18 +212,17 @@ func createHTMLFile() error {
 		return fmt.Errorf("%s already exists", filename)
 	}
 
-	if err := os.WriteFile(filename, []byte(mustReadTemplate(templateSwaggerHTML)), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(mustReadTemplate(templateSwaggerHTML)), FilePerm); err != nil {
 		return fmt.Errorf("failed to create %s: %w", filename, err)
 	}
 
-	view := ui.NewSuccessView(
-		"HTML File Created",
+	ui.ShowSuccess(
+		TitleHTMLFileCreated,
 		fmt.Sprintf("Created %s\n%s",
 			ui.FilePath(filename),
-			ui.Help("Customize this file to change the Swagger UI appearance"),
+			ui.Help(HelpCustomizeSwagger),
 		),
 	)
-	fmt.Println(view.Render())
 	return nil
 }
 
@@ -358,7 +357,7 @@ func startServer(port int) error {
 	baseURL := fmt.Sprintf("http://localhost%s", addr)
 
 	// Show server info panel
-	fmt.Println(ui.RenderTitle("API Documentation Server"))
+	fmt.Println(ui.RenderTitle(TitleAPIDocServer))
 	fmt.Println()
 
 	list := ui.NewList()
@@ -414,7 +413,7 @@ func watchSchemas() {
 	})
 
 	fmt.Printf("  %s Watching %s %s\n",
-		ui.Success("✓"),
+		ui.Success(""),
 		ui.Primary(watchDir),
 		ui.Dim("(hot reload enabled)"))
 

@@ -55,14 +55,18 @@ Displays tables, columns, indexes, and foreign keys. Output formats: table (defa
 
 			// Output in the requested format
 			switch strings.ToLower(format) {
-			case "table", "":
+			case "tui", "":
+				// Default to interactive TUI
+				data := convertToStatusData(at, tables)
+				ui.ShowStatus("browse", data)
+			case "table":
 				printSchemaTable(at, tables)
 			case "json":
 				printSchemaJSON(at, tables)
 			case "sql":
 				printSchemaSQL(client, at, tables)
 			default:
-				return fmt.Errorf("unknown format: %s (valid formats: table, json, sql)", format)
+				return fmt.Errorf("unknown format: %s (valid formats: tui, table, json, sql)", format)
 			}
 
 			return nil
@@ -70,7 +74,7 @@ Displays tables, columns, indexes, and foreign keys. Output formats: table (defa
 	}
 
 	cmd.Flags().StringVar(&at, "at", "", "Migration revision (e.g., 003)")
-	cmd.Flags().StringVarP(&format, "format", "f", "table", "Output format: table, json, sql")
+	cmd.Flags().StringVarP(&format, "format", "f", "tui", "Output format: tui (interactive), table, json, sql")
 	cmd.MarkFlagRequired("at")
 
 	setupCommandHelp(cmd)
@@ -467,4 +471,12 @@ func formatColumnNotes(col *ast.ColumnDef) string {
 		return ""
 	}
 	return strings.Join(notes, ", ")
+}
+
+// convertToStatusData converts ast.TableDef slices to ui.StatusData for the schema command.
+func convertToStatusData(revision string, tables []*ast.TableDef) ui.StatusData {
+	return ui.StatusData{
+		Revision: revision,
+		Tables:   convertTablesToUI(tables),
+	}
 }

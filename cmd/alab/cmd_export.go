@@ -10,9 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// allFormats lists all supported export formats.
-var allFormats = []string{"openapi", "graphql", "typescript", "go", "python", "rust"}
-
 // exportCmd exports the schema in various formats.
 func exportCmd() *cobra.Command {
 	var format, dir string
@@ -57,7 +54,7 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
 				if stdout {
 					return fmt.Errorf("--stdout cannot be used with --format all")
 				}
-				formats = allFormats
+				formats = AllExportFormats
 			}
 
 			// Get namespaces for splitting
@@ -73,47 +70,53 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
 				}
 			}
 
-			// Track exported files
-			var exportedFiles []string
+			// Track exported files as "format → path" entries
+			type exportEntry struct {
+				format string
+				path   string
+			}
+			var exportedFiles []exportEntry
 
-			for _, fmt := range formats {
+			for _, f := range formats {
 				// OpenAPI and GraphQL always go to root (single file)
 				// Other formats split by namespace
-				if fmt == "openapi" || fmt == "graphql" {
-					files, err := exportFormat(client, fmt, dir, stdout, opts)
+				if f == "openapi" || f == "graphql" {
+					path, err := exportFormat(client, f, dir, stdout, opts)
 					if err != nil {
 						return err
 					}
-					exportedFiles = append(exportedFiles, files...)
+					if path != "" {
+						exportedFiles = append(exportedFiles, exportEntry{f, path})
+					}
 				} else {
 					for _, ns := range validNs {
 						nsOpts := append(opts, astroladb.WithNamespace(ns))
 						nsDir := filepath.Join(dir, ns)
-						files, err := exportFormat(client, fmt, nsDir, stdout, nsOpts)
+						path, err := exportFormat(client, f, nsDir, stdout, nsOpts)
 						if err != nil {
 							return err
 						}
-						exportedFiles = append(exportedFiles, files...)
+						if path != "" {
+							exportedFiles = append(exportedFiles, exportEntry{f, path})
+						}
 					}
 				}
 			}
 
 			// Show summary if files were exported
 			if !stdout && len(exportedFiles) > 0 {
-				fmt.Println()
-				list := ui.NewList()
-				for _, f := range exportedFiles {
-					list.AddSuccess(f)
+				var lines []string
+				for _, e := range exportedFiles {
+					lines = append(lines, fmt.Sprintf("%s → %s", ui.Dim(e.format), ui.Primary(e.path)))
 				}
 
-				view := ui.NewSuccessView(
-					"Export Complete",
+				ui.ShowSuccess(
+					TitleExportComplete,
 					fmt.Sprintf("Exported %s:\n%s",
 						ui.FormatCount(len(exportedFiles), "file", "files"),
-						list.String(),
+						"  "+joinLines(lines, "\n  "),
 					),
 				)
-				fmt.Println(view.Render())
 			}
 
 			return nil
@@ -121,7 +124,7 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
 	}
 
 	cmd.Flags().StringVarP(&format, "format", "f", "openapi", "Export format (openapi, graphql, typescript, go, python, rust, all)")
-	cmd.Flags().StringVar(&dir, "dir", "exports", "Output directory")
+	cmd.Flags().StringVar(&dir, "dir", DefaultExportsDir, "Output directory")
 	cmd.Flags().BoolVar(&stdout, "stdout", false, "Print to stdout")
 	cmd.Flags().BoolVar(&mik, "mik", false, "Use mik_sdk style for Rust")
 
@@ -129,51 +132,45 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
 	return cmd
 }
 
-// exportFormat exports a single format and returns the list of exported files.
-func exportFormat(client *astroladb.Client, format, dir string, stdout bool, opts []astroladb.ExportOption) ([]string, error) {
+// exportFormat exports a single format and returns the output path.
+func exportFormat(client *astroladb.Client, format, dir string, stdout bool, opts []astroladb.ExportOption) (string, error) {
 	data, err := client.SchemaExport(format, opts...)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	if stdout {
 		fmt.Println(string(data))
-		return nil, nil
+		return "", nil
 	}
 
 	// Auto-generate filename based on format
-	var filename string
-	switch format {
-	case "openapi":
-		filename = "openapi.json"
-	case "graphql", "gql":
-		filename = "schema.graphql"
-	case "typescript", "ts":
-		filename = "types.ts"
-	case "go", "golang":
-		filename = "types.go"
-	case "python", "py":
-		filename = "types.py"
-	case "rust", "rs":
-		filename = "types.rs"
-	default:
-		filename = format + ".json"
-	}
-
+	filename := GetExportFilename(format)
 	outputPath := filepath.Join(dir, filename)
 
 	// Create directory if needed
 	dirPath := filepath.Dir(outputPath)
 	if dirPath != "." && dirPath != "" {
-		if err := os.MkdirAll(dirPath, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create directory %s: %w", dirPath, err)
+		if err := os.MkdirAll(dirPath, DirPerm); err != nil {
+			return "", fmt.Errorf("failed to create directory %s: %w", dirPath, err)
 		}
 	}
 
-	if err := os.WriteFile(outputPath, data, 0644); err != nil {
-		return nil, fmt.Errorf("failed to write output file: %w", err)
+	if err := os.WriteFile(outputPath, data, FilePerm); err != nil {
+		return "", fmt.Errorf("failed to write output file: %w", err)
 	}
-	fmt.Printf("  %s %s → %s\n", ui.Success("✓"), ui.Dim(format), ui.FilePath(outputPath))
 
-	return []string{outputPath}, nil
+	return outputPath, nil
+}
+
+// joinLines joins strings with a separator.
+func joinLines(lines []string, sep string) string {
+	if len(lines) == 0 {
+		return ""
+	}
+	result := lines[0]
+	for i := 1; i < len(lines); i++ {
+		result += sep + lines[i]
+	}
+	return result
 }

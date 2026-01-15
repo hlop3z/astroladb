@@ -41,21 +41,21 @@ Drops all tables, re-runs migrations, leaves clean schema with no data. Requires
 			// Show warning and get confirmation
 			if !force {
 				list := ui.NewList()
-				list.AddError("Drop ALL tables in the database")
-				list.AddError("Delete ALL data permanently")
+				list.AddError(WarnDropAllTables)
+				list.AddError(WarnDataPermanentDelete)
 				list.AddInfo("Re-run all migrations from scratch")
 
 				warning := ui.RenderWarningPanel(
-					"Destructive Operation",
+					TitleDestructiveOperation,
 					list.String()+"\n"+
-						ui.Warning("⚠ This operation cannot be undone\n")+
-						ui.Help("This command is intended for development only"),
+						ui.Warning("⚠ "+HelpCannotUndo+"\n")+
+						ui.Help(HelpDevOnly),
 				)
 				fmt.Println(warning)
 				fmt.Println()
 
-				if !ui.Confirm("Continue with database reset?", false) {
-					fmt.Println(ui.Dim("Reset cancelled"))
+				if !ui.Confirm(PromptContinueReset, false) {
+					fmt.Println(ui.Dim(MsgResetCancelled))
 					return nil
 				}
 				fmt.Println()
@@ -93,7 +93,7 @@ Drops all tables, re-runs migrations, leaves clean schema with no data. Requires
 						return fmt.Errorf("failed to drop table %s: %w", table, err)
 					}
 				}
-				fmt.Println(ui.Success("✓") + " Dropped " + ui.FormatCount(tableCount, "table", "tables"))
+				fmt.Println(ui.Success("Dropped " + ui.FormatCount(tableCount, "table", "tables")))
 				fmt.Println()
 
 				// Run migrations
@@ -102,11 +102,7 @@ Drops all tables, re-runs migrations, leaves clean schema with no data. Requires
 				}
 
 				// Show success
-				view := ui.NewSuccessView(
-					"Database Reset Complete",
-					"All tables dropped and migrations re-applied",
-				)
-				fmt.Println(view.Render())
+				ui.ShowSuccess(TitleDatabaseResetComplete, MsgAllTablesDropped)
 				return nil
 			default:
 				return fmt.Errorf("unsupported dialect for db:reset: %s", dialect)
@@ -115,7 +111,7 @@ Drops all tables, re-runs migrations, leaves clean schema with no data. Requires
 			if _, err := db.Exec(dropSQL); err != nil {
 				return fmt.Errorf("failed to drop tables: %w", err)
 			}
-			fmt.Println(ui.Success("✓") + " Dropped all tables")
+			fmt.Println(ui.Success("Dropped all tables"))
 			fmt.Println()
 
 			// Run migrations
@@ -124,11 +120,7 @@ Drops all tables, re-runs migrations, leaves clean schema with no data. Requires
 			}
 
 			// Show success
-			view := ui.NewSuccessView(
-				"Database Reset Complete",
-				"All tables dropped and migrations re-applied",
-			)
-			fmt.Println(view.Render())
+			ui.ShowSuccess(TitleDatabaseResetComplete, MsgAllTablesDropped)
 			return nil
 		},
 	}

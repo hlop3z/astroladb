@@ -52,18 +52,18 @@ This is useful for debugging stuck migrations or verifying no other process is r
 				return err
 			}
 
-			fmt.Println(ui.RenderTitle("Migration Lock Status"))
+			fmt.Println(ui.RenderTitle(TitleLockStatus))
 			fmt.Println()
 
 			if !info.Locked {
 				fmt.Println(ui.RenderSuccessPanel(
-					"Lock Available",
-					"No migration is currently running",
+					TitleLockAvailable,
+					MsgNoMigrationRunning,
 				))
 			} else {
 				lockedAt := "unknown"
 				if info.LockedAt != nil {
-					lockedAt = info.LockedAt.Format("2006-01-02 15:04:05")
+					lockedAt = info.LockedAt.Format(TimeFull)
 				}
 
 				list := ui.NewList()
@@ -71,9 +71,9 @@ This is useful for debugging stuck migrations or verifying no other process is r
 				list.AddInfo(fmt.Sprintf("Locked at: %s", lockedAt))
 
 				fmt.Println(ui.RenderWarningPanel(
-					"Lock Held",
+					TitleLockHeld,
 					list.String()+"\n"+
-						ui.Help("If this is a stuck lock, use: alab lock release"),
+						ui.Help(HelpReleaseLockCmd),
 				))
 			}
 
@@ -120,19 +120,19 @@ other migration is currently running.`,
 
 			if !info.Locked {
 				fmt.Println(ui.RenderSuccessPanel(
-					"No Lock to Release",
-					"Migration lock is not currently held",
+					TitleNoLockToRelease,
+					MsgLockNotHeld,
 				))
 				return nil
 			}
 
 			// Show warning
-			fmt.Println(ui.RenderTitle("Release Migration Lock"))
+			fmt.Println(ui.RenderTitle(TitleReleaseLock))
 			fmt.Println()
 
 			lockedAt := "unknown"
 			if info.LockedAt != nil {
-				lockedAt = info.LockedAt.Format("2006-01-02 15:04:05")
+				lockedAt = info.LockedAt.Format(TimeFull)
 			}
 
 			list := ui.NewList()
@@ -140,15 +140,15 @@ other migration is currently running.`,
 			list.AddInfo(fmt.Sprintf("Locked at: %s", lockedAt))
 
 			fmt.Println(ui.RenderWarningPanel(
-				"Lock Will Be Released",
+				TitleLockWillBeReleased,
 				list.String()+"\n"+
-					ui.Warning("Only release if you're certain no migration is running"),
+					ui.Warning(HelpOnlyReleaseIfSure),
 			))
 			fmt.Println()
 
 			// Confirm unless --force
 			if !force {
-				if !ui.Confirm("Release this lock?", false) {
+				if !ui.Confirm(PromptReleaseLock, false) {
 					fmt.Println(ui.Dim("Release cancelled"))
 					return nil
 				}
@@ -160,8 +160,8 @@ other migration is currently running.`,
 			}
 
 			fmt.Println(ui.RenderSuccessPanel(
-				"Lock Released",
-				"Migration lock has been forcefully released",
+				TitleLockReleased,
+				MsgLockForcefullyReleased,
 			))
 
 			return nil

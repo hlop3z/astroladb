@@ -59,14 +59,13 @@ GraphQL schemas, or other code without needing to evaluate JavaScript schema fil
 			}
 
 			// Show success message
-			view := ui.NewSuccessView(
-				"Metadata Exported",
+			ui.ShowSuccess(
+				TitleMetaExported,
 				fmt.Sprintf("Saved to: %s\nSize: %d bytes\n\n%s",
 					absPath,
 					info.Size(),
-					ui.Help("This file contains all schema metadata for external tools to generate code, ORMs, queries, etc.")),
+					ui.Help(HelpMetaForExternalTools)),
 			)
-			fmt.Println(view.Render())
 
 			return nil
 		},

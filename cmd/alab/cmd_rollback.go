@@ -52,10 +52,7 @@ after a successful rollback.`,
 
 			// Show context information
 			if !dryRun {
-				dbDisplay := cfg.Database.URL
-				if len(dbDisplay) > 40 {
-					dbDisplay = dbDisplay[:40] + "..."
-				}
+				dbDisplay := MaskDatabaseURL(cfg.Database.URL)
 
 				ctx := &ui.ContextView{
 					Pairs: map[string]string{
@@ -89,25 +86,25 @@ after a successful rollback.`,
 
 			// Show warning and get confirmation for rollback
 			if !dryRun {
-				fmt.Println(ui.RenderTitle("Rollback Migrations"))
+				fmt.Println(ui.RenderTitle(TitleRollbackMigrations))
 				fmt.Println()
 
 				list := ui.NewList()
 				list.AddError(fmt.Sprintf("Rollback %s", ui.FormatCount(steps, "migration", "migrations")))
-				list.AddError("This will execute DOWN migrations")
-				list.AddInfo("Database state will revert to previous revision")
+				list.AddError(WarnExecuteDownMigr)
+				list.AddInfo(WarnRevertToRevision)
 
 				warning := ui.RenderWarningPanel(
-					"Destructive Operation",
+					TitleDestructiveOperation,
 					list.String()+"\n"+
-						ui.Warning("⚠ Make sure you have a backup\n")+
-						ui.Help("Use --dry to preview SQL without executing"),
+						ui.Warning("⚠ "+HelpMakeBackup+"\n")+
+						ui.Help(HelpUseDryRun),
 				)
 				fmt.Println(warning)
 				fmt.Println()
 
-				if !ui.Confirm(fmt.Sprintf("Rollback %s?", ui.FormatCount(steps, "migration", "migrations")), false) {
-					fmt.Println(ui.Dim("Rollback cancelled"))
+				if !ui.Confirm(fmt.Sprintf(PromptRollback, ui.FormatCount(steps, "migration", "migrations")), false) {
+					fmt.Println(ui.Dim(MsgRollbackCancelled))
 					return nil
 				}
 				fmt.Println()
@@ -133,13 +130,13 @@ after a successful rollback.`,
 
 			if !dryRun {
 				// Show success with timing
-				fmt.Println(ui.RenderSuccessPanel(
-					"Rollback Complete",
+				ui.ShowSuccess(
+					TitleRollbackComplete,
 					fmt.Sprintf("Rolled back %s in %s",
 						ui.FormatCount(steps, "migration", "migrations"),
 						ui.FormatDuration(elapsed),
 					),
-				))
+				)
 
 				// Auto-commit migration files (optional with --commit flag)
 				if commit {
@@ -147,7 +144,7 @@ after a successful rollback.`,
 						fmt.Fprintf(os.Stderr, "\n"+ui.Warning("Warning")+": %v\n", err)
 					} else {
 						fmt.Println()
-						fmt.Println(ui.Success("✓") + " Migration files committed to git")
+						fmt.Println(ui.Success(MsgCommittedToGit))
 					}
 				}
 			}

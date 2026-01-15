@@ -123,7 +123,7 @@ Migration names are automatically normalized to snake_case and prefixed with a s
 			}
 
 			// Show success
-			fmt.Println(ui.Success("✓") + " Generated migration: " + ui.FilePath(path))
+			fmt.Println(ui.Success("Generated migration: " + ui.FilePath(path)))
 			return nil
 		},
 	}
@@ -142,7 +142,7 @@ func createEmptyMigration(name string) error {
 	}
 
 	// Ensure migrations directory exists
-	if err := os.MkdirAll(cfg.MigrationsDir, 0755); err != nil {
+	if err := os.MkdirAll(cfg.MigrationsDir, DirPerm); err != nil {
 		return fmt.Errorf("failed to create migrations directory: %w", err)
 	}
 
@@ -176,12 +176,12 @@ func createEmptyMigration(name string) error {
 	filename := fmt.Sprintf("%s_%s.js", revision, name)
 	path := filepath.Join(cfg.MigrationsDir, filename)
 
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), FilePerm); err != nil {
 		return fmt.Errorf("failed to write migration file: %w", err)
 	}
 
 	// Show success
-	fmt.Println(ui.Success("✓") + " Created migration: " + ui.FilePath(path))
+	fmt.Println(ui.Success("Created migration: " + ui.FilePath(path)))
 	return nil
 }
 
@@ -252,7 +252,7 @@ func promptForRenames(candidates []engine.RenameCandidate) []engine.RenameCandid
 
 	if len(confirmed) > 0 {
 		fmt.Printf("%s Confirmed %s\n\n",
-			ui.Success("✓"),
+			ui.Success(""),
 			ui.FormatCount(len(confirmed), "rename", "renames"))
 	}
 
@@ -307,13 +307,13 @@ func promptForBackfills(candidates []engine.BackfillCandidate) map[string]string
 
 		key := c.Namespace + "." + c.Table + "." + c.Column
 		backfills[key] = input
-		fmt.Println(ui.Success("  ✓ Set to: ") + input)
+		fmt.Println(ui.Success("  Set to: ") + input)
 		fmt.Println()
 	}
 
 	if len(backfills) > 0 {
 		fmt.Printf("%s Set %s\n\n",
-			ui.Success("✓"),
+			ui.Success(""),
 			ui.FormatCount(len(backfills), "backfill value", "backfill values"))
 	}
 
