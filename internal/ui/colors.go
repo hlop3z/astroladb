@@ -1,50 +1,44 @@
 package ui
 
 import (
-	"fmt"
-
-	"github.com/gdamore/tcell/v2"
+	"github.com/charmbracelet/lipgloss"
 )
 
-// Colorize wraps text with ANSI color codes for terminal output.
-func Colorize(text string, color tcell.Color) string {
-	// tcell color to ANSI color mapping (basic 16 colors)
-	// tcell v2 uses ColorAqua for cyan and ColorFuchsia for magenta
-	colorMap := map[tcell.Color]int{
-		tcell.ColorBlack:   30,
-		tcell.ColorRed:     31,
-		tcell.ColorGreen:   32,
-		tcell.ColorYellow:  33,
-		tcell.ColorBlue:    34,
-		tcell.ColorFuchsia: 35, // Magenta
-		tcell.ColorAqua:    36, // Cyan
-		tcell.ColorWhite:   37,
-		tcell.ColorGray:    90,
-	}
+// Section title style - centralized for easy configuration
+var sectionTitleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true) // Green + Bold
 
-	if code, ok := colorMap[color]; ok {
-		return fmt.Sprintf("\033[%dm%s\033[0m", code, text)
-	}
-	return text
-}
+// SectionTitle renders a section title (e.g., "Global Flags", "Setup", "Schema")
+func SectionTitle(text string) string { return sectionTitleStyle.Render(text) }
 
-// Themed color functions - use theme colors
-func Success(text string) string  { return colorWithIcon("✓", text, Theme.Success) }
-func Error(text string) string    { return colorWithIcon("✗", text, Theme.Error) }
-func Warning(text string) string  { return colorWithIcon("⚠", text, Theme.Warning) }
-func Info(text string) string     { return colorWithIcon("ℹ", text, Theme.Info) }
-func Primary(text string) string  { return Colorize(text, Theme.Primary) }
-func Dim(text string) string      { return Colorize(text, Theme.TextDim) }
 
-// Basic color functions - direct color mapping
-func Green(text string) string  { return Colorize(text, Theme.Success) }
-func Red(text string) string    { return Colorize(text, Theme.Error) }
-func Yellow(text string) string { return Colorize(text, Theme.Warning) }
-func Blue(text string) string   { return Colorize(text, Theme.Primary) }
-func Cyan(text string) string   { return Colorize(text, Theme.Info) }
+// Lipgloss styles for consistent terminal output
+var (
+	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // Green
+	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))  // Red
+	warningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("11")) // Yellow
+	infoStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("12")) // Blue
+	primaryStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("12")) // Blue
+	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))  // Gray
+	boldStyle    = lipgloss.NewStyle().Bold(true)
+)
+
+// Themed color functions
+func Success(text string) string { return successStyle.Render("✓ " + text) }
+func Error(text string) string   { return errorStyle.Render("✗ " + text) }
+func Warning(text string) string { return warningStyle.Render("⚠ " + text) }
+func Info(text string) string    { return infoStyle.Render("ℹ " + text) }
+func Primary(text string) string { return primaryStyle.Render(text) }
+func Dim(text string) string     { return dimStyle.Render(text) }
+
+// Basic color functions
+func Green(text string) string  { return successStyle.Render(text) }
+func Red(text string) string    { return errorStyle.Render(text) }
+func Yellow(text string) string { return warningStyle.Render(text) }
+func Blue(text string) string   { return primaryStyle.Render(text) }
+func Cyan(text string) string   { return infoStyle.Render(text) }
 
 // Style functions
-func Bold(text string) string   { return fmt.Sprintf("\033[1m%s\033[0m", text) }
+func Bold(text string) string { return boldStyle.Render(text) }
 func Header(text string, colorFuncs ...func(string) string) string {
 	formatted := Bold(text)
 	if len(colorFuncs) > 0 && colorFuncs[0] != nil {
@@ -59,8 +53,3 @@ func Failed(text string) string    { return Error(text) }
 func Done(message string) string   { return Success(message) }
 func FilePath(path string) string  { return Primary(path) }
 func FormatError(err error) string { return Error(err.Error()) }
-
-// colorWithIcon is a helper that adds an icon before colored text.
-func colorWithIcon(icon, text string, color tcell.Color) string {
-	return Colorize(fmt.Sprintf("%s %s", icon, text), color)
-}

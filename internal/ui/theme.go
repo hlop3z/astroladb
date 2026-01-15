@@ -18,8 +18,10 @@ var Theme = struct {
 	Text       tcell.Color
 	TextDim    tcell.Color
 	TextBright tcell.Color
+	Accent     tcell.Color // For highlighting important text (IDs, keys)
+	Highlight  tcell.Color // For selected/focused items
 
-	// Background colors
+	// Background colors (use ColorDefault to preserve terminal bg)
 	Background      tcell.Color
 	BackgroundAlt   tcell.Color
 	BackgroundDark  tcell.Color
@@ -30,27 +32,29 @@ var Theme = struct {
 	Header      tcell.Color
 	Selection   tcell.Color
 }{
-	// Primary colors
-	Primary:   tcell.ColorBlue,
-	Secondary: tcell.ColorAqua,  // tcell v2 uses ColorAqua for cyan
-	Success:   tcell.ColorGreen,
-	Warning:   tcell.ColorYellow,
-	Error:     tcell.ColorRed,
-	Info:      tcell.ColorAqua,   // tcell v2 uses ColorAqua for cyan
+	// Primary colors (black and white theme, except titles)
+	Primary:   tcell.ColorBlue,  // Keep blue for title bar
+	Secondary: tcell.ColorWhite,
+	Success:   tcell.ColorWhite,
+	Warning:   tcell.ColorWhite,
+	Error:     tcell.ColorWhite,
+	Info:      tcell.ColorWhite,
 
 	// Text colors
 	Text:       tcell.ColorWhite,
 	TextDim:    tcell.ColorGray,
 	TextBright: tcell.ColorWhite,
+	Accent:     tcell.ColorWhite, // White for IDs, revisions
+	Highlight:  tcell.ColorWhite, // White text on navy background when selected
 
 	// Background colors
 	Background:     tcell.ColorBlack,
-	BackgroundAlt:  tcell.ColorTeal,
+	BackgroundAlt:  tcell.ColorBlack,
 	BackgroundDark: tcell.ColorBlack,
 
 	// UI element colors
-	Border:      tcell.ColorGray,
-	BorderFocus: tcell.ColorBlue,
-	Header:      tcell.ColorYellow,
-	Selection:   tcell.ColorTeal,
+	Border:      tcell.ColorWhite,
+	BorderFocus: tcell.ColorWhite,
+	Header:      tcell.ColorWhite,
+	Selection:   tcell.ColorNavy, // Subtle dark blue background for selection
 }
