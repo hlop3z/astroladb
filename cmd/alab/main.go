@@ -1,18 +1,17 @@
-// Package main provides the CLI for the Alab database migration tool.
-// Alab is a language-agnostic database migration tool that manages schema
-// evolution via migrations, using a JavaScript DSL for schema definitions.
+// Package main provides the CLI for Astroladb.
+// Astroladb is a schema-centric tooling language that generates database migrations,
+// OpenAPI specs, GraphQL schemas, and type definitions from a single JavaScript schema.
 //
 // Usage:
 //
-//	alab init                    # Create schemas/ and migrations/ dirs
-//	alab status                  # Browse schema, history, drift (TUI)
-//	alab schema --at <rev>       # Show schema at a specific migration revision
-//	alab export --format X       # Export schema (openapi, jsonschema, typescript, go)
-//	alab new <name>              # Create migration (auto-generates if schema has changes)
+//	alab init                    # Initialize project structure
+//	alab table <ns> <name>       # Create a new table schema file
+//	alab new <name>              # Generate migration from schema changes
 //	alab migrate                 # Apply pending migrations
-//	alab status                  # Show applied/pending migrations
-//	alab rollback [steps]        # Rollback (default: 1 step)
-//	alab reset                   # Drop all tables, re-run migrations
+//	alab rollback [n]            # Rollback last n migrations
+//	alab status                  # Show migration status
+//	alab export -f <format>      # Export schema (openapi, graphql, typescript, go, python, rust)
+//	alab http                    # Start live documentation server
 package main
 
 import (
@@ -125,8 +124,8 @@ func main() {
 
 	rootCmd := &cobra.Command{
 		Use:     "alab",
-		Short:   "Language-agnostic database migration tool",
-		Long:    `Alab is a language-agnostic database migration tool that manages schema evolution via migrations, using a JavaScript DSL for schema definitions.`,
+		Short:   "Schema-first database migrations",
+		Long:    `Astroladb is a schema-centric tooling language that generates database migrations, OpenAPI specs, GraphQL schemas, and type definitions from a single JavaScript schema.`,
 		Version: version,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Reinitialize logger after flags are parsed

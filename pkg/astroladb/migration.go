@@ -915,7 +915,7 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 			}
 			sb.WriteString(fmt.Sprintf("    m.drop_table(\"%s\")\n", ref))
 		case *ast.DropTable:
-			sb.WriteString(fmt.Sprintf("    // TODO: Recreate table %s\n", o.Name))
+			sb.WriteString(fmt.Sprintf("    // Manual: Recreate table %s (data cannot be recovered automatically)\n", o.Name))
 		case *ast.RenameTable:
 			oldRef := o.OldName
 			newRef := o.NewName
@@ -931,7 +931,7 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 			}
 			sb.WriteString(fmt.Sprintf("    m.drop_column(\"%s\", \"%s\")\n", ref, o.Column.Name))
 		case *ast.DropColumn:
-			sb.WriteString(fmt.Sprintf("    // TODO: Recreate column %s\n", o.Name))
+			sb.WriteString(fmt.Sprintf("    // Manual: Recreate column %s (data cannot be recovered automatically)\n", o.Name))
 		case *ast.RenameColumn:
 			ref := o.Table_
 			if o.Namespace != "" {
@@ -943,7 +943,7 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 			if o.Namespace != "" {
 				ref = o.Namespace + "." + o.Table_
 			}
-			sb.WriteString(fmt.Sprintf("    // TODO: Reverse alter_column on %s.%s\n", ref, o.Name))
+			sb.WriteString(fmt.Sprintf("    // Manual: Reverse alter_column on %s.%s (original state unknown)\n", ref, o.Name))
 		case *ast.CreateIndex:
 			indexName := o.Name
 			if indexName == "" {
@@ -951,7 +951,7 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 			}
 			sb.WriteString(fmt.Sprintf("    m.drop_index(\"%s\")\n", indexName))
 		case *ast.DropIndex:
-			sb.WriteString(fmt.Sprintf("    // TODO: Recreate index %s\n", o.Name))
+			sb.WriteString(fmt.Sprintf("    // Manual: Recreate index %s (original definition unknown)\n", o.Name))
 		case *ast.AddForeignKey:
 			fkName := o.Name
 			if fkName == "" {
@@ -963,7 +963,7 @@ func (c *Client) generateMigrationContent(name string, ops []ast.Operation) stri
 			}
 			sb.WriteString(fmt.Sprintf("    m.drop_foreign_key(\"%s\", \"%s\")\n", ref, fkName))
 		case *ast.DropForeignKey:
-			sb.WriteString(fmt.Sprintf("    // TODO: Recreate foreign key %s\n", o.Name))
+			sb.WriteString(fmt.Sprintf("    // Manual: Recreate foreign key %s (original definition unknown)\n", o.Name))
 		}
 	}
 	sb.WriteString("  }\n")

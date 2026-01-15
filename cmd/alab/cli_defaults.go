@@ -17,8 +17,8 @@ const (
 
 
 const (
-		MainTitle = "⏳ AstrolaDB - Database Migration Tool"
-		MainSummary ="★  Language-agnostic database migration tool using JavaScript DSL"
+	MainTitle   = "⏳ Astroladb"
+	MainSummary = "★  Schema-first migrations. Write once, export everywhere."
 )
 
 
