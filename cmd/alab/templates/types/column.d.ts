@@ -664,9 +664,9 @@ export interface TableBuilder {
   url(name: string): ColumnBuilder;
 
   /**
-   * IP address: string(45) for IPv4/IPv6.
+   * IP address: string(45) for IPv4/IPv6 with validation.
    *
-   * 45 chars fits the longest IPv6 representation.
+   * Accepts both IPv4 and IPv6 formats.
    *
    * @param name - Column name
    *
@@ -675,6 +675,30 @@ export interface TableBuilder {
    * t.ip("last_known_ip").optional()
    */
   ip(name: string): ColumnBuilder;
+
+  /**
+   * IPv4 address only: string(15) with strict validation.
+   *
+   * Pattern validates standard dotted-decimal notation (e.g., 192.168.1.1).
+   *
+   * @param name - Column name
+   *
+   * @example
+   * t.ipv4("client_ip")
+   */
+  ipv4(name: string): ColumnBuilder;
+
+  /**
+   * IPv6 address only: string(45) with strict validation.
+   *
+   * Pattern validates full IPv6 notation (e.g., 2001:0db8:85a3:0000:0000:8a2e:0370:7334).
+   *
+   * @param name - Column name
+   *
+   * @example
+   * t.ipv6("client_ip")
+   */
+  ipv6(name: string): ColumnBuilder;
 
   /**
    * User agent string: string(500).
@@ -1165,6 +1189,197 @@ export interface TableBuilder {
 }
 
 /**
+ * Builder for creating tables in migrations.
+ *
+ * IMPORTANT: This interface only includes LOW-LEVEL types.
+ * Semantic types (email, money, flag, etc.) are NOT available in migrations.
+ * Use explicit types like string(255), decimal(19,4), boolean().default(false).
+ *
+ * Migrations should be explicit and stable. If semantic type definitions
+ * change in the future, existing migrations will still work correctly.
+ *
+ * For semantic types, define your schema in schema files (using ColBuilder)
+ * and let Alab generate migrations automatically.
+ */
+export interface MigrationTableBuilder {
+  // ===========================================================================
+  // PRIMARY KEY
+  // ===========================================================================
+
+  /**
+   * Adds a UUID primary key column named "id".
+   */
+  id(): ColumnBuilder;
+
+  // ===========================================================================
+  // LOW-LEVEL TYPES ONLY - No semantic types in migrations
+  // ===========================================================================
+
+  /**
+   * Variable-length string with maximum length.
+   * @param name - Column name in snake_case
+   * @param length - Maximum character length
+   */
+  string(name: string, length: number): ColumnBuilder;
+
+  /**
+   * Unlimited text content.
+   * @param name - Column name in snake_case
+   */
+  text(name: string): ColumnBuilder;
+
+  /**
+   * 32-bit signed integer.
+   * @param name - Column name in snake_case
+   */
+  integer(name: string): ColumnBuilder;
+
+  /**
+   * 32-bit floating-point number.
+   * @param name - Column name in snake_case
+   */
+  float(name: string): ColumnBuilder;
+
+  /**
+   * Exact decimal number with fixed precision.
+   * @param name - Column name in snake_case
+   * @param precision - Total number of digits
+   * @param scale - Digits after decimal point
+   */
+  decimal(name: string, precision: number, scale: number): ColumnBuilder;
+
+  /**
+   * True/false boolean value.
+   * @param name - Column name in snake_case
+   */
+  boolean(name: string): ColumnBuilder;
+
+  /**
+   * Date without time (YYYY-MM-DD).
+   * @param name - Column name in snake_case
+   */
+  date(name: string): ColumnBuilder;
+
+  /**
+   * Time without date (HH:MM:SS).
+   * @param name - Column name in snake_case
+   */
+  time(name: string): ColumnBuilder;
+
+  /**
+   * Timestamp with timezone.
+   * @param name - Column name in snake_case
+   */
+  datetime(name: string): ColumnBuilder;
+
+  /**
+   * UUID column (non-primary key).
+   * @param name - Column name in snake_case
+   */
+  uuid(name: string): ColumnBuilder;
+
+  /**
+   * JSON/JSONB column for structured data.
+   * @param name - Column name in snake_case
+   */
+  json(name: string): ColumnBuilder;
+
+  /**
+   * Binary data stored as base64.
+   * @param name - Column name in snake_case
+   */
+  base64(name: string): ColumnBuilder;
+
+  /**
+   * Enumerated type with fixed allowed values.
+   * @param name - Column name in snake_case
+   * @param values - Array of allowed string values
+   */
+  enum(name: string, values: string[]): ColumnBuilder;
+
+  // ===========================================================================
+  // CONVENIENCE PATTERNS
+  // ===========================================================================
+
+  /**
+   * Adds created_at and updated_at timestamp columns.
+   */
+  timestamps(): void;
+
+  /**
+   * Adds a deleted_at nullable timestamp for soft deletion.
+   */
+  soft_delete(): void;
+
+  /**
+   * Adds a position integer column for manual ordering.
+   */
+  sortable(): void;
+
+  // ===========================================================================
+  // RELATIONSHIPS
+  // ===========================================================================
+
+  /**
+   * Adds a foreign key column to another table.
+   * @param model - Reference in format "namespace.table"
+   */
+  belongs_to(model: string): RelationshipBuilder;
+
+  /**
+   * Adds a unique foreign key (one-to-one relationship).
+   * @param model - Reference in format "namespace.table"
+   */
+  one_to_one(model: string): RelationshipBuilder;
+
+  /**
+   * Declares a many-to-many relationship.
+   * @param model - Reference to the other table
+   * @param opts - Optional: { through: "custom_table_name" }
+   */
+  many_to_many(model: string, opts?: M2MOptions): void;
+
+  /**
+   * Adds a polymorphic reference (type + id columns).
+   * @param models - Array of possible model references
+   * @param opts - Optional: { as: "base_name" }
+   */
+  belongs_to_any(models: string[], opts?: PolymorphicOptions): void;
+
+  // ===========================================================================
+  // INDEXES & CONSTRAINTS
+  // ===========================================================================
+
+  /**
+   * Adds a non-unique index on columns.
+   * @param columns - Column names to index
+   */
+  index(...columns: string[]): void;
+
+  /**
+   * Adds a composite unique constraint on multiple columns.
+   * @param columns - Column names or relationship aliases
+   */
+  unique(...columns: string[]): void;
+
+  // ===========================================================================
+  // DOCUMENTATION
+  // ===========================================================================
+
+  /**
+   * Adds documentation for the table.
+   * @param description - Human-readable table description
+   */
+  docs(description: string): void;
+
+  /**
+   * Marks the table as deprecated.
+   * @param reason - Explanation and migration guidance
+   */
+  deprecated(reason: string): void;
+}
+
+/**
  * Builder for altering columns in migrations.
  */
 export interface AlterColumnBuilder {
@@ -1240,10 +1455,10 @@ export interface AlterColumnBuilder {
 
 /**
  * Factory for creating columns in add_column migrations.
- * Has the same type methods as TableBuilder.
+ * Only low-level types are available in migrations.
+ * For semantic types, use schema definitions instead.
  */
 export interface ColumnFactory {
-  // Core types
   string(name: string, length: number): ColumnBuilder;
   text(name: string): ColumnBuilder;
   integer(name: string): ColumnBuilder;
@@ -1257,39 +1472,6 @@ export interface ColumnFactory {
   json(name: string): ColumnBuilder;
   base64(name: string): ColumnBuilder;
   enum(name: string, values: string[]): ColumnBuilder;
-  // Semantic types
-  email(name: string): ColumnBuilder;
-  username(name: string): ColumnBuilder;
-  password_hash(name: string): ColumnBuilder;
-  phone(name: string): ColumnBuilder;
-  name(name: string): ColumnBuilder;
-  title(name: string): ColumnBuilder;
-  slug(name: string): ColumnBuilder;
-  body(name: string): ColumnBuilder;
-  summary(name: string): ColumnBuilder;
-  url(name: string): ColumnBuilder;
-  ip(name: string): ColumnBuilder;
-  user_agent(name: string): ColumnBuilder;
-  money(name: string): ColumnBuilder;
-  percentage(name: string): ColumnBuilder;
-  counter(name: string): ColumnBuilder;
-  quantity(name: string): ColumnBuilder;
-  flag(name: string, defaultValue?: boolean): ColumnBuilder;
-  // Identifiers & tokens
-  token(name: string): ColumnBuilder;
-  code(name: string): ColumnBuilder;
-  // Geographic & i18n
-  country(name: string): ColumnBuilder;
-  currency(name: string): ColumnBuilder;
-  locale(name: string): ColumnBuilder;
-  timezone(name: string): ColumnBuilder;
-  // Ratings & measurements
-  rating(name: string): ColumnBuilder;
-  duration(name: string): ColumnBuilder;
-  color(name: string): ColumnBuilder;
-  // Content formats
-  markdown(name: string): ColumnBuilder;
-  html(name: string): ColumnBuilder;
 }
 
 // =============================================================================
@@ -1602,11 +1784,26 @@ export interface ColBuilder {
   url(): ColColumnBuilder;
 
   /**
-   * IP address: string(45) for IPv4/IPv6.
+   * IP address: string(45) for IPv4/IPv6 with validation.
+   * Accepts both formats.
    * @example
    * { ip_address: col.ip() }
    */
   ip(): ColColumnBuilder;
+
+  /**
+   * IPv4 address only: string(15) with strict validation.
+   * @example
+   * { client_ip: col.ipv4() }
+   */
+  ipv4(): ColColumnBuilder;
+
+  /**
+   * IPv6 address only: string(45) with strict validation.
+   * @example
+   * { client_ip: col.ipv6() }
+   */
+  ipv6(): ColColumnBuilder;
 
   /**
    * User agent string: string(500).

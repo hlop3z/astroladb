@@ -3,7 +3,7 @@
  * AUTO-GENERATED - Do not edit. Run 'alab types' to regenerate.
  */
 
-import { TableBuilder, ColumnBuilder, ColumnFactory, AlterColumnBuilder } from "./column";
+import { MigrationTableBuilder, ColumnBuilder, ColumnFactory, AlterColumnBuilder } from "./column";
 
 /**
  * Options for creating indexes.
@@ -19,30 +19,31 @@ export interface IndexOptions {
  * Builder for defining migration operations.
  * Provides imperative methods for schema changes.
  *
- * Migrations use ES module exports with up() and down() functions.
- * The TableBuilder (t parameter in create_table) has ALL semantic types:
- * - Core: id(), string(), text(), integer(), float(), decimal(), boolean(), date(), time(), datetime(), uuid(), json(), base64(), enum()
- * - Identity: email(), username(), password_hash(), phone()
- * - Content: name(), title(), slug(), body(), summary(), url(), markdown(), html()
- * - Financial: money(), percentage(), counter(), quantity()
- * - Identifiers: token(), code(), country(), currency(), locale(), timezone()
- * - Metrics: rating(), duration(), color()
+ * IMPORTANT: Migrations use LOW-LEVEL TYPES ONLY.
+ * Semantic types (email, money, flag, etc.) are NOT available in migrations.
+ * This ensures migrations are explicit and stable even if semantic definitions change.
+ *
+ * Available types in create_table:
+ * - Core: id(), string(n), text(), integer(), float(), decimal(p,s), boolean(), date(), time(), datetime(), uuid(), json(), base64(), enum()
  * - Relationships: belongs_to(), one_to_one(), many_to_many(), belongs_to_any()
- * - Patterns: timestamps(), soft_delete(), sortable(), flag()
+ * - Patterns: timestamps(), soft_delete(), sortable()
+ * - Constraints: index(), unique()
+ *
+ * For semantic types, define schemas in schema files and let Alab generate migrations.
  *
  * @example
- * // migrations/001_create_users.js - Basic table with semantic types
+ * // migrations/001_create_users.js - Using low-level types
  * export default migration({
  *   up(m) {
  *     m.create_table("auth.user", t => {
- *       t.id()                             // UUID primary key
- *       t.email("email").unique()          // Email with validation
- *       t.username("username").unique()    // Username with pattern
- *       t.password_hash("password")        // Hidden from API
- *       t.phone("phone").optional()        // E.164 format
- *       t.flag("is_active", true)          // Boolean with default
+ *       t.id()                                    // UUID primary key
+ *       t.string("email", 255).unique()           // Use string, not email()
+ *       t.string("username", 50).unique()         // Use string, not username()
+ *       t.string("password", 255)                 // Use string, not password_hash()
+ *       t.string("phone", 50).optional()          // Use string, not phone()
+ *       t.boolean("is_active").default(true)      // Use boolean, not flag()
  *       t.datetime("last_login").optional()
- *       t.timestamps()                     // created_at, updated_at
+ *       t.timestamps()                            // created_at, updated_at
  *     })
  *   },
  *   down(m) {
@@ -56,20 +57,19 @@ export interface IndexOptions {
  *   up(m) {
  *     m.create_table("blog.post", t => {
  *       t.id()
- *       t.title("title")                   // string(200)
- *       t.slug("slug")                     // Unique URL-friendly
- *       t.body("content")                  // Unlimited text
- *       t.summary("excerpt").optional()    // string(500)
- *       t.belongs_to("auth.user").as("author") // FK with alias
+ *       t.string("title", 200)
+ *       t.string("slug", 255).unique()
+ *       t.text("content")
+ *       t.string("excerpt", 500).optional()
+ *       t.belongs_to("auth.user").as("author")
  *       t.enum("status", ["draft", "published", "archived"]).default("draft")
- *       t.counter("view_count")            // integer default 0
- *       t.rating("average_rating").optional()
+ *       t.integer("view_count").default(0)
+ *       t.decimal("average_rating", 2, 1).optional()
  *       t.datetime("published_at").optional()
  *       t.timestamps()
- *       t.soft_delete()                    // deleted_at
+ *       t.soft_delete()
  *     })
  *
- *     // Add indexes
  *     m.create_index("blog.post", ["author_id", "status"])
  *     m.create_index("blog.post", ["published_at"])
  *   },
@@ -84,9 +84,9 @@ export interface IndexOptions {
  *   up(m) {
  *     m.create_table("blog.tag", t => {
  *       t.id()
- *       t.name("name").unique()
- *       t.slug("slug")
- *       t.color("color").optional()
+ *       t.string("name", 100).unique()
+ *       t.string("slug", 255).unique()
+ *       t.string("color", 7).optional()
  *       t.timestamps()
  *     })
  *
@@ -94,7 +94,7 @@ export interface IndexOptions {
  *     m.create_table("blog_post_blog_tag", t => {
  *       t.belongs_to("blog.post")
  *       t.belongs_to("blog.tag")
- *       t.unique("post", "tag")  // Composite unique constraint
+ *       t.unique("post", "tag")
  *     })
  *
  *     m.create_index("blog_post_blog_tag", ["post_id"])
@@ -112,18 +112,18 @@ export interface IndexOptions {
  *   up(m) {
  *     m.create_table("shop.product", t => {
  *       t.id()
- *       t.code("sku").unique()            // Uppercase pattern
- *       t.title("name")
- *       t.slug("slug")
- *       t.body("description")
- *       t.money("price")                  // decimal(19,4), min(0)
- *       t.currency("currency")            // ISO 4217
- *       t.quantity("stock")               // integer, min(0)
- *       t.percentage("discount").optional()
- *       t.url("image_url").optional()
+ *       t.string("sku", 20).unique()
+ *       t.string("name", 200)
+ *       t.string("slug", 255).unique()
+ *       t.text("description")
+ *       t.decimal("price", 19, 4)
+ *       t.string("currency", 3)
+ *       t.integer("stock").default(0)
+ *       t.decimal("discount", 5, 2).optional()
+ *       t.string("image_url", 2048).optional()
  *       t.belongs_to("shop.category")
- *       t.flag("is_featured", false)
- *       t.sortable()                      // position column
+ *       t.boolean("is_featured").default(false)
+ *       t.sortable()
  *       t.timestamps()
  *     })
  *   },
@@ -140,7 +140,6 @@ export interface IndexOptions {
  *       t.id()
  *       t.belongs_to("auth.user").as("author")
  *       t.text("content")
- *       // Can comment on posts OR videos
  *       t.belongs_to_any(["blog.post", "media.video"], { as: "commentable" })
  *       t.timestamps()
  *     })
@@ -158,24 +157,25 @@ export interface MigrationBuilder {
   /**
    * Creates a new table with columns.
    *
-   * The callback receives a TableBuilder with ALL semantic types available:
-   * - Use semantic types (email, username, money, etc.) for common patterns
-   * - Use core types (string, integer, etc.) for custom fields
+   * The callback receives a MigrationTableBuilder with LOW-LEVEL types only:
+   * - Use core types: string(n), text(), integer(), decimal(p,s), boolean(), etc.
    * - Chain modifiers: .unique(), .optional(), .default()
    * - Add relationships: .belongs_to(), .one_to_one(), .many_to_many()
    * - Use helpers: .timestamps(), .soft_delete(), .sortable()
    *
+   * NOTE: Semantic types (email, money, flag, etc.) are NOT available.
+   *
    * @param name - Table reference: "namespace.table" or just "table"
-   * @param fn - Callback receiving a TableBuilder (t parameter)
+   * @param fn - Callback receiving a MigrationTableBuilder (t parameter)
    *
    * @example
    * // User authentication table
    * m.create_table("auth.user", t => {
    *   t.id()
-   *   t.email("email").unique()
-   *   t.username("username").unique()
-   *   t.password_hash("password")
-   *   t.flag("is_active", true)
+   *   t.string("email", 255).unique()
+   *   t.string("username", 50).unique()
+   *   t.string("password", 255)
+   *   t.boolean("is_active").default(true)
    *   t.timestamps()
    * })
    *
@@ -183,14 +183,14 @@ export interface MigrationBuilder {
    * // Blog post with relationships
    * m.create_table("blog.post", t => {
    *   t.id()
-   *   t.title("title")
-   *   t.slug("slug")
-   *   t.body("content")
+   *   t.string("title", 200)
+   *   t.string("slug", 255).unique()
+   *   t.text("content")
    *   t.belongs_to("auth.user").as("author")
    *   t.belongs_to("blog.category")
    *   t.enum("status", ["draft", "published"]).default("draft")
    *   t.datetime("published_at").optional()
-   *   t.counter("view_count")
+   *   t.integer("view_count").default(0)
    *   t.timestamps()
    *   t.soft_delete()
    * })
@@ -199,18 +199,18 @@ export interface MigrationBuilder {
    * // Product catalog
    * m.create_table("shop.product", t => {
    *   t.id()
-   *   t.code("sku").unique()
-   *   t.title("name")
-   *   t.body("description")
-   *   t.money("price")
-   *   t.currency("currency")
-   *   t.quantity("stock")
-   *   t.url("image_url").optional()
-   *   t.flag("is_featured", false)
+   *   t.string("sku", 20).unique()
+   *   t.string("name", 200)
+   *   t.text("description")
+   *   t.decimal("price", 19, 4)
+   *   t.string("currency", 3)
+   *   t.integer("stock").default(0)
+   *   t.string("image_url", 2048).optional()
+   *   t.boolean("is_featured").default(false)
    *   t.timestamps()
    * })
    */
-  create_table(name: string, fn: (t: TableBuilder) => void): void;
+  create_table(name: string, fn: (t: MigrationTableBuilder) => void): void;
 
   /**
    * Drops an existing table permanently.
@@ -257,34 +257,37 @@ export interface MigrationBuilder {
   /**
    * Adds a new column to an existing table.
    *
-   * The callback receives a ColumnFactory with all semantic and core types.
+   * NOTE: Only low-level types are available (string, integer, text, etc.).
+   * Semantic types (email, phone, money, etc.) are only available in create_table().
    * If adding a NOT NULL column to a table with existing data, use .backfill().
    *
    * @param table - Table reference
    * @param fn - Callback that creates and returns a ColumnBuilder
    *
    * @example
-   * // Add semantic type column
-   * m.add_column("auth.user", c => c.phone("phone").optional())
-   * m.add_column("blog.post", c => c.slug("slug"))
-   * m.add_column("shop.product", c => c.money("price"))
+   * // Add string column
+   * m.add_column("auth.user", c => c.string("phone", 50).optional())
    *
    * @example
-   * // Add custom column with validation
-   * m.add_column("blog.post", c =>
-   *   c.string("meta_title", 60).optional()
-   * )
+   * // Add text column
+   * m.add_column("blog.post", c => c.text("meta_description").optional())
    *
    * @example
    * // Add NOT NULL column with backfill for existing rows
    * m.add_column("blog.post", c =>
-   *   c.counter("view_count").backfill(0)
+   *   c.integer("view_count").default(0).backfill(0)
    * )
    *
    * @example
    * // Add enum column
    * m.add_column("auth.user", c =>
    *   c.enum("role", ["admin", "user", "guest"]).default("user")
+   * )
+   *
+   * @example
+   * // Add decimal for money (semantic equivalent)
+   * m.add_column("shop.product", c =>
+   *   c.decimal("price", 19, 4).min(0)
    * )
    */
   add_column(table: string, fn: (c: ColumnFactory) => ColumnBuilder): void;
@@ -554,20 +557,20 @@ export interface MigrationDefinition {
  * @param definition - Object with up() and down() functions
  *
  * @example
- * // migrations/001_create_users.js - Complete user table
+ * // migrations/001_create_users.js - Complete user table (low-level types)
  * export default migration({
  *   up(m) {
  *     m.create_table("auth.user", t => {
  *       t.id()
- *       t.email("email").unique()
- *       t.username("username").unique()
- *       t.password_hash("password")
- *       t.name("first_name")
- *       t.name("last_name")
- *       t.phone("phone").optional()
- *       t.url("avatar_url").optional()
- *       t.flag("is_active", true)
- *       t.flag("is_verified", false)
+ *       t.string("email", 255).unique()
+ *       t.string("username", 50).unique()
+ *       t.string("password", 255)
+ *       t.string("first_name", 100)
+ *       t.string("last_name", 100)
+ *       t.string("phone", 50).optional()
+ *       t.string("avatar_url", 2048).optional()
+ *       t.boolean("is_active").default(true)
+ *       t.boolean("is_verified").default(false)
  *       t.datetime("last_login").optional()
  *       t.timestamps()
  *     })
@@ -584,24 +587,24 @@ export interface MigrationDefinition {
  *     // Categories first (no dependencies)
  *     m.create_table("blog.category", t => {
  *       t.id()
- *       t.name("name").unique()
- *       t.slug("slug")
- *       t.color("color").optional()
+ *       t.string("name", 100).unique()
+ *       t.string("slug", 255).unique()
+ *       t.string("color", 7).optional()
  *       t.timestamps()
  *     })
  *
  *     // Posts (depends on user and category)
  *     m.create_table("blog.post", t => {
  *       t.id()
- *       t.title("title")
- *       t.slug("slug")
- *       t.summary("excerpt").optional()
- *       t.markdown("content")
+ *       t.string("title", 200)
+ *       t.string("slug", 255).unique()
+ *       t.string("excerpt", 500).optional()
+ *       t.text("content")
  *       t.belongs_to("auth.user").as("author")
  *       t.belongs_to("blog.category")
  *       t.enum("status", ["draft", "published", "archived"]).default("draft")
- *       t.counter("view_count")
- *       t.rating("average_rating").optional()
+ *       t.integer("view_count").default(0)
+ *       t.decimal("average_rating", 2, 1).optional()
  *       t.datetime("published_at").optional()
  *       t.timestamps()
  *       t.soft_delete()
@@ -610,8 +613,8 @@ export interface MigrationDefinition {
  *     // Tags (no dependencies)
  *     m.create_table("blog.tag", t => {
  *       t.id()
- *       t.name("name").unique()
- *       t.slug("slug")
+ *       t.string("name", 100).unique()
+ *       t.string("slug", 255).unique()
  *       t.timestamps()
  *     })
  *
@@ -638,12 +641,12 @@ export interface MigrationDefinition {
  * })
  *
  * @example
- * // migrations/003_add_user_bio.js - Adding columns
+ * // migrations/003_add_user_bio.js - Adding columns (low-level types only)
  * export default migration({
  *   up(m) {
  *     m.add_column("auth.user", c => c.text("bio").optional())
- *     m.add_column("auth.user", c => c.country("country").optional())
- *     m.add_column("auth.user", c => c.locale("locale").default("en-US"))
+ *     m.add_column("auth.user", c => c.string("country", 2).optional())
+ *     m.add_column("auth.user", c => c.string("locale", 10).default("en-US"))
  *   },
  *   down(m) {
  *     m.drop_column("auth.user", "locale")
@@ -658,17 +661,17 @@ export interface MigrationDefinition {
  *   up(m) {
  *     m.create_table("shop.product", t => {
  *       t.id()
- *       t.code("sku").unique()
- *       t.title("name")
- *       t.slug("slug")
- *       t.body("description")
- *       t.money("price")
- *       t.currency("currency")
- *       t.percentage("discount").optional()
- *       t.quantity("stock")
- *       t.url("image_url").optional()
- *       t.flag("is_featured", false)
- *       t.flag("is_available", true)
+ *       t.string("sku", 20).unique()
+ *       t.string("name", 200)
+ *       t.string("slug", 255).unique()
+ *       t.text("description")
+ *       t.decimal("price", 19, 4)
+ *       t.string("currency", 3)
+ *       t.decimal("discount", 5, 2).optional()
+ *       t.integer("stock").default(0)
+ *       t.string("image_url", 2048).optional()
+ *       t.boolean("is_featured").default(false)
+ *       t.boolean("is_available").default(true)
  *       t.sortable()
  *       t.timestamps()
  *     })
@@ -688,7 +691,6 @@ export interface MigrationDefinition {
  *       t.id()
  *       t.belongs_to("auth.user").as("author")
  *       t.text("content")
- *       // Can comment on posts OR videos
  *       t.belongs_to_any(["blog.post", "media.video"], { as: "commentable" })
  *       t.timestamps()
  *     })

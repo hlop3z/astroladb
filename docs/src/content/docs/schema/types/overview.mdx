@@ -27,11 +27,11 @@ All semantic types are available via the `col.*` global in your schema files.
 | `col.name()`     | `string(100)` | Person/entity names              |
 | `col.title()`    | `string(200)` | Article/page titles              |
 | `col.slug()`     | `string(255)` | URL-safe, unique, lowercase      |
-| `col.body()`     | `text`        | Long-form content                |
 | `col.summary()`  | `string(500)` | Short descriptions               |
 | `col.code()`     | `string(20)`  | SKUs, codes (uppercase pattern)  |
-| `col.markdown()` | `text`        | Markdown formatted content       |
+| `col.body()`     | `text`        | Long-form content                |
 | `col.html()`     | `text`        | HTML content with format hint    |
+| `col.markdown()` | `text`        | Markdown formatted content       |
 
 ### Numbers & Money
 
@@ -49,7 +49,9 @@ All semantic types are available via the `col.*` global in your schema files.
 | Type                | Base Type      | Details                        |
 | ------------------- | -------------- | ------------------------------ |
 | `col.url()`         | `string(2048)` | Full URLs with scheme          |
-| `col.ip()`          | `string(45)`   | IPv4 and IPv6 addresses        |
+| `col.ip()`          | `string(45)`   | IPv4 or IPv6 with validation   |
+| `col.ipv4()`        | `string(15)`   | IPv4 only with validation      |
+| `col.ipv6()`        | `string(45)`   | IPv6 only with validation      |
 | `col.user_agent()`  | `string(500)`  | Browser user agent strings     |
 
 ### Internationalization

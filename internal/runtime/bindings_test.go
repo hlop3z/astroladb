@@ -1170,3 +1170,71 @@ func TestSandbox_BindMigration(t *testing.T) {
 		}
 	})
 }
+
+// TestMigration_NoSemanticTypes verifies that semantic types are NOT available
+// in migration create_table. Migrations should only use low-level types.
+func TestMigration_NoSemanticTypes(t *testing.T) {
+	sb := NewSandbox(nil)
+	sb.BindMigration()
+
+	// List of semantic types that should NOT be available in migrations
+	semanticTypes := []string{
+		"email", "username", "password_hash", "phone", "name", "title",
+		"slug", "body", "summary", "url", "ip", "ipv4", "ipv6", "user_agent",
+		"money", "percentage", "counter", "quantity", "rating", "duration",
+		"token", "code", "country", "currency", "locale", "timezone", "color",
+		"markdown", "html", "flag",
+	}
+
+	for _, typeName := range semanticTypes {
+		t.Run(typeName+"_not_available", func(t *testing.T) {
+			code := `
+				var result = "not_run";
+				migration({
+					up: function(m) {
+						m.create_table("test.table", function(t) {
+							result = typeof t.` + typeName + `;
+						});
+					}
+				});
+				result;
+			`
+			result, err := sb.RunWithResult(code)
+			if err != nil {
+				t.Fatalf("Error running code: %v", err)
+			}
+			if result.String() != "undefined" {
+				t.Errorf("t.%s should be undefined in migrations, got %q", typeName, result.String())
+			}
+		})
+	}
+
+	// Verify low-level types ARE available
+	lowLevelTypes := []string{
+		"id", "string", "text", "integer", "float", "decimal",
+		"boolean", "date", "time", "datetime", "uuid", "json", "base64", "enum",
+	}
+
+	for _, typeName := range lowLevelTypes {
+		t.Run(typeName+"_is_available", func(t *testing.T) {
+			code := `
+				var result = "not_run";
+				migration({
+					up: function(m) {
+						m.create_table("test.table", function(t) {
+							result = typeof t.` + typeName + `;
+						});
+					}
+				});
+				result;
+			`
+			result, err := sb.RunWithResult(code)
+			if err != nil {
+				t.Fatalf("Error running code: %v", err)
+			}
+			if result.String() != "function" {
+				t.Errorf("t.%s should be a function in migrations, got %q", typeName, result.String())
+			}
+		})
+	}
+}

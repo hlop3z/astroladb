@@ -358,12 +358,12 @@ func TestE2E_CLI_Migrate(t *testing.T) {
 		t.Fatalf("alab init failed: %v", err)
 	}
 
-	// Write migration directly
+	// Write migration directly (using low-level types only)
 	migrationDir := filepath.Join(env.repoPath, "migrations")
 	migrationContent := `migration(m => {
 	m.create_table("auth.user", t => {
 		t.id()
-		t.email("email").unique()
+		t.string("email", 255).unique()
 		t.timestamps()
 	})
 })

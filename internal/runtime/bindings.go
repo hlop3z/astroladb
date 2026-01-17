@@ -140,6 +140,8 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 	obj := s.vm.NewObject()
 
 	// create_table(ref, fn)
+	// NOTE: Uses ToMigrationObject() which only has low-level types (no semantic types).
+	// Migrations should be explicit and stable - use string(255), decimal(19,4), etc.
 	_ = obj.Set("create_table", func(ref string, fn goja.Value) {
 		builderFn, ok := goja.AssertFunction(fn)
 		if !ok {
@@ -148,7 +150,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 
 		ns, table := parseRef(ref)
 		tb := NewTableBuilder(s.vm)
-		tbObj := tb.ToObject()
+		tbObj := tb.ToMigrationObject()
 
 		_, err := builderFn(goja.Undefined(), tbObj)
 		if err != nil {

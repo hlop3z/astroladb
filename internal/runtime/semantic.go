@@ -82,6 +82,17 @@ var SemanticTypes = map[string]SemanticType{
 	"ip": {
 		BaseType: "string",
 		Length:   45, // Covers IPv4 and IPv6
+		Pattern:  `^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.){3}(25[0-5]|(2[0-4]|1\d|[1-9]|)\d)$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$`,
+	},
+	"ipv4": {
+		BaseType: "string",
+		Length:   15,
+		Pattern:  `^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.){3}(25[0-5]|(2[0-4]|1\d|[1-9]|)\d)$`,
+	},
+	"ipv6": {
+		BaseType: "string",
+		Length:   45,
+		Pattern:  `^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$`,
 	},
 	"user_agent": {
 		BaseType: "string",

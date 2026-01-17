@@ -4,19 +4,20 @@
 export default migration({
   up(m) {
     // Add your migration code here
-    // Examples:
+    // NOTE: Migrations use LOW-LEVEL TYPES only (no semantic types like email, money, flag)
     //
-    // Create a table with semantic types:
+    // Create a table:
     // m.create_table("auth.user", t => {
     //   t.id()
-    //   t.email("email").unique()
-    //   t.username("username").unique()
-    //   t.password_hash("password")
+    //   t.string("email", 255).unique()
+    //   t.string("username", 50).unique()
+    //   t.string("password", 255)
+    //   t.boolean("is_active").default(true)
     //   t.timestamps()
     // })
     //
     // Add columns:
-    // m.add_column("auth.user", c => c.phone("phone").optional())
+    // m.add_column("auth.user", c => c.string("phone", 50).optional())
     //
     // Create indexes:
     // m.create_index("auth.user", ["email"])

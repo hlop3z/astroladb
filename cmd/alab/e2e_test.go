@@ -32,10 +32,10 @@ func TestE2E_FullBlogPlatform(t *testing.T) {
 migration(m => {
 	m.create_table("auth.user", t => {
 		t.id()
-		t.email("email").unique()
+		t.string("email", 255).unique()
 		t.string("password_hash", 255)
-		t.flag("is_active", true)
-		t.flag("is_verified")
+		t.boolean("is_active").default(true)
+		t.boolean("is_verified").default(false)
 		t.datetime("last_login").optional()
 		t.timestamps()
 	})
@@ -148,7 +148,7 @@ migration(m => {
 		t.uuid("author_id").optional()
 		t.uuid("parent_id").optional()
 		t.text("content")
-		t.flag("is_approved")
+		t.boolean("is_approved").default(false)
 		t.timestamps()
 	})
 
@@ -317,7 +317,7 @@ migration(m => {
 		t.string("slug", 100).unique()
 		t.uuid("parent_id").optional()
 		t.integer("sort_order").default(0)
-		t.flag("is_active", true)
+		t.boolean("is_active").default(true)
 		t.timestamps()
 	})
 
@@ -330,8 +330,8 @@ migration(m => {
 		t.decimal("price", 10, 2)
 		t.decimal("compare_at_price", 10, 2).optional()
 		t.integer("stock_quantity").default(0)
-		t.flag("is_active", true)
-		t.flag("is_featured")
+		t.boolean("is_active").default(true)
+		t.boolean("is_featured").default(false)
 		t.timestamps()
 	})
 
@@ -350,13 +350,13 @@ migration(m => {
 migration(m => {
 	m.create_table("customer.account", t => {
 		t.id()
-		t.email("email").unique()
+		t.string("email", 255).unique()
 		t.string("password_hash", 255)
 		t.string("first_name", 50)
 		t.string("last_name", 50)
 		t.string("phone", 20).optional()
-		t.flag("is_active", true)
-		t.flag("email_verified")
+		t.boolean("is_active").default(true)
+		t.boolean("email_verified").default(false)
 		t.timestamps()
 	})
 
@@ -370,7 +370,7 @@ migration(m => {
 		t.string("state", 100)
 		t.string("postal_code", 20)
 		t.string("country", 2)
-		t.flag("is_default")
+		t.boolean("is_default").default(false)
 		t.timestamps()
 	})
 
@@ -419,7 +419,7 @@ migration(m => {
 		t.id()
 		t.string("name", 100)
 		t.string("code", 20).unique()
-		t.flag("is_active", true)
+		t.boolean("is_active").default(true)
 		t.timestamps()
 	})
 
@@ -484,7 +484,7 @@ func TestE2E_SQLiteWorkflow(t *testing.T) {
 migration(m => {
 	m.create_table("app.user", t => {
 		t.id()
-		t.email("email").unique()
+		t.string("email", 255).unique()
 		t.string("name", 100)
 		t.timestamps()
 	})
@@ -611,7 +611,7 @@ func TestE2E_DryRunWorkflow_WithRelationships(t *testing.T) {
 	env.writeMigration(t, "001", "relationships", testutil.SimpleMigration(
 		`    m.create_table("auth.user", t => {
       t.id()
-      t.email("email")
+      t.string("email", 255)
       t.string("username", 50).unique()
       t.boolean("is_active").default(true)
       t.timestamps()
@@ -623,7 +623,7 @@ func TestE2E_DryRunWorkflow_WithRelationships(t *testing.T) {
       t.belongs_to("auth.user").as("editor").optional()
       t.string("title", 200)
       t.text("body")
-      t.slug("slug")
+      t.string("slug", 255).unique()
       t.enum("status", ["draft", "published", "archived"]).default("draft")
       t.timestamps()
       t.soft_delete()

@@ -168,8 +168,59 @@ func (tb *TableBuilder) addColumn(name, colType string, opts ...ColOpt) *goja.Ob
 	return tb.columnBuilder(col)
 }
 
-// ToObject converts the builder to a JavaScript object.
+// ToObject converts the builder to a JavaScript object with ALL types (including semantic).
+// Used by schema files (col.*) where semantic types are available.
 func (tb *TableBuilder) ToObject() *goja.Object {
+	obj := tb.toBaseObject()
+
+	// ===========================================
+	// SEMANTIC TYPES - Only for schema files, NOT migrations
+	// Registered from centralized SemanticTypes map
+	// ===========================================
+	for typeName, st := range SemanticTypes {
+		// Capture loop variables for closure
+		tn, semantic := typeName, st
+
+		// flag is special - takes optional default value argument
+		if tn == "flag" {
+			_ = obj.Set("flag", func(call goja.FunctionCall) goja.Value {
+				if len(call.Arguments) < 1 {
+					panic(tb.vm.ToValue("flag() requires a name argument"))
+				}
+				name := call.Arguments[0].String()
+				defaultVal := false
+				if len(call.Arguments) > 1 {
+					if v, ok := call.Arguments[1].Export().(bool); ok {
+						defaultVal = v
+					}
+				}
+				return tb.addColumn(name, "boolean", withDefault(defaultVal))
+			})
+			continue
+		}
+
+		// All other semantic types: typeName(columnName)
+		_ = obj.Set(tn, func(name string) *goja.Object {
+			return tb.addColumn(name, semantic.BaseType, optsFromSemantic(semantic)...)
+		})
+	}
+	// ===========================================
+	// END SEMANTIC TYPES
+	// ===========================================
+
+	return obj
+}
+
+// ToMigrationObject converts the builder to a JavaScript object with LOW-LEVEL types only.
+// Used by migrations where only explicit types are allowed (no semantic types).
+// This ensures migrations are explicit and stable even if semantic type definitions change.
+func (tb *TableBuilder) ToMigrationObject() *goja.Object {
+	return tb.toBaseObject()
+}
+
+// toBaseObject creates the base JavaScript object with low-level types, relationships, and helpers.
+// This is shared between ToObject() and ToMigrationObject().
+func (tb *TableBuilder) toBaseObject() *goja.Object {
 	obj := tb.vm.NewObject()
 
 	// id() - UUID primary key
@@ -224,40 +275,6 @@ func (tb *TableBuilder) ToObject() *goja.Object {
 	_ = obj.Set("enum", func(name string, values []string) *goja.Object {
 		return tb.addColumn(name, "enum", withArgs(values))
 	})
-
-	// ===========================================
-	// SEMANTIC TYPES - Registered from centralized SemanticTypes map
-	// ===========================================
-	for typeName, st := range SemanticTypes {
-		// Capture loop variables for closure
-		tn, semantic := typeName, st
-
-		// flag is special - takes optional default value argument
-		if tn == "flag" {
-			_ = obj.Set("flag", func(call goja.FunctionCall) goja.Value {
-				if len(call.Arguments) < 1 {
-					panic(tb.vm.ToValue("flag() requires a name argument"))
-				}
-				name := call.Arguments[0].String()
-				defaultVal := false
-				if len(call.Arguments) > 1 {
-					if v, ok := call.Arguments[1].Export().(bool); ok {
-						defaultVal = v
-					}
-				}
-				return tb.addColumn(name, "boolean", withDefault(defaultVal))
-			})
-			continue
-		}
-
-		// All other semantic types: typeName(columnName)
-		_ = obj.Set(tn, func(name string) *goja.Object {
-			return tb.addColumn(name, semantic.BaseType, optsFromSemantic(semantic)...)
-		})
-	}
-	// ===========================================
-	// END SEMANTIC TYPES
-	// ===========================================
 
 	// timestamps() - adds created_at and updated_at
 	_ = obj.Set("timestamps", func() {

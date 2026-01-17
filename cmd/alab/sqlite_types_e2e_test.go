@@ -176,30 +176,30 @@ func TestE2E_SQLite_SemanticTypes(t *testing.T) {
 	env := setupTestEnv(t)
 	dbPath := filepath.Join(env.tmpDir, "semantic_test.db")
 
-	// Migration with semantic types
-	env.writeMigration(t, "001", "create_semantic_table", testutil.SimpleMigration(
+	// Migration with low-level types (semantic types are only available in schemas, not migrations)
+	env.writeMigration(t, "001", "create_profile_table", testutil.SimpleMigration(
 		`      m.create_table("user.profile", t => {
         t.id()
-    
-        // Identity and authentication
-        t.email("email")
-        t.username("username")
-        t.password_hash("password")
-        t.phone("phone").optional()
-    
+
+        // Identity and authentication (using low-level types)
+        t.string("email", 255)
+        t.string("username", 50)
+        t.string("password", 255)
+        t.string("phone", 50).optional()
+
         // Text content
-        t.name("display_name")
-        t.title("job_title")
-        t.slug("profile_slug")
-        t.body("bio")
-        t.summary("short_bio")
-    
+        t.string("display_name", 100)
+        t.string("job_title", 200)
+        t.string("profile_slug", 255).unique()
+        t.text("bio")
+        t.string("short_bio", 500)
+
         // URLs and network
-        t.url("website").optional()
-    
-        // Boolean flag
-        t.flag("is_verified")
-        t.flag("is_premium", true)
+        t.string("website", 2048).optional()
+
+        // Boolean flags
+        t.boolean("is_verified").default(false)
+        t.boolean("is_premium").default(true)
       })`,
 		`      m.drop_table("user.profile")`,
 	))
@@ -312,7 +312,7 @@ func TestE2E_SQLite_Relationships(t *testing.T) {
 	env.writeMigration(t, "001", "create_relationship_tables", testutil.SimpleMigration(
 		`      m.create_table("auth.user", t => {
         t.id()
-        t.email("email")
+        t.string("email", 255)
         t.timestamps()
       })
     
@@ -422,7 +422,7 @@ func TestE2E_SQLite_AddColumn(t *testing.T) {
 	env.writeMigration(t, "001", "create_initial_table", testutil.SimpleMigration(
 		`      m.create_table("app.user", t => {
         t.id()
-        t.email("email")
+        t.string("email", 255)
       })`,
 		`      m.drop_table("app.user")`,
 	))
@@ -518,7 +518,7 @@ func TestE2E_SQLite_TableNaming(t *testing.T) {
 	env.writeMigration(t, "001", "create_namespaced_tables", testutil.SimpleMigration(
 		`      m.create_table("auth.user", t => {
         t.id()
-        t.email("email")
+        t.string("email", 255)
       })
     
       m.create_table("auth.session", t => {

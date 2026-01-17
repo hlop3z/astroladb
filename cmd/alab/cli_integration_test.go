@@ -190,7 +190,7 @@ func TestMigrate_Postgres_AppliesPendingMigrations(t *testing.T) {
 migration(m => {
 	m.create_table("auth.user", t => {
 		t.id()
-		t.email("email").unique()
+		t.string("email", 255).unique()
 		t.string("username", 50)
 		t.timestamps()
 	})
@@ -253,7 +253,7 @@ func TestMigrate_Postgres_MultipleMigrations(t *testing.T) {
 migration(m => {
 	m.create_table("auth.user", t => {
 		t.id()
-		t.email("email").unique()
+		t.string("email", 255).unique()
 	})
 })
 `)
@@ -298,7 +298,7 @@ func TestMigrate_Postgres_StepsLimitsApplied(t *testing.T) {
 migration(m => {
 	m.create_table("auth.user", t => {
 		t.id()
-		t.email("email")
+		t.string("email", 255)
 	})
 })
 `)
@@ -352,8 +352,8 @@ func TestMigrate_SQLite_AppliesPendingMigrations(t *testing.T) {
 migration(m => {
 	m.create_table("auth.user", t => {
 		t.id()
-		t.email("email").unique()
-		t.flag("is_active", true)
+		t.string("email", 255).unique()
+		t.boolean("is_active").default(true)
 	})
 })
 `)
@@ -383,8 +383,8 @@ migration(m => {
 	m.create_table("store.product", t => {
 		t.id()
 		t.string("name", 100)
-		t.money("price")
-		t.quantity("stock")
+		t.decimal("price", 19, 4)
+		t.integer("stock").default(0)
 	})
 })
 `)
@@ -415,7 +415,7 @@ func TestStatus_Postgres_ShowsAppliedMigrations(t *testing.T) {
 migration(m => {
 	m.create_table("auth.user", t => {
 		t.id()
-		t.email("email")
+		t.string("email", 255)
 	})
 })
 `)
@@ -538,7 +538,7 @@ export default table({
 migration(m => {
 	m.create_table("auth.user", t => {
 		t.id()
-		t.email("email")
+		t.string("email", 255)
 	})
 })
 `)
@@ -582,7 +582,7 @@ export default table({
 migration(m => {
 	m.create_table("auth.user", t => {
 		t.id()
-		t.email("email")
+		t.string("email", 255)
 	})
 })
 `)
@@ -694,7 +694,7 @@ func TestRollback_Postgres_RollsBackMigration(t *testing.T) {
 migration(m => {
 	m.create_table("auth.user", t => {
 		t.id()
-		t.email("email")
+		t.string("email", 255)
 	})
 })
 `)
@@ -772,10 +772,10 @@ func TestMigrate_Postgres_ComplexSchema(t *testing.T) {
 migration(m => {
 	m.create_table("auth.user", t => {
 		t.id()
-		t.email("email").unique()
+		t.string("email", 255).unique()
 		t.string("password_hash", 255)
-		t.flag("is_active", true)
-		t.flag("is_verified")
+		t.boolean("is_active").default(true)
+		t.boolean("is_verified").default(false)
 		t.datetime("last_login").optional()
 		t.timestamps()
 	})
@@ -840,7 +840,7 @@ func TestMigrate_Postgres_CreatesIndexes(t *testing.T) {
 migration(m => {
 	m.create_table("auth.user", t => {
 		t.id()
-		t.email("email")
+		t.string("email", 255)
 		t.string("name", 100)
 	})
 	m.create_index("auth.user", ["email"], { unique: true })
