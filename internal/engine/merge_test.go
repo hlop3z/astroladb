@@ -571,3 +571,353 @@ func TestSchemaRemoveTable(t *testing.T) {
 		t.Error("RemoveTable() should remove the table")
 	}
 }
+
+// -----------------------------------------------------------------------------
+// TableList Tests
+// -----------------------------------------------------------------------------
+
+func TestSchemaTableList(t *testing.T) {
+	s := NewSchema()
+	s.Tables["blog.posts"] = &ast.TableDef{Namespace: "blog", Name: "posts", Columns: []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}}}
+	s.Tables["auth.users"] = &ast.TableDef{Namespace: "auth", Name: "users", Columns: []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}}}
+	s.Tables["auth.roles"] = &ast.TableDef{Namespace: "auth", Name: "roles", Columns: []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}}}
+
+	list := s.TableList()
+
+	if len(list) != 3 {
+		t.Fatalf("TableList() = %d tables, want 3", len(list))
+	}
+
+	// Should be sorted by qualified name
+	if list[0].QualifiedName() != "auth.roles" {
+		t.Errorf("TableList()[0] = %q, want %q", list[0].QualifiedName(), "auth.roles")
+	}
+	if list[1].QualifiedName() != "auth.users" {
+		t.Errorf("TableList()[1] = %q, want %q", list[1].QualifiedName(), "auth.users")
+	}
+	if list[2].QualifiedName() != "blog.posts" {
+		t.Errorf("TableList()[2] = %q, want %q", list[2].QualifiedName(), "blog.posts")
+	}
+}
+
+func TestSchemaTableListEmpty(t *testing.T) {
+	s := NewSchema()
+	list := s.TableList()
+
+	if len(list) != 0 {
+		t.Errorf("TableList() for empty schema = %d, want 0", len(list))
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Validate Edge Cases Tests
+// -----------------------------------------------------------------------------
+
+func TestSchemaValidateInvalidColumnReference(t *testing.T) {
+	s := NewSchema()
+
+	// Add referenced table
+	s.Tables["auth.users"] = &ast.TableDef{
+		Namespace: "auth",
+		Name:      "users",
+		Columns:   []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}},
+	}
+
+	// Table with FK to existing table but non-existent column
+	s.Tables["blog.posts"] = &ast.TableDef{
+		Namespace: "blog",
+		Name:      "posts",
+		Columns: []*ast.ColumnDef{
+			{Name: "id", Type: "id", PrimaryKey: true},
+			{Name: "user_id", Type: "uuid", Reference: &ast.Reference{
+				Table:  "auth.users",
+				Column: "nonexistent_column", // This column doesn't exist
+			}},
+		},
+	}
+
+	err := s.Validate()
+	if err == nil {
+		t.Error("Validate() should fail for invalid column reference")
+	}
+
+	if !strings.Contains(err.Error(), "references unknown column") {
+		t.Errorf("Validate() error should mention invalid column reference, got: %v", err)
+	}
+}
+
+func TestSchemaValidateRelativeReference(t *testing.T) {
+	s := NewSchema()
+
+	// Add referenced table
+	s.Tables["blog.users"] = &ast.TableDef{
+		Namespace: "blog",
+		Name:      "users",
+		Columns:   []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}},
+	}
+
+	// Table referencing same-namespace table without namespace qualifier
+	s.Tables["blog.posts"] = &ast.TableDef{
+		Namespace: "blog",
+		Name:      "posts",
+		Columns: []*ast.ColumnDef{
+			{Name: "id", Type: "id", PrimaryKey: true},
+			{Name: "user_id", Type: "uuid", Reference: &ast.Reference{
+				Table:  "users", // Just table name, should resolve to blog.users
+				Column: "id",
+			}},
+		},
+	}
+
+	err := s.Validate()
+	if err != nil {
+		t.Errorf("Validate() should succeed for relative reference in same namespace: %v", err)
+	}
+}
+
+func TestSchemaValidateInvalidRelativeReference(t *testing.T) {
+	s := NewSchema()
+
+	// Table in different namespace
+	s.Tables["auth.users"] = &ast.TableDef{
+		Namespace: "auth",
+		Name:      "users",
+		Columns:   []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}},
+	}
+
+	// Table referencing table without namespace qualifier, but table is in different namespace
+	s.Tables["blog.posts"] = &ast.TableDef{
+		Namespace: "blog",
+		Name:      "posts",
+		Columns: []*ast.ColumnDef{
+			{Name: "id", Type: "id", PrimaryKey: true},
+			{Name: "user_id", Type: "uuid", Reference: &ast.Reference{
+				Table:  "users", // No namespace - will try blog.users which doesn't exist
+				Column: "id",
+			}},
+		},
+	}
+
+	err := s.Validate()
+	if err == nil {
+		t.Error("Validate() should fail for invalid relative reference")
+	}
+}
+
+// -----------------------------------------------------------------------------
+// GetDependencies Tests
+// -----------------------------------------------------------------------------
+
+func TestSchemaGetDependenciesMultiple(t *testing.T) {
+	s := NewSchema()
+
+	// Setup tables
+	s.Tables["auth.users"] = &ast.TableDef{
+		Namespace: "auth",
+		Name:      "users",
+		Columns:   []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}},
+	}
+	s.Tables["auth.roles"] = &ast.TableDef{
+		Namespace: "auth",
+		Name:      "roles",
+		Columns:   []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}},
+	}
+	s.Tables["blog.posts"] = &ast.TableDef{
+		Namespace: "blog",
+		Name:      "posts",
+		Columns: []*ast.ColumnDef{
+			{Name: "id", Type: "id", PrimaryKey: true},
+			{Name: "user_id", Type: "uuid", Reference: &ast.Reference{Table: "auth.users", Column: "id"}},
+			{Name: "role_id", Type: "uuid", Reference: &ast.Reference{Table: "auth.roles", Column: "id"}},
+		},
+	}
+
+	deps := s.getDependencies(s.Tables["blog.posts"])
+
+	if len(deps) != 2 {
+		t.Errorf("getDependencies() = %d, want 2", len(deps))
+	}
+
+	// Should be sorted
+	if deps[0] != "auth.roles" || deps[1] != "auth.users" {
+		t.Errorf("getDependencies() = %v, want [auth.roles, auth.users]", deps)
+	}
+}
+
+func TestSchemaGetDependenciesNoDuplicates(t *testing.T) {
+	s := NewSchema()
+
+	// Setup tables
+	s.Tables["auth.users"] = &ast.TableDef{
+		Namespace: "auth",
+		Name:      "users",
+		Columns:   []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}},
+	}
+	s.Tables["blog.posts"] = &ast.TableDef{
+		Namespace: "blog",
+		Name:      "posts",
+		Columns: []*ast.ColumnDef{
+			{Name: "id", Type: "id", PrimaryKey: true},
+			{Name: "author_id", Type: "uuid", Reference: &ast.Reference{Table: "auth.users", Column: "id"}},
+			{Name: "editor_id", Type: "uuid", Reference: &ast.Reference{Table: "auth.users", Column: "id"}}, // Same reference
+		},
+	}
+
+	deps := s.getDependencies(s.Tables["blog.posts"])
+
+	// Should not have duplicates
+	if len(deps) != 1 {
+		t.Errorf("getDependencies() = %d, want 1 (no duplicates)", len(deps))
+	}
+}
+
+func TestSchemaGetDependenciesSkipsSelfReference(t *testing.T) {
+	s := NewSchema()
+
+	// Self-referencing table (e.g., tree structure)
+	s.Tables["org.categories"] = &ast.TableDef{
+		Namespace: "org",
+		Name:      "categories",
+		Columns: []*ast.ColumnDef{
+			{Name: "id", Type: "id", PrimaryKey: true},
+			{Name: "parent_id", Type: "uuid", Nullable: true, Reference: &ast.Reference{
+				Table:  "org.categories", // Self-reference
+				Column: "id",
+			}},
+		},
+	}
+
+	deps := s.getDependencies(s.Tables["org.categories"])
+
+	// Self-reference should not be counted as dependency
+	if len(deps) != 0 {
+		t.Errorf("getDependencies() = %d, want 0 (self-reference excluded)", len(deps))
+	}
+}
+
+// -----------------------------------------------------------------------------
+// resolveReference Edge Cases
+// -----------------------------------------------------------------------------
+
+func TestSchemaResolveReferenceFullyQualified(t *testing.T) {
+	s := NewSchema()
+	s.Tables["auth.users"] = &ast.TableDef{Namespace: "auth", Name: "users", Columns: []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}}}
+
+	resolved, err := s.resolveReference("auth.users", "blog")
+	if err != nil {
+		t.Errorf("resolveReference() error = %v", err)
+	}
+	if resolved != "auth.users" {
+		t.Errorf("resolveReference() = %q, want %q", resolved, "auth.users")
+	}
+}
+
+func TestSchemaResolveReferenceCurrentNamespace(t *testing.T) {
+	s := NewSchema()
+	s.Tables["blog.users"] = &ast.TableDef{Namespace: "blog", Name: "users", Columns: []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}}}
+
+	resolved, err := s.resolveReference("users", "blog")
+	if err != nil {
+		t.Errorf("resolveReference() error = %v", err)
+	}
+	if resolved != "blog.users" {
+		t.Errorf("resolveReference() = %q, want %q", resolved, "blog.users")
+	}
+}
+
+func TestSchemaResolveReferenceNotFound(t *testing.T) {
+	s := NewSchema()
+
+	_, err := s.resolveReference("nonexistent", "blog")
+	if err == nil {
+		t.Error("resolveReference() should return error for nonexistent table")
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Creation Order Edge Cases
+// -----------------------------------------------------------------------------
+
+func TestSchemaGetCreationOrderComplex(t *testing.T) {
+	s := NewSchema()
+
+	// Complex dependency chain: D -> C -> B -> A (and D -> A directly)
+	s.Tables["ns.a"] = &ast.TableDef{
+		Namespace: "ns",
+		Name:      "a",
+		Columns:   []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}},
+	}
+	s.Tables["ns.b"] = &ast.TableDef{
+		Namespace: "ns",
+		Name:      "b",
+		Columns: []*ast.ColumnDef{
+			{Name: "id", Type: "id", PrimaryKey: true},
+			{Name: "a_id", Type: "uuid", Reference: &ast.Reference{Table: "ns.a", Column: "id"}},
+		},
+	}
+	s.Tables["ns.c"] = &ast.TableDef{
+		Namespace: "ns",
+		Name:      "c",
+		Columns: []*ast.ColumnDef{
+			{Name: "id", Type: "id", PrimaryKey: true},
+			{Name: "b_id", Type: "uuid", Reference: &ast.Reference{Table: "ns.b", Column: "id"}},
+		},
+	}
+	s.Tables["ns.d"] = &ast.TableDef{
+		Namespace: "ns",
+		Name:      "d",
+		Columns: []*ast.ColumnDef{
+			{Name: "id", Type: "id", PrimaryKey: true},
+			{Name: "c_id", Type: "uuid", Reference: &ast.Reference{Table: "ns.c", Column: "id"}},
+			{Name: "a_id", Type: "uuid", Reference: &ast.Reference{Table: "ns.a", Column: "id"}}, // Direct dep on A
+		},
+	}
+
+	order, err := s.GetCreationOrder()
+	if err != nil {
+		t.Fatalf("GetCreationOrder() error = %v", err)
+	}
+
+	// Build position map
+	positions := make(map[string]int)
+	for i, t := range order {
+		positions[t.QualifiedName()] = i
+	}
+
+	// Verify order: a < b < c < d
+	if positions["ns.a"] > positions["ns.b"] {
+		t.Error("A should come before B")
+	}
+	if positions["ns.b"] > positions["ns.c"] {
+		t.Error("B should come before C")
+	}
+	if positions["ns.c"] > positions["ns.d"] {
+		t.Error("C should come before D")
+	}
+}
+
+func TestSchemaGetCreationOrderEmpty(t *testing.T) {
+	s := NewSchema()
+
+	order, err := s.GetCreationOrder()
+	if err != nil {
+		t.Fatalf("GetCreationOrder() error = %v", err)
+	}
+
+	if len(order) != 0 {
+		t.Errorf("GetCreationOrder() for empty schema = %d, want 0", len(order))
+	}
+}
+
+func TestSchemaGetDropOrderEmpty(t *testing.T) {
+	s := NewSchema()
+
+	order, err := s.GetDropOrder()
+	if err != nil {
+		t.Fatalf("GetDropOrder() error = %v", err)
+	}
+
+	if len(order) != 0 {
+		t.Errorf("GetDropOrder() for empty schema = %d, want 0", len(order))
+	}
+}

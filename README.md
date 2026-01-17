@@ -12,12 +12,11 @@
   <a href="https://github.com/hlop3z/astroladb/actions/workflows/ci.yml"><img src="https://github.com/hlop3z/astroladb/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://goreportcard.com/report/github.com/hlop3z/astroladb"><img src="https://goreportcard.com/badge/github.com/hlop3z/astroladb" alt="Go Report Card"></a>
   <a href="https://codecov.io/gh/hlop3z/astroladb"><img src="https://codecov.io/gh/hlop3z/astroladb/branch/main/graph/badge.svg" alt="codecov"></a>
-  <a href="https://pkg.go.dev/github.com/hlop3z/astroladb"><img src="https://pkg.go.dev/badge/github.com/hlop3z/astroladb.svg" alt="Go Reference"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue.svg" alt="License"></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/hlop3z/astroladb/releases"><img src="https://img.shields.io/github/v/release/hlop3z/astroladb" alt="Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/databases-PostgreSQL%20%7C%20SQLite-336791" alt="Databases">
   <img src="https://img.shields.io/badge/status-experimental-orange" alt="Experimental">
 </p>
