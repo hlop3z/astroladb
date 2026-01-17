@@ -1,0 +1,57 @@
+#!/usr/bin/expect -f
+# Scenario: Full workflow - init, create table, generate migration
+
+set timeout 15
+log_user 1
+
+proc type {text} {
+    foreach char [split $text ""] {
+        send -- $char
+        after 40
+    }
+}
+
+spawn -noecho bash --norc --noprofile
+expect "# "
+
+# Silent setup
+send "export PS1='demo\$ '\r"
+expect "demo\$ "
+send "cd /workspace/project && rm -rf * .* 2>/dev/null; true\r"
+expect "demo\$ "
+send "clear\r"
+expect "demo\$ "
+after 300
+
+# Step 1: Initialize
+type "alab init"
+send "\r"
+expect "demo\$ "
+after 1000
+
+# Step 2: Create a table schema
+type "alab table core users"
+send "\r"
+expect "demo\$ "
+after 1000
+
+# Step 3: Show the generated schema file
+type "cat schemas/core/users.js"
+send "\r"
+expect "demo\$ "
+after 2000
+
+# Step 4: Generate migration
+type "alab new add-users-table"
+send "\r"
+expect "demo\$ "
+after 1500
+
+# Step 5: Show migration files
+type "ls migrations/"
+send "\r"
+expect "demo\$ "
+after 2000
+
+send "exit\r"
+expect eof

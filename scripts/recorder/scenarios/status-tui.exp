@@ -1,0 +1,45 @@
+#!/usr/bin/expect -f
+# Scenario: Interactive TUI status command
+
+set timeout 20
+
+proc type_cmd {cmd} {
+    foreach char [split $cmd ""] {
+        send $char
+        sleep 0.05
+    }
+    send "\r"
+}
+
+spawn bash --norc --noprofile
+expect -re {\$}
+
+send "PS1='demo\$ '\r"
+expect "demo\$ "
+
+# Setup: ensure we have a project with migrations
+send "cd /workspace/project\r"
+expect "demo\$ "
+sleep 0.3
+
+# Launch TUI status
+type_cmd "alab status"
+sleep 2
+
+# Navigate TUI with arrow keys
+send "\033\[B"  ;# Down arrow
+sleep 1
+send "\033\[B"  ;# Down arrow
+sleep 1
+send "\033\[C"  ;# Right arrow (switch tab/panel)
+sleep 1.5
+send "\033\[C"  ;# Right arrow
+sleep 1.5
+
+# Exit TUI
+send "q"
+expect "demo\$ "
+sleep 1
+
+send "exit\r"
+expect eof

@@ -86,11 +86,11 @@ alab table auth user
 ```js
 // schemas/auth/user.js
 export default table({
-  id        : col.id(),
-  email     : col.email().unique(),
-  username  : col.username().unique(),
-  password  : col.password_hash(),
-  is_active : col.flag(true),
+  id: col.id(),
+  email: col.email().unique(),
+  username: col.username().unique(),
+  password: col.password_hash(),
+  is_active: col.flag(true),
 }).timestamps();
 ```
 
@@ -113,6 +113,14 @@ alab export -f all
 ```
 
 [See the full documentation →](https://hlop3z.github.io/astroladb/)
+
+---
+
+<p align="center">
+  <img src="docs/gifs/workflow.gif" alt="CLI workflow Demo" width="800" />
+  <img src="docs/gifs/status.gif" alt="CLI status Demo" width="800" />
+  <img src="docs/gifs/http-preview.gif" alt="HTTP Demo" width="800" />
+</p>
 
 ---
 

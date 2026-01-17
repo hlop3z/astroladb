@@ -1,0 +1,47 @@
+#!/usr/bin/expect -f
+# Scenario: Export schema to different formats
+
+set timeout 15
+log_user 1
+
+proc type {text} {
+    foreach char [split $text ""] {
+        send -- $char
+        after 50
+    }
+}
+
+spawn -noecho bash --norc --noprofile
+expect "# "
+
+# Silent setup - init project with a table
+send "export PS1='demo\$ '\r"
+expect "demo\$ "
+send "cd /workspace/project && rm -rf * .* 2>/dev/null; true\r"
+expect "demo\$ "
+send "alab init && alab table core users\r"
+expect "demo\$ "
+send "clear\r"
+expect "demo\$ "
+after 300
+
+# Export to TypeScript
+type "alab export -f typescript"
+send "\r"
+expect "demo\$ "
+after 1500
+
+# Export to GraphQL
+type "alab export -f graphql"
+send "\r"
+expect "demo\$ "
+after 1500
+
+# Export to OpenAPI
+type "alab export -f openapi"
+send "\r"
+expect "demo\$ "
+after 2000
+
+send "exit\r"
+expect eof

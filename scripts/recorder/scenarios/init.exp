@@ -1,0 +1,41 @@
+#!/usr/bin/expect -f
+# Scenario: Initialize a new alab project
+
+set timeout 10
+log_user 1
+
+proc type {text} {
+    foreach char [split $text ""] {
+        send -- $char
+        after 50
+    }
+}
+
+spawn -noecho bash --rcfile /workspace/.bashrc
+expect "demo\$ "
+
+# Clean directory silently
+send "rm -rf * 2>/dev/null; true\r"
+expect "demo\$ "
+after 200
+
+# Show empty directory
+type "ls -la"
+send "\r"
+expect "demo\$ "
+after 1000
+
+# Initialize project
+type "alab init"
+send "\r"
+expect "demo\$ "
+after 1500
+
+# Show created structure
+type "tree"
+send "\r"
+expect "demo\$ "
+after 2000
+
+send "exit\r"
+expect eof

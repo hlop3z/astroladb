@@ -1,0 +1,26 @@
+#!/usr/bin/expect -f
+# Scenario: Show alab help
+
+set timeout 10
+log_user 1
+
+proc type {text} {
+    foreach char [split $text ""] {
+        send -- $char
+        after 50
+    }
+}
+
+# Start bash with rcfile for clean prompt
+spawn -noecho bash --rcfile /workspace/.bashrc
+expect "demo\$ "
+after 300
+
+# Show help command
+type "alab --help"
+send "\r"
+expect "demo\$ "
+after 2500
+
+send "exit\r"
+expect eof

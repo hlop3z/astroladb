@@ -84,10 +84,39 @@ tasks:
     desc: Install dev tools (lefthook, golangci-lint)
     cmds:
       - go install github.com/evilmartians/lefthook@latest
-      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
       - lefthook install
 
   clean:
     desc: Remove build artifacts
     cmds:
       - rm -rf {{.BUILD_DIR}}
+
+  # Recording tasks
+  record-build:
+    desc: Build the CLI recorder Docker image
+    cmds:
+      - docker build -t alab-recorder -f scripts/recorder/Dockerfile .
+
+  record:
+    desc: "Record a CLI scenario to GIF (usage: task record SCENARIO=help COLS=140)"
+    cmds:
+      - mkdir -p docs/gifs
+      - 'docker run --rm -e COLS={{.COLS | default "140"}} -v "{{.ROOT_DIR}}/docs/gifs:/output" alab-recorder {{.SCENARIO | default "help"}}'
+
+  record-all:
+    desc: Record all available scenarios
+    cmds:
+      - mkdir -p docs/gifs
+      - docker run --rm -v "{{.ROOT_DIR}}/docs/gifs:/output" alab-recorder help
+      - docker run --rm -v "{{.ROOT_DIR}}/docs/gifs:/output" alab-recorder init
+      - docker run --rm -v "{{.ROOT_DIR}}/docs/gifs:/output" alab-recorder workflow
+      - docker run --rm -e COLS=180 -v "{{.ROOT_DIR}}/docs/gifs:/output" alab-recorder status
+      - docker run --rm -v "{{.ROOT_DIR}}/docs/gifs:/output" alab-recorder export
+      - docker run --rm -v "{{.ROOT_DIR}}/docs/gifs:/output" alab-recorder live-openapi
+      - echo "All recordings saved to docs/gifs/"
+
+  record-list:
+    desc: List available recording scenarios
+    cmds:
+      - ls -1 scripts/recorder/scenarios/*.sh | xargs -I{} basename {} .sh
