@@ -69,5 +69,4 @@ export interface User {
 }
 ```
 
-The `password` field is excluded from exports because `col.password_hash()` is
-marked as hidden.
+**Note:** The `password` field is automatically excluded from type exports because `col.password_hash()` is marked as hidden. This prevents sensitive credentials from appearing in client-side code or API documentation.

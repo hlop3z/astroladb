@@ -1,0 +1,417 @@
+---
+title: Troubleshooting
+description: Common issues and their solutions
+---
+
+This guide covers common issues you might encounter while using Astroladb and how to resolve them.
+
+## Installation Issues
+
+### Command Not Found After Installation
+
+**Problem:** Running `alab` returns "command not found"
+
+**Solutions:**
+
+1. **Check if binary is installed:**
+   ```bash
+   which alab
+   ```
+
+2. **Verify PATH includes install location:**
+   ```bash
+   echo $PATH | grep -o '/usr/local/bin'
+   ```
+
+3. **Add to PATH if needed:**
+   ```bash
+   # Add to ~/.bashrc or ~/.zshrc
+   export PATH=$PATH:/usr/local/bin
+
+   # Reload shell configuration
+   source ~/.bashrc  # or source ~/.zshrc
+   ```
+
+4. **For Go install users:**
+   ```bash
+   # Ensure GOPATH/bin is in PATH
+   export PATH=$PATH:$(go env GOPATH)/bin
+   ```
+
+### Permission Denied on Linux/macOS
+
+**Problem:** Install script fails with permission errors
+
+**Solution:**
+
+```bash
+# Run with sudo
+curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh | sudo sh
+
+# Or manually download and install
+curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh -o install.sh
+chmod +x install.sh
+sudo ./install.sh
+```
+
+## Configuration Issues
+
+### Database Connection Failures
+
+**Problem:** `alab migrate` fails with connection errors
+
+**Diagnosis:**
+
+```bash
+# Check if PostgreSQL is running
+pg_isready -h localhost -p 5432
+
+# Test connection manually
+psql "postgres://user:pass@localhost:5432/mydb"
+```
+
+**Common Causes:**
+
+1. **Database not running**
+   ```bash
+   # Start PostgreSQL (varies by system)
+   sudo systemctl start postgresql  # Linux systemd
+   brew services start postgresql   # macOS Homebrew
+   ```
+
+2. **Wrong credentials in alab.yaml**
+   ```yaml
+   database:
+     url: postgres://correctuser:correctpass@localhost:5432/mydb
+   ```
+
+3. **Database doesn't exist**
+   ```bash
+   # Create database first
+   createdb mydb
+   # or
+   psql -c "CREATE DATABASE mydb;"
+   ```
+
+4. **Port mismatch**
+   ```bash
+   # Check PostgreSQL port
+   pg_isready -h localhost -p 5432
+   # Update alab.yaml with correct port
+   ```
+
+### File Path Issues
+
+**Problem:** `alab init` or schema files not found
+
+**Solution:**
+
+1. **Ensure you're in project root:**
+   ```bash
+   pwd  # Should show your project directory
+   ls alab.yaml  # Should exist after init
+   ```
+
+2. **Check schema path in config:**
+   ```yaml
+   schemas: ./schemas  # Relative to alab.yaml location
+   ```
+
+3. **Verify directory structure:**
+   ```bash
+   tree -L 2
+   # Should show:
+   # ├── alab.yaml
+   # ├── schemas/
+   # └── migrations/
+   ```
+
+## Schema Definition Issues
+
+### Namespace Missing Errors
+
+**Problem:** Error: "belongs_to requires namespace (use 'namespace.table')"
+
+**Solution:**
+
+Always use fully qualified references with namespace:
+
+```js
+// ❌ Wrong - missing namespace
+author: col.belongs_to("user")
+
+// ✅ Correct - includes namespace
+author: col.belongs_to("auth.user")
+```
+
+### String Length Required Error
+
+**Problem:** Error: "string() requires a positive length"
+
+**Solution:**
+
+Always specify length for `col.string()`:
+
+```js
+// ❌ Wrong
+name: col.string()
+
+// ✅ Correct
+name: col.string(100)
+
+// Or use semantic types (recommended)
+name: col.name()  // Automatically uses string(100)
+```
+
+### Invalid Enum Values
+
+**Problem:** Enum validation fails during migration
+
+**Solution:**
+
+Ensure enum values are strings, not numbers:
+
+```js
+// ❌ Wrong - numbers not allowed
+status: col.enum([1, 2, 3])
+
+// ✅ Correct - use strings
+status: col.enum(["pending", "approved", "rejected"])
+```
+
+### Circular Relationship Dependencies
+
+**Problem:** Can't create tables due to circular foreign keys
+
+**Solution:**
+
+1. Make one relationship optional:
+   ```js
+   // In user.js
+   export default table({
+     id: col.id(),
+     primary_team: col.belongs_to("team.team").optional(),
+   });
+
+   // In team.js
+   export default table({
+     id: col.id(),
+     owner: col.belongs_to("auth.user"),
+   });
+   ```
+
+2. Or create relationships in a second migration after both tables exist.
+
+## Migration Issues
+
+### Migration Already Applied
+
+**Problem:** "Migration 001_create_users.sql already applied"
+
+**This is normal.** Astroladb tracks which migrations have run. If you need to re-run:
+
+```bash
+# Rollback last migration
+alab rollback
+
+# Then apply again
+alab migrate
+```
+
+### Migration Failed Mid-Execution
+
+**Problem:** Migration partially applied, database in inconsistent state
+
+**Solution:**
+
+1. **Check migration status:**
+   ```bash
+   alab status
+   ```
+
+2. **Manually fix the database:**
+   ```bash
+   # Connect to database
+   psql "postgres://user:pass@localhost:5432/mydb"
+
+   # Check what was created
+   \dt  # List tables
+
+   # Manually drop partial tables if needed
+   DROP TABLE IF EXISTS incomplete_table;
+   ```
+
+3. **Mark migration as not applied:**
+   ```bash
+   # If migration status is stuck, you may need to manually
+   # update the migration tracking table
+   ```
+
+4. **Re-run migration:**
+   ```bash
+   alab migrate
+   ```
+
+### Foreign Key Constraint Violations
+
+**Problem:** Migration fails with FK constraint error
+
+**Solution:**
+
+1. **Check that referenced table exists:**
+   ```js
+   // Make sure auth.user exists before referencing it
+   author: col.belongs_to("auth.user")
+   ```
+
+2. **Ensure migrations run in correct order:**
+   - Migrations run in alphabetical/timestamp order
+   - Create parent tables before child tables
+   - Use `alab status` to see execution order
+
+### Rollback Not Working
+
+**Problem:** `alab rollback` doesn't work or corrupts data
+
+**Note:** Rollbacks are still experimental. Always:
+
+1. **Backup before rolling back:**
+   ```bash
+   # PostgreSQL
+   pg_dump mydb > backup.sql
+
+   # SQLite
+   cp ./dev.db ./dev.db.backup
+   ```
+
+2. **Use dry run first:**
+   ```bash
+   alab rollback --dry
+   ```
+
+3. **For production, prefer forward migrations:**
+   - Create a new migration to fix issues
+   - Don't rollback in production
+
+## Export Issues
+
+### Types Not Generating
+
+**Problem:** `alab export` runs but files not created
+
+**Diagnosis:**
+
+1. **Check export output directory:**
+   ```bash
+   ls -la generated/
+   ```
+
+2. **Verify format specified:**
+   ```bash
+   # Must specify format
+   alab export -f typescript
+   # or
+   alab export -f all
+   ```
+
+3. **Check for schema errors:**
+   ```bash
+   alab check  # Validate schemas first
+   ```
+
+### Type Mismatches
+
+**Problem:** Generated types don't match database
+
+**Solution:**
+
+1. **Ensure migrations are applied:**
+   ```bash
+   alab migrate
+   ```
+
+2. **Re-export:**
+   ```bash
+   alab export -f all
+   ```
+
+3. **Check for hidden fields:**
+   - `col.password_hash()` is automatically hidden
+   - Won't appear in generated types
+
+## Performance Issues
+
+### Slow Schema Parsing
+
+**Problem:** `alab` commands are slow
+
+**Possible causes:**
+
+1. **Very large number of schema files** - Consider splitting into modules
+2. **Complex relationships** - Simplify if possible
+3. **File system issues** - Check disk I/O
+
+### Migration Takes Too Long
+
+**Problem:** Migration hangs or runs very slowly
+
+**Diagnosis:**
+
+1. **Check what SQL is running:**
+   ```bash
+   alab migrate --dry  # Preview SQL
+   ```
+
+2. **Look for expensive operations:**
+   - Creating indexes on large tables (expected to be slow)
+   - Backfilling millions of rows
+   - Complex CHECK constraints
+
+**Solutions:**
+
+1. **Split into smaller migrations**
+2. **Add indexes separately after data is loaded**
+3. **Use database-specific optimizations**
+
+## Getting Help
+
+If you can't resolve your issue:
+
+1. **Check the documentation** - Search for specific error messages
+2. **Validate your schema:**
+   ```bash
+   alab check
+   ```
+
+3. **Enable verbose logging** (if available):
+   ```bash
+   alab --verbose migrate
+   ```
+
+4. **File a GitHub issue** with:
+   - Astroladb version (`alab --version`)
+   - Database type and version
+   - Relevant schema code
+   - Full error message
+   - Steps to reproduce
+
+## Common Error Messages
+
+| Error | Cause | Solution |
+| ----- | ----- | -------- |
+| "namespace required" | Missing namespace in reference | Use `"ns.table"` format |
+| "length required" | No length for string() | Add length: `col.string(100)` |
+| "migration already applied" | Trying to re-run migration | Use `alab rollback` first |
+| "table not found" | Migration order issue | Check dependencies |
+| "connection refused" | Database not running | Start database service |
+| "command not found" | alab not in PATH | Add to PATH |
+
+## Best Practices to Avoid Issues
+
+1. **Always use semantic types when possible** - They have sensible defaults
+2. **Use `--dry` flag** - Preview changes before applying
+3. **Run `alab check`** - Validate before migrating
+4. **Backup before migrations** - Especially in production
+5. **Version control everything** - Commit schemas and migrations
+6. **Test locally first** - Don't migrate production directly
+7. **Use environment variables** - Keep credentials out of config files

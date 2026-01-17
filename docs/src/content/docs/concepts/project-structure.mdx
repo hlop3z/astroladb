@@ -24,43 +24,90 @@ myapp/
 
 \*Migrations can be edited for custom SQL, but regenerating will overwrite.
 
-## File Naming = Namespaces
+## Schema Organization
+
+Astroladb uses a **namespace-based organization** where folder structure determines table prefixes.
+
+### File Naming = Namespaces
 
 Folders inside `schemas/` become namespaces:
 
 ```
 schemas/
 ├── auth/
-│   ├── user.js      → auth.user
-│   └── session.js   → auth.session
+│   ├── user.js      → auth.user    → SQL table: auth_users
+│   └── session.js   → auth.session → SQL table: auth_sessions
 ├── blog/
-│   └── post.js      → blog.post
-└── core.js          → core (root namespace)
+│   ├── post.js      → blog.post    → SQL table: blog_posts
+│   └── comment.js   → blog.comment → SQL table: blog_comments
+└── catalog/
+    ├── product.js   → catalog.product → SQL table: catalog_products
+    └── category.js  → catalog.category → SQL table: catalog_categories
 ```
+
+### Naming Conventions
+
+- **File names**: `snake_case`, singular (e.g., `user.js`, `post_comment.js`)
+- **References**: Use dot notation with namespace (e.g., `"auth.user"`)
+- **SQL tables**: Auto-generated as `{namespace}_{plural_name}` (e.g., `auth_users`)
+
+### Why Namespaces?
+
+Namespaces provide logical grouping and prevent naming conflicts:
+- **auth**: User authentication and authorization
+- **blog**: Content management
+- **catalog**: Products and inventory
+- **orders**: E-commerce transactions
+- **analytics**: Tracking and reporting
+
+This makes it easy to understand what each table does at a glance.
 
 ## Schema File Anatomy
 
-A `.js` schema file exports a table definition:
+A schema file is a JavaScript module that exports a table definition:
 
 ```js
 // schemas/auth/user.js
 export default table({
   id: col.id(),
   email: col.email().unique(),
-  name: col.name().optional(),
+  username: col.username().unique(),
+  password: col.password_hash(),
   role: col.enum(["admin", "user"]).default("user"),
+  is_active: col.flag(true),
 }).timestamps();
 ```
 
-Key elements:
+### Key Elements
 
-| Element    | Syntax            | Example                     |
-| ---------- | ----------------- | --------------------------- |
-| Table      | `table({ })`      | `table({ id: col.id() })`   |
-| Column     | `col.type()`      | `col.email().unique()`      |
-| Nullable   | `.optional()`     | `col.name().optional()`     |
-| Default    | `.default(value)` | `.default("user")`          |
-| Timestamps | `.timestamps()`   | Adds created_at, updated_at |
+| Element           | Syntax                          | Example                               |
+| ----------------- | ------------------------------- | ------------------------------------- |
+| Table definition  | `table({ ... })`                | `table({ id: col.id() })`             |
+| Column types      | `col.type()`                    | `col.email()`, `col.name()`           |
+| Nullable          | `.optional()`                   | `col.bio().optional()`                |
+| Unique constraint | `.unique()`                     | `col.email().unique()`                |
+| Default value     | `.default(value)`               | `col.status().default("active")`      |
+| Relationships     | `col.belongs_to("ns.table")`    | `col.belongs_to("auth.user")`         |
+| Timestamps        | `.timestamps()`                 | Adds `created_at`, `updated_at`       |
+| Soft delete       | `.soft_delete()`                | Adds `deleted_at`                     |
+| Indexes           | `.index("col1", "col2")`        | Composite index                       |
+| Unique composite  | `.unique("col1", "col2")`       | Multi-column uniqueness               |
+
+### Column Definition Pattern
+
+Every column follows this pattern:
+
+```js
+columnName: col.semanticType().modifier1().modifier2()
+```
+
+Examples:
+```js
+email: col.email().unique(),
+bio: col.text().optional(),
+price: col.money().min(0),
+category: col.belongs_to("catalog.category").on_delete("restrict"),
+```
 
 ## Config File
 

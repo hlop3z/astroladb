@@ -6,7 +6,11 @@ description: Schema-first database migrations. Write once, export everywhere.
 **Language-agnostic database migration tool with JavaScript DSL.** Define your
 schema once, generate migrations and type exports for any language.
 
+**No ORM. No framework lock-in. Just clean migrations and type-safe exports.**
+
 ## Quick Example
+
+Define your schema using semantic types and relationships:
 
 ```js
 // schemas/auth/user.js
@@ -19,15 +23,146 @@ export default table({
 }).timestamps();
 ```
 
+Generate migrations and export types with simple commands:
+
 ```bash
-alab new create_users  # Generate migration
-alab migrate           # Apply to database
-alab export -f all     # Export types for all languages
+# Create migration from schema
+alab new create_users
+
+# Apply to database
+alab migrate
+
+# Export types for all languages
+alab export -f all
 ```
+
+## Why Astroladb?
+
+| Problem                              | Astroladb Solution                          |
+| ------------------------------------ | ------------------------------------------- |
+| ORMs lock you into one language      | Define once, use everywhere                 |
+| Manual SQL migrations are error-prone| Auto-generate from schema definitions       |
+| Types drift from database            | Always synchronized via single source       |
+| API docs get out of sync             | OpenAPI/GraphQL generated from schema       |
+| Schema changes across microservices  | Export to Go, TypeScript, Python, Rust      |
+
+## Key Features
+
+### 🎯 Schema-First Design
+
+Your JavaScript schema definitions are the single source of truth:
+
+```js
+export default table({
+  title: col.title(),
+  price: col.money(),
+  category: col.belongs_to("catalog.category"),
+}).timestamps();
+```
+
+### 🚀 Multi-Language Exports
+
+Generate type-safe code for your entire stack:
+
+- **TypeScript** - Frontend and Node.js
+- **Go** - Backend services
+- **Python** - Data pipelines and APIs
+- **Rust** - High-performance services
+- **OpenAPI** - API documentation
+- **GraphQL** - GraphQL schemas
+
+### 🔒 Type Safety Everywhere
+
+Change your schema once, types update everywhere:
+
+```bash
+alab export -f all
+# ✓ TypeScript interfaces updated
+# ✓ Go structs updated
+# ✓ Python dataclasses updated
+# ✓ OpenAPI spec updated
+```
+
+### 🌊 Semantic Types
+
+Pre-configured column types with built-in validation:
+
+```js
+email: col.email().unique(),          // Email pattern + unique
+price: col.money(),                   // decimal(19,4), min(0)
+slug: col.slug(),                     // URL-safe, unique, pattern
+is_active: col.flag(true),            // boolean, default true
+author: col.belongs_to("auth.user"),  // Foreign key + index
+```
+
+See all [semantic types](/astroladb/schema/types/overview/).
+
+### 🔗 Relationships Made Easy
+
+```js
+// Foreign keys
+author: col.belongs_to("auth.user"),
+
+// One-to-one
+profile: col.one_to_one("auth.user_profile"),
+
+// Many-to-many (auto-creates join table)
+.many_to_many("blog.tag")
+
+// Polymorphic
+target: col.belongs_to_any(["blog.post", "blog.comment"]),
+```
+
+### 🎨 Developer Experience
+
+- **IDE Autocomplete** - Full TypeScript definitions for DSL
+- **Validation** - Catch errors before migration
+- **Dry Run** - Preview SQL before applying
+- **Documentation Server** - Live docs at `alab http`
+- **Version Control Friendly** - Readable migration files
 
 ## Supported Databases
 
-| Database       | Use Case                       |
-| -------------- | ------------------------------ |
-| **PostgreSQL** | Production                     |
-| **SQLite**     | Development, testing, embedded |
+| Database       | Status | Use Case                       |
+| -------------- | ------ | ------------------------------ |
+| **PostgreSQL** | ✅      | Production deployments         |
+| **SQLite**     | ✅      | Development, testing, embedded |
+
+## Getting Started
+
+Ready to try Astroladb? Start with the installation guide:
+
+1. **[Installation](/astroladb/getting-started/installation/)** - Install the CLI
+2. **[Quick Start](/astroladb/getting-started/quick-start/)** - Create your first project
+3. **[First Schema](/astroladb/getting-started/first-schema/)** - Define and migrate a table
+4. **[Semantic Types](/astroladb/schema/types/overview/)** - Explore available column types
+5. **[Examples](/astroladb/examples/blog/)** - See real-world schemas
+
+## Project Status
+
+Astroladb is currently in **experimental** status. The core features are functional, but the API may change as we gather feedback.
+
+- ✅ Schema definitions with semantic types
+- ✅ PostgreSQL and SQLite migrations
+- ✅ Type exports (TypeScript, Go, Python, Rust)
+- ✅ OpenAPI and GraphQL generation
+- ✅ Relationships and constraints
+- 🚧 Schema versioning and branching
+- 🚧 Migration rollback improvements
+- 🚧 Advanced computed columns
+
+## Community & Support
+
+- **Documentation**: You're reading it!
+- **GitHub Issues**: Report bugs or request features
+- **Examples**: See the `/examples` directory in the repo
+
+## Philosophy
+
+Astroladb follows these core principles:
+
+1. **Schema is source of truth** - Not the database, not the ORM
+2. **Language-agnostic** - Works with any language stack
+3. **No magic** - Generates readable SQL and types
+4. **Developer-friendly** - Great DX with autocomplete and validation
+5. **Production-ready** - Safe migrations with dry-run and verification

@@ -3,12 +3,16 @@ title: Quick Start
 description: Initialize your first Astroladb project in under a minute.
 ---
 
-## Create Your Project
+Get up and running with Astroladb in three simple steps: initialize, configure, and create your first schema.
+
+## Step 1: Initialize Project
 
 ```bash
 mkdir myapp && cd myapp
 alab init
 ```
+
+This creates the basic project structure with configuration files and sample directories.
 
 ## Project Structure
 
@@ -29,17 +33,112 @@ myapp/
 | `migrations/` | Auto-generated SQL migration files                        |
 | `types/`      | TypeScript definitions for `col` and `table` autocomplete |
 
-## Configure Your Database
+## Step 2: Configure Database
 
 Edit `alab.yaml` with your database connection:
 
+### PostgreSQL Configuration
+
 ```yaml
 database:
-  dialect: postgres # or sqlite
-  url: postgres://user:pass@localhost:5432/mydb
+  dialect: postgres
+  url: postgres://user:password@localhost:5432/mydb
 
 schemas: ./schemas
 migrations: ./migrations
 ```
 
-You're ready to define your first schema.
+### SQLite Configuration (for development)
+
+```yaml
+database:
+  dialect: sqlite
+  url: ./dev.db
+
+schemas: ./schemas
+migrations: ./migrations
+```
+
+### Configuration Options
+
+| Setting              | Description                          | Example                   |
+| -------------------- | ------------------------------------ | ------------------------- |
+| `database.dialect`   | Database type                        | `postgres` or `sqlite`    |
+| `database.url`       | Connection string                    | See examples above        |
+| `schemas`            | Path to schema definitions           | `./schemas`               |
+| `migrations`         | Path to migration output             | `./migrations`            |
+
+## Step 3: Create Your First Table
+
+Use the `alab table` command to scaffold a new schema file:
+
+```bash
+alab table auth user
+```
+
+This creates `schemas/auth/user.js` with a basic template. Edit it to define your columns:
+
+```js
+// schemas/auth/user.js
+export default table({
+  id: col.id(),
+  email: col.email().unique(),
+  username: col.username().unique(),
+  password: col.password_hash(),
+  is_active: col.flag(true),
+}).timestamps();
+```
+
+## Step 4: Generate and Apply Migration
+
+Generate a migration from your schema:
+
+```bash
+alab new create_users
+```
+
+Preview the SQL before applying:
+
+```bash
+alab migrate --dry
+```
+
+Apply the migration to your database:
+
+```bash
+alab migrate
+```
+
+## What's Next?
+
+You now have a working Astroladb project! Here are some next steps:
+
+- **[Create your first schema](/astroladb/getting-started/first-schema/)** - Learn more about schema definitions
+- **[Explore semantic types](/astroladb/schema/types/overview/)** - Discover all available column types
+- **[Learn about relationships](/astroladb/schema/relationships/)** - Connect tables with foreign keys
+- **[Export types](/astroladb/exports/overview/)** - Generate TypeScript, Go, or Python types
+
+## Common Patterns
+
+### Multiple Tables in One Namespace
+
+```bash
+alab table blog post
+alab table blog comment
+alab table blog tag
+```
+
+Creates:
+- `schemas/blog/post.js`
+- `schemas/blog/comment.js`
+- `schemas/blog/tag.js`
+
+### Different Namespaces
+
+```bash
+alab table auth user
+alab table catalog product
+alab table orders order
+```
+
+Organizes tables by domain:

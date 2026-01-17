@@ -23,6 +23,11 @@ go install github.com/hlop3z/astroladb/cmd/alab@latest
 alab --version
 ```
 
+You should see output like:
+```
+alab version 0.x.x
+```
+
 ## System Requirements
 
 | Requirement   | Details                              |
@@ -33,3 +38,53 @@ alab --version
 
 The quick install script automatically detects your architecture and places the
 binary in `/usr/local/bin`.
+
+## Troubleshooting
+
+### Command Not Found
+
+If `alab` is not found after installation:
+
+1. **Check if binary is in PATH**:
+   ```bash
+   which alab
+   ```
+
+2. **Add to PATH if needed**:
+   ```bash
+   export PATH=$PATH:/usr/local/bin
+   ```
+
+3. **For `go install` users**:
+   Ensure `$GOPATH/bin` is in your PATH:
+   ```bash
+   export PATH=$PATH:$(go env GOPATH)/bin
+   ```
+
+### Permission Denied
+
+If you get a permission error when running the install script:
+
+```bash
+# Run with sudo (Linux/macOS)
+curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh | sudo sh
+```
+
+### Database Connection Issues
+
+If migrations fail to connect:
+
+1. Verify your database is running
+2. Check connection string in `alab.yaml`
+3. Test connection manually:
+   ```bash
+   # PostgreSQL
+   psql "postgres://user:pass@localhost:5432/mydb"
+
+   # SQLite
+   sqlite3 ./dev.db
+   ```
+
+## Next Steps
+
+After installation, proceed to [Quick Start](/astroladb/getting-started/quick-start/) to initialize your first project.

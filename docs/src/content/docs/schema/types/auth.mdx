@@ -27,11 +27,18 @@ export default table({
 
 ## Username Pattern
 
-Usernames must be 3-50 characters, alphanumeric with underscores:
+Usernames must be at least 3 characters, lowercase alphanumeric with underscores:
 
 ```
-^[a-zA-Z][a-zA-Z0-9_]{2,49}$
+^[a-z0-9_]+$
 ```
+
+This pattern enforces:
+- Lowercase letters only (a-z)
+- Numbers allowed (0-9)
+- Underscores allowed (_)
+- Minimum length of 3 characters (enforced via min constraint)
+- Maximum length of 50 characters (enforced via string length)
 
 ## Password Hash
 

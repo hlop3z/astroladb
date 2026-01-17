@@ -1,23 +1,41 @@
 ---
 title: Column Basics
+description: Understanding column definitions, nullability, defaults, and constraints
 ---
 
-Columns define the structure of your tables. Every column has a type and
-optional modifiers.
+Columns define the structure of your tables. Every column has a type and optional modifiers that control validation, defaults, and behavior.
+
+## Column Types
+
+Astroladb provides two levels of column types:
+
+- **[Semantic Types](/astroladb/schema/types/overview/)** - High-level types with built-in validation (recommended)
+- **[Low-Level Types](/astroladb/schema/columns/low-level/)** - Direct SQL type mappings for custom cases
 
 ## Required vs Optional
 
-By default, all columns are required (NOT NULL). Use `.optional()` to allow NULL
-values.
+**By default, all columns are required (NOT NULL).** This is an opinionated design choice that encourages explicit data modeling.
+
+Use `.optional()` to allow NULL values:
 
 ```js
 // schemas/auth/user.js
 export default table({
   id: col.id(),
-  name: col.string(100), // Required - NOT NULL
+  name: col.name(), // Required - NOT NULL
   bio: col.text().optional(), // Optional - allows NULL
+  website: col.url().optional(), // Optional - allows NULL
 });
 ```
+
+### Why Required by Default?
+
+Required columns prevent common bugs:
+- Forced to think about data completeness
+- Clearer data contracts
+- Fewer defensive null checks in application code
+
+Make fields optional only when NULL has a clear semantic meaning (e.g., "not provided" vs. "empty string").
 
 ## Default Values
 
