@@ -402,8 +402,6 @@ col := NewColumnBuilder("email", "string", 255)
 | `ToSnakeCase()`  | 14   | various → snake_case                 |
 | `ToPascalCase()` | 50   | various → PascalCase                 |
 | `ToCamelCase()`  | 77   | various → camelCase                  |
-| `Pluralize()`    | 237  | singular → plural                    |
-| `Singularize()`  | 282  | plural → singular                    |
 | `FullName()`     | -    | (namespace, table) → namespace_table |
 
 ---
@@ -483,7 +481,6 @@ Export (TypeScript):  columnToTypeScriptType → "string"
 **Name Conversions**:
 
 - `ToSnakeCase`, `ToPascalCase`, `ToCamelCase`
-- `Pluralize`, `Singularize`
 - `FullName`, `parseTableName`
 
 **Reference Conversions**:

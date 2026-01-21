@@ -192,13 +192,10 @@ func TestFKColumn(t *testing.T) {
 		table string
 		want  string
 	}{
-		{"users", "user_id"},
-		{"posts", "post_id"},
-		{"categories", "category_id"},
-		{"people", "person_id"},
-		{"children", "child_id"},
-		{"user", "user_id"},        // Already singular
-		{"settings", "setting_id"}, // Regular -s plural
+		{"user", "user_id"},
+		{"post", "post_id"},
+		{"category", "category_id"},
+		{"order_item", "order_item_id"},
 	}
 
 	for _, tt := range tests {
@@ -300,176 +297,6 @@ func TestJoinTableName(t *testing.T) {
 			got := JoinTableName(tt.tableA, tt.tableB)
 			if got != tt.want {
 				t.Errorf("JoinTableName(%q, %q) = %q, want %q", tt.tableA, tt.tableB, got, tt.want)
-			}
-		})
-	}
-}
-
-// -----------------------------------------------------------------------------
-// Pluralization Tests
-// -----------------------------------------------------------------------------
-
-func TestPluralize(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		// Empty
-		{"", ""},
-
-		// Regular -s plurals
-		{"user", "users"},
-		{"post", "posts"},
-		{"item", "items"},
-		{"setting", "settings"},
-
-		// -es plurals (s, x, z, ch, sh)
-		{"bus", "buses"},
-		{"box", "boxes"},
-		{"buzz", "buzzes"},
-		{"match", "matches"},
-		{"dish", "dishes"},
-
-		// -y to -ies
-		{"category", "categories"},
-		{"country", "countries"},
-		{"company", "companies"},
-		{"city", "cities"},
-
-		// Vowel + y = just add s
-		{"day", "days"},
-		{"key", "keys"},
-		{"boy", "boys"},
-		{"toy", "toys"},
-		{"way", "ways"},
-
-		// -f to -ves (handled by irregular map or rule)
-		{"leaf", "leaves"},
-		{"knife", "knives"},
-		{"life", "lives"},
-		{"wife", "wives"},
-
-		// Irregular plurals
-		{"person", "people"},
-		{"child", "children"},
-		{"man", "men"},
-		{"woman", "women"},
-		{"tooth", "teeth"},
-		{"foot", "feet"},
-		{"mouse", "mice"},
-		{"goose", "geese"},
-		{"ox", "oxen"},
-		{"cactus", "cacti"},
-		{"focus", "foci"},
-		{"fungus", "fungi"},
-		{"nucleus", "nuclei"},
-		{"analysis", "analyses"},
-		{"basis", "bases"},
-		{"crisis", "crises"},
-		{"thesis", "theses"},
-		{"datum", "data"},
-		{"medium", "media"},
-		{"index", "indices"},
-
-		// Uncountables (should not change)
-		{"equipment", "equipment"},
-		{"information", "information"},
-		{"rice", "rice"},
-		{"fish", "fish"},
-		{"sheep", "sheep"},
-		{"deer", "deer"},
-		{"species", "species"},
-		{"series", "series"},
-		{"news", "news"},
-		{"data", "data"},
-		{"metadata", "metadata"},
-
-		// Case preservation (Title case)
-		{"Person", "People"},
-		{"Child", "Children"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := Pluralize(tt.input)
-			if got != tt.want {
-				t.Errorf("Pluralize(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestSingularize(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		// Empty
-		{"", ""},
-
-		// Regular -s plurals
-		{"users", "user"},
-		{"posts", "post"},
-		{"items", "item"},
-		{"settings", "setting"},
-
-		// -es plurals
-		{"buses", "bus"},
-		{"boxes", "box"},
-		{"matches", "match"},
-		{"dishes", "dish"},
-
-		// -ies to -y
-		{"categories", "category"},
-		{"countries", "country"},
-		{"companies", "company"},
-		{"cities", "city"},
-
-		// -ves to -f or -fe
-		{"leaves", "leaf"},
-		{"knives", "knife"},
-		{"lives", "life"},
-		{"wives", "wife"},
-
-		// Irregular plurals
-		{"people", "person"},
-		{"children", "child"},
-		{"men", "man"},
-		{"women", "woman"},
-		{"teeth", "tooth"},
-		{"feet", "foot"},
-		{"mice", "mouse"},
-		{"geese", "goose"},
-		{"oxen", "ox"},
-		{"cacti", "cactus"},
-		{"foci", "focus"},
-		{"fungi", "fungus"},
-		{"nuclei", "nucleus"},
-		{"analyses", "analysis"},
-		{"bases", "basis"},
-		{"crises", "crisis"},
-		{"theses", "thesis"},
-		// Note: "data" is in uncountables so stays as "data"
-		{"data", "data"},
-		{"media", "medium"},
-		{"indices", "index"},
-
-		// Uncountables (should not change)
-		{"equipment", "equipment"},
-		{"information", "information"},
-		{"fish", "fish"},
-		{"sheep", "sheep"},
-
-		// Already singular
-		{"user", "user"},
-		{"post", "post"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := Singularize(tt.input)
-			if got != tt.want {
-				t.Errorf("Singularize(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
@@ -622,27 +449,6 @@ func TestSnakeToPascalRoundTrip(t *testing.T) {
 			back := ToSnakeCase(pascal)
 			if back != original {
 				t.Errorf("round trip failed: %q -> %q -> %q", original, pascal, back)
-			}
-		})
-	}
-}
-
-func TestPluralizeSingularizeRoundTrip(t *testing.T) {
-	// For regular words, pluralize then singularize should give original
-	singulars := []string{
-		"user",
-		"post",
-		"category",
-		"person",
-		"child",
-	}
-
-	for _, original := range singulars {
-		t.Run(original, func(t *testing.T) {
-			plural := Pluralize(original)
-			back := Singularize(plural)
-			if back != original {
-				t.Errorf("round trip failed: %q -> %q -> %q", original, plural, back)
 			}
 		})
 	}

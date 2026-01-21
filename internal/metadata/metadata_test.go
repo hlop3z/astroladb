@@ -181,12 +181,12 @@ func TestAddManyToMany(t *testing.T) {
 		jt := m.AddManyToMany("auth", "users", "auth.roles")
 
 		rel := m.ManyToMany[0]
-		if rel.SourceFK != "user_id" {
-			t.Errorf("AddManyToMany().SourceFK = %q, want %q", rel.SourceFK, "user_id")
+		if rel.SourceFK != "users_id" {
+			t.Errorf("AddManyToMany().SourceFK = %q, want %q", rel.SourceFK, "users_id")
 		}
 
-		if rel.TargetFK != "role_id" {
-			t.Errorf("AddManyToMany().TargetFK = %q, want %q", rel.TargetFK, "role_id")
+		if rel.TargetFK != "roles_id" {
+			t.Errorf("AddManyToMany().TargetFK = %q, want %q", rel.TargetFK, "roles_id")
 		}
 
 		// Check definition has correct columns

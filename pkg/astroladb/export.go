@@ -1042,13 +1042,7 @@ func buildRelationships(table *ast.TableDef, allTables []*ast.TableDef, meta *me
 				relType = "hasOne"
 			}
 
-			// Use plural form for hasMany
-			relName := relationName
-			if relType == "hasMany" {
-				relName = pluralize(otherTable.Name)
-			}
-
-			relationships[relName] = map[string]any{
+			relationships[relationName] = map[string]any{
 				"type":        relType,
 				"target":      otherTable.QualifiedName(),
 				"targetTable": otherTable.FullName(),
@@ -1068,12 +1062,12 @@ func buildRelationships(table *ast.TableDef, allTables []*ast.TableDef, meta *me
 				targetParts := strings.Split(m2m.Target, ".")
 				targetName := targetParts[len(targetParts)-1]
 
-				relationships[pluralize(targetName)] = map[string]any{
+				relationships[targetName] = map[string]any{
 					"type":        "manyToMany",
 					"target":      m2m.Target,
 					"targetTable": strings.ReplaceAll(m2m.Target, ".", "_"),
 					"localKey":    "id",
-					"backref":     pluralize(table.Name),
+					"backref":     table.Name,
 					"through": map[string]any{
 						"table":      m2m.JoinTable,
 						"localKey":   m2m.SourceFK,
@@ -1088,12 +1082,12 @@ func buildRelationships(table *ast.TableDef, allTables []*ast.TableDef, meta *me
 				sourceParts := strings.Split(m2m.Source, ".")
 				sourceName := sourceParts[len(sourceParts)-1]
 
-				relationships[pluralize(sourceName)] = map[string]any{
+				relationships[sourceName] = map[string]any{
 					"type":        "manyToMany",
 					"target":      m2m.Source,
 					"targetTable": strings.ReplaceAll(m2m.Source, ".", "_"),
 					"localKey":    "id",
-					"backref":     pluralize(table.Name),
+					"backref":     table.Name,
 					"through": map[string]any{
 						"table":      m2m.JoinTable,
 						"localKey":   m2m.TargetFK,
@@ -1122,21 +1116,6 @@ func matchesTable(ref string, table *ast.TableDef) bool {
 		return true
 	}
 	return false
-}
-
-// pluralize provides simple English pluralization.
-func pluralize(s string) string {
-	if strings.HasSuffix(s, "s") || strings.HasSuffix(s, "x") ||
-		strings.HasSuffix(s, "ch") || strings.HasSuffix(s, "sh") {
-		return s + "es"
-	}
-	if strings.HasSuffix(s, "y") && len(s) > 1 {
-		vowels := "aeiou"
-		if !strings.ContainsRune(vowels, rune(s[len(s)-2])) {
-			return s[:len(s)-1] + "ies"
-		}
-	}
-	return s + "s"
 }
 
 // columnToOpenAPIProperty converts a column definition to an OpenAPI property.
@@ -1304,8 +1283,7 @@ func buildPropertyXDB(col *ast.ColumnDef, table *ast.TableDef, meta *metadata.Me
 		}
 
 		// Inverse relationship name
-		inverseOf := pluralize(table.Name)
-		xdb["inverseOf"] = inverseOf
+		xdb["inverseOf"] = table.Name
 	}
 
 	// SQL type per dialect

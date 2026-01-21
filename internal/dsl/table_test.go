@@ -354,8 +354,8 @@ func TestTableBuilder_BelongsTo(t *testing.T) {
 	}
 
 	col := got.Columns[0]
-	if col.Name != "user_id" {
-		t.Errorf("Column name = %q, want %q", col.Name, "user_id")
+	if col.Name != "users_id" {
+		t.Errorf("Column name = %q, want %q", col.Name, "users_id")
 	}
 	if col.Type != "uuid" {
 		t.Errorf("Column type = %q, want %q", col.Type, "uuid")
@@ -375,8 +375,8 @@ func TestTableBuilder_BelongsTo(t *testing.T) {
 		t.Fatalf("Expected 1 index, got %d", len(got.Indexes))
 	}
 	idx := got.Indexes[0]
-	if len(idx.Columns) != 1 || idx.Columns[0] != "user_id" {
-		t.Errorf("Index columns = %v, want [user_id]", idx.Columns)
+	if len(idx.Columns) != 1 || idx.Columns[0] != "users_id" {
+		t.Errorf("Index columns = %v, want [users_id]", idx.Columns)
 	}
 }
 
@@ -417,8 +417,8 @@ func TestTableBuilder_OneToOne(t *testing.T) {
 	}
 
 	col := got.Columns[0]
-	if col.Name != "user_id" {
-		t.Errorf("Column name = %q, want %q", col.Name, "user_id")
+	if col.Name != "users_id" {
+		t.Errorf("Column name = %q, want %q", col.Name, "users_id")
 	}
 	if !col.Unique {
 		t.Error("OneToOne should create a unique column")

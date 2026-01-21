@@ -149,8 +149,8 @@ func (m *Metadata) AddManyToMany(sourceNS, sourceTable, targetRef string) *JoinT
 	joinTableName := names[0] + "_" + names[1]
 
 	// Determine FK column names
-	sourceFK := strutil.Singularize(sourceTable) + "_id"
-	targetFK := strutil.Singularize(targetTable) + "_id"
+	sourceFK := sourceTable + "_id"
+	targetFK := targetTable + "_id"
 
 	// Record the relationship
 	rel := &ManyToManyMeta{

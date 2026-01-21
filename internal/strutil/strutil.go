@@ -1,5 +1,5 @@
-// Package strutil provides string utilities for case conversion, SQL naming,
-// and pluralization used throughout the Alab codebase.
+// Package strutil provides string utilities for case conversion and SQL naming
+// used throughout the Alab codebase.
 package strutil
 
 import (
@@ -113,10 +113,9 @@ func QualifyTable(namespace, table string) string {
 }
 
 // FKColumn returns the foreign key column name for a table.
-// It singularizes the table name and appends "_id".
-// Example: FKColumn("users") -> "user_id"
+// Example: FKColumn("user") -> "user_id"
 func FKColumn(table string) string {
-	return Singularize(table) + "_id"
+	return table + "_id"
 }
 
 // FKName returns the foreign key constraint name.
@@ -167,180 +166,6 @@ func JoinTableName(tableA, tableB string) string {
 		return tableA + "_" + tableB
 	}
 	return tableB + "_" + tableA
-}
-
-// -----------------------------------------------------------------------------
-// Pluralization
-// -----------------------------------------------------------------------------
-
-// irregularPlurals maps singular words to their irregular plural forms.
-var irregularPlurals = map[string]string{
-	"person":   "people",
-	"child":    "children",
-	"man":      "men",
-	"woman":    "women",
-	"tooth":    "teeth",
-	"foot":     "feet",
-	"mouse":    "mice",
-	"goose":    "geese",
-	"ox":       "oxen",
-	"leaf":     "leaves",
-	"life":     "lives",
-	"knife":    "knives",
-	"wife":     "wives",
-	"self":     "selves",
-	"elf":      "elves",
-	"loaf":     "loaves",
-	"potato":   "potatoes",
-	"tomato":   "tomatoes",
-	"cactus":   "cacti",
-	"focus":    "foci",
-	"fungus":   "fungi",
-	"nucleus":  "nuclei",
-	"syllabus": "syllabi",
-	"analysis": "analyses",
-	"basis":    "bases",
-	"crisis":   "crises",
-	"thesis":   "theses",
-	"datum":    "data",
-	"medium":   "media",
-	"index":    "indices",
-}
-
-// irregularSingulars is the reverse mapping for singularization.
-var irregularSingulars map[string]string
-
-func init() {
-	irregularSingulars = make(map[string]string, len(irregularPlurals))
-	for singular, plural := range irregularPlurals {
-		irregularSingulars[plural] = singular
-	}
-}
-
-// uncountables are words that don't change between singular and plural.
-var uncountables = map[string]bool{
-	"equipment":   true,
-	"information": true,
-	"rice":        true,
-	"money":       true,
-	"species":     true,
-	"series":      true,
-	"fish":        true,
-	"sheep":       true,
-	"deer":        true,
-	"aircraft":    true,
-	"news":        true,
-	"data":        true,
-	"metadata":    true,
-}
-
-// Pluralize converts a singular word to its plural form.
-// Examples: user -> users, category -> categories, person -> people
-func Pluralize(s string) string {
-	if s == "" {
-		return ""
-	}
-
-	lower := strings.ToLower(s)
-
-	// Check uncountables
-	if uncountables[lower] {
-		return s
-	}
-
-	// Check irregular plurals
-	if plural, ok := irregularPlurals[lower]; ok {
-		return matchCase(s, plural)
-	}
-
-	// Apply standard English pluralization rules
-	switch {
-	case strings.HasSuffix(lower, "s") ||
-		strings.HasSuffix(lower, "x") ||
-		strings.HasSuffix(lower, "z") ||
-		strings.HasSuffix(lower, "ch") ||
-		strings.HasSuffix(lower, "sh"):
-		return s + "es"
-
-	case strings.HasSuffix(lower, "y"):
-		if len(s) > 1 && !isVowel(rune(lower[len(lower)-2])) {
-			return s[:len(s)-1] + "ies"
-		}
-		return s + "s"
-
-	case strings.HasSuffix(lower, "f"):
-		return s[:len(s)-1] + "ves"
-
-	case strings.HasSuffix(lower, "fe"):
-		return s[:len(s)-2] + "ves"
-
-	default:
-		return s + "s"
-	}
-}
-
-// Singularize converts a plural word to its singular form.
-// Examples: users -> user, categories -> category, people -> person
-func Singularize(s string) string {
-	if s == "" {
-		return ""
-	}
-
-	lower := strings.ToLower(s)
-
-	// Check uncountables
-	if uncountables[lower] {
-		return s
-	}
-
-	// Check irregular singulars
-	if singular, ok := irregularSingulars[lower]; ok {
-		return matchCase(s, singular)
-	}
-
-	// Apply reverse pluralization rules
-	switch {
-	case strings.HasSuffix(lower, "ies"):
-		if len(s) > 3 {
-			return s[:len(s)-3] + "y"
-		}
-
-	case strings.HasSuffix(lower, "ves"):
-		if len(s) > 3 {
-			// Could be "leaves" -> "leaf" or "knives" -> "knife"
-			base := s[:len(s)-3]
-			// Try both -f and -fe patterns
-			if _, ok := irregularPlurals[strings.ToLower(base)+"f"]; ok {
-				return base + "f"
-			}
-			if _, ok := irregularPlurals[strings.ToLower(base)+"fe"]; ok {
-				return base + "fe"
-			}
-			return base + "f"
-		}
-
-	case strings.HasSuffix(lower, "ches") ||
-		strings.HasSuffix(lower, "shes") ||
-		strings.HasSuffix(lower, "sses") ||
-		strings.HasSuffix(lower, "xes") ||
-		strings.HasSuffix(lower, "zes"):
-		if len(s) > 2 {
-			return s[:len(s)-2]
-		}
-
-	case strings.HasSuffix(lower, "ses"):
-		// Could be "buses" -> "bus" or "bases" -> "basis"
-		if len(s) > 2 {
-			return s[:len(s)-2]
-		}
-
-	case strings.HasSuffix(lower, "s") && !strings.HasSuffix(lower, "ss"):
-		if len(s) > 1 {
-			return s[:len(s)-1]
-		}
-	}
-
-	return s
 }
 
 // -----------------------------------------------------------------------------
@@ -421,25 +246,4 @@ func isVowel(r rune) bool {
 		return true
 	}
 	return false
-}
-
-// matchCase returns the replacement string with the same case pattern as the original.
-func matchCase(original, replacement string) string {
-	if original == "" || replacement == "" {
-		return replacement
-	}
-
-	// Check if original is all uppercase
-	if IsUpperCase(original) {
-		return strings.ToUpper(replacement)
-	}
-
-	// Check if original starts with uppercase (Title case)
-	if unicode.IsUpper(rune(original[0])) {
-		runes := []rune(replacement)
-		runes[0] = unicode.ToUpper(runes[0])
-		return string(runes)
-	}
-
-	return replacement
 }

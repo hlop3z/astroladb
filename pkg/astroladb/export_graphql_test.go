@@ -416,30 +416,6 @@ func TestOpenAPIConverter_ConvertType(t *testing.T) {
 // Helper Function Tests
 // ===========================================================================
 
-func TestPluralize(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"user", "users"},
-		{"post", "posts"},
-		{"class", "classes"},       // ends with s
-		{"box", "boxes"},           // ends with x
-		{"church", "churches"},     // ends with ch
-		{"dish", "dishes"},         // ends with sh
-		{"category", "categories"}, // ends with consonant+y
-		{"day", "days"},            // ends with vowel+y
-		{"toy", "toys"},            // ends with vowel+y
-	}
-
-	for _, tt := range tests {
-		got := pluralize(tt.input)
-		if got != tt.want {
-			t.Errorf("pluralize(%q) = %q, want %q", tt.input, got, tt.want)
-		}
-	}
-}
-
 func TestMatchesTable(t *testing.T) {
 	table := &ast.TableDef{
 		Namespace: "auth",
@@ -778,8 +754,8 @@ func TestBuildPropertyXDB_WithFK(t *testing.T) {
 	if xdb["relation"] != "author" {
 		t.Errorf("relation = %v, want author", xdb["relation"])
 	}
-	if xdb["inverseOf"] != "posts" {
-		t.Errorf("inverseOf = %v, want posts", xdb["inverseOf"])
+	if xdb["inverseOf"] != "post" {
+		t.Errorf("inverseOf = %v, want post", xdb["inverseOf"])
 	}
 }
 
@@ -1152,19 +1128,19 @@ func TestBuildRelationships_HasMany(t *testing.T) {
 		t.Fatal("expected relationships for user table")
 	}
 
-	posts, ok := relationships["posts"].(map[string]any)
+	author, ok := relationships["author"].(map[string]any)
 	if !ok {
-		t.Fatal("expected 'posts' relationship")
+		t.Fatal("expected 'author' relationship")
 	}
 
-	if posts["type"] != "hasMany" {
-		t.Errorf("type = %v, want hasMany", posts["type"])
+	if author["type"] != "hasMany" {
+		t.Errorf("type = %v, want hasMany", author["type"])
 	}
-	if posts["target"] != "blog.post" {
-		t.Errorf("target = %v, want blog.post", posts["target"])
+	if author["target"] != "blog.post" {
+		t.Errorf("target = %v, want blog.post", author["target"])
 	}
-	if posts["foreignKey"] != "author_id" {
-		t.Errorf("foreignKey = %v, want author_id", posts["foreignKey"])
+	if author["foreignKey"] != "author_id" {
+		t.Errorf("foreignKey = %v, want author_id", author["foreignKey"])
 	}
 }
 
@@ -1234,32 +1210,32 @@ func TestBuildRelationships_ManyToMany(t *testing.T) {
 
 	// Check user->role relationship
 	userRels := buildRelationships(userTable, allTables, meta)
-	roles, ok := userRels["roles"].(map[string]any)
+	role, ok := userRels["role"].(map[string]any)
 	if !ok {
-		t.Fatal("expected 'roles' relationship")
+		t.Fatal("expected 'role' relationship")
 	}
 
-	if roles["type"] != "manyToMany" {
-		t.Errorf("type = %v, want manyToMany", roles["type"])
+	if role["type"] != "manyToMany" {
+		t.Errorf("type = %v, want manyToMany", role["type"])
 	}
-	if roles["target"] != "auth.role" {
-		t.Errorf("target = %v, want auth.role", roles["target"])
+	if role["target"] != "auth.role" {
+		t.Errorf("target = %v, want auth.role", role["target"])
 	}
 
-	through := roles["through"].(map[string]any)
+	through := role["through"].(map[string]any)
 	if through["table"] != "user_roles" {
 		t.Errorf("through.table = %v, want user_roles", through["table"])
 	}
 
 	// Check role->user relationship (inverse)
 	roleRels := buildRelationships(roleTable, allTables, meta)
-	users, ok := roleRels["users"].(map[string]any)
+	user, ok := roleRels["user"].(map[string]any)
 	if !ok {
-		t.Fatal("expected 'users' relationship")
+		t.Fatal("expected 'user' relationship")
 	}
 
-	if users["type"] != "manyToMany" {
-		t.Errorf("type = %v, want manyToMany", users["type"])
+	if user["type"] != "manyToMany" {
+		t.Errorf("type = %v, want manyToMany", user["type"])
 	}
 }
 
