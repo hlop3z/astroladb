@@ -111,6 +111,14 @@ alab migrate
 alab export -f all
 ```
 
+## Live Server
+
+**The live server provides instant API exploration with automatic hot reloading.**
+
+```bash
+alab http
+```
+
 [See the full documentation →](https://hlop3z.github.io/astroladb/)
 
 ---
