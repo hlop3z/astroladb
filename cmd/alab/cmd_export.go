@@ -79,10 +79,16 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
 			var exportedFiles []exportEntry
 
 			for _, f := range formats {
+				// Add chrono for Rust by default (unless using mik)
+				formatOpts := opts
+				if f == "rust" && !mik {
+					formatOpts = append(formatOpts, astroladb.WithChrono())
+				}
+
 				// OpenAPI and GraphQL always go to root (single file)
 				// Other formats split by namespace
 				if f == "openapi" || f == "graphql" {
-					path, err := exportFormat(client, f, dir, stdout, opts)
+					path, err := exportFormat(client, f, dir, stdout, formatOpts)
 					if err != nil {
 						return err
 					}
@@ -91,7 +97,7 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
 					}
 				} else {
 					for _, ns := range validNs {
-						nsOpts := append(opts, astroladb.WithNamespace(ns))
+						nsOpts := append(formatOpts, astroladb.WithNamespace(ns))
 						nsDir := filepath.Join(dir, ns)
 						path, err := exportFormat(client, f, nsDir, stdout, nsOpts)
 						if err != nil {
@@ -127,7 +133,7 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
 	cmd.Flags().StringVarP(&format, "format", "f", "openapi", "Export format (openapi, graphql, typescript, go, python, rust, all)")
 	cmd.Flags().StringVar(&dir, "dir", DefaultExportsDir, "Output directory")
 	cmd.Flags().BoolVar(&stdout, "stdout", false, "Print to stdout")
-	cmd.Flags().BoolVar(&mik, "mik", false, "Use mik_sdk style for Rust")
+	cmd.Flags().BoolVar(&mik, "mik", false, "Use mik_sdk style for Rust (uses String for date/time)")
 
 	setupCommandHelp(cmd)
 	return cmd
