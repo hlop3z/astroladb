@@ -29,7 +29,7 @@
 
 ## What is Astroladb?
 
-A **schema-centric tooling language** — that generates:
+A schema-first **database orchestration** tool with **codegen**:
 
 - Database migrations (PostgreSQL & SQLite)
 - OpenAPI specifications

@@ -1,0 +1,38 @@
+---
+title: CLI Commands
+---
+
+Complete reference for all Astroladb (`alab`) CLI commands
+
+---
+
+## Development Commands
+
+| Command  | Description                                                                |
+| -------- | -------------------------------------------------------------------------- |
+| `init`   | Initialize project structure (`schemas/`, `migrations/`, `types/`)         |
+| `table`  | Create a new table schema file                                             |
+| `http`   | Start local server for live API documentation                              |
+| `export` | Export schema (`openapi`, `graphql`, `typescript`, `go`, `python`, `rust`) |
+
+---
+
+## Migration Commands
+
+| Command    | Description                                              |
+| ---------- | -------------------------------------------------------- |
+| `new`      | Create a migration (auto-generated from schema changes)  |
+| `migrate`  | Apply pending migrations                                 |
+| `rollback` | Roll back migrations (default: 1 step)                   |
+| `reset`    | Drop all tables and re-run migrations (development only) |
+
+---
+
+## Toolkit Commands
+
+| Command  | Description                                         |
+| -------- | --------------------------------------------------- |
+| `schema` | Show schema at a specific migration revision        |
+| `status` | Show schema, history, verification, and drift (TUI) |
+| `types`  | Regenerate TypeScript definitions for IDE support   |
+| `meta`   | Export schema metadata to a JSON file               |

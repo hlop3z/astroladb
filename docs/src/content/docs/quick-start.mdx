@@ -1,0 +1,101 @@
+---
+title: Quick Start
+---
+
+```sh
+alab init
+```
+
+After running `alab init`, you'll have:
+
+```
+project/
+├── alab.yaml        # Configuration file
+├── schemas/         # Your schema definitions
+├── migrations/      # Generated SQL migrations
+└── types/           # TypeScript definitions for IDE support
+```
+
+### PostgreSQL Configuration
+
+```yaml
+database:
+  dialect: postgres
+  url: postgres://user:password@localhost:5432/mydb
+
+schemas: ./schemas
+migrations: ./migrations
+```
+
+### SQLite Configuration (for development)
+
+```yaml
+database:
+  dialect: sqlite
+  url: ./dev.db
+  ...
+```
+
+### Configuration Options
+
+| Setting            | Description                | Example                |
+| ------------------ | -------------------------- | ---------------------- |
+| `database.dialect` | Database type              | `postgres` or `sqlite` |
+| `database.url`     | Connection string          | See examples above     |
+| `schemas`          | Path to schema definitions | `./schemas`            |
+| `migrations`       | Path to migration output   | `./migrations`         |
+
+## Create Your First Table
+
+Use the `alab table` command to scaffold a new schema file:
+
+```bash
+alab table auth user
+```
+
+This command generates a basic template at:
+
+```
+schemas/auth/user.js
+```
+
+Two important concepts are introduced here:
+
+1. **`auth`** is the _**namespace**_ that groups related schemas.
+2. **`user`** is the _**table**_ definition within that namespace.
+
+This structure stays consistent across teams and services
+
+```
+auth.user  →  auth_user
+```
+
+By enforcing namespaces at the schema level, teams can collaborate in large
+projects without naming collisions, while keeping database conventions
+predictable and explicit.
+
+## Generate and Apply Migration
+
+Generate a migration from your schema:
+
+```bash
+alab new create_users
+```
+
+Preview the SQL before applying:
+
+```bash
+alab migrate --dry
+```
+
+Apply the migration to your database:
+
+```bash
+alab migrate
+```
+
+Apply migrations and auto-commit to git:
+
+```bash
+alab migrate --commit
+```

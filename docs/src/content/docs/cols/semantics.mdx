@@ -1,0 +1,79 @@
+---
+title: Semantic Types
+---
+
+Reusable, high-level types that add constraints to low-level primitives.
+
+## Identity & Authentication
+
+| Type                  | Base Type     | Details                              |
+| --------------------- | ------------- | ------------------------------------ |
+| `col.id()`            | UUID          | Primary key with auto-generation     |
+| `col.email()`         | `string(255)` | Email validation pattern             |
+| `col.username()`      | `string(50)`  | Lowercase alphanumeric + underscores |
+| `col.password_hash()` | `string(255)` | Hidden from API exports              |
+| `col.phone()`         | `string(50)`  | E.164 international format           |
+| `col.token()`         | `string(64)`  | For API keys and session tokens      |
+
+## Text Content
+
+| Type            | Base Type     | Details                         |
+| --------------- | ------------- | ------------------------------- |
+| `col.name()`    | `string(100)` | Person/entity names             |
+| `col.title()`   | `string(200)` | Article/page titles             |
+| `col.slug()`    | `string(255)` | URL-safe, unique, lowercase     |
+| `col.summary()` | `string(500)` | Short descriptions              |
+| `col.code()`    | `string(20)`  | SKUs, codes (uppercase pattern) |
+| `col.body()`    | `text`        | Long-form content               |
+
+## Numbers & Money
+
+| Type               | Base Type       | Details                         |
+| ------------------ | --------------- | ------------------------------- |
+| `col.money()`      | `decimal(19,4)` | Currency amounts, min(0)        |
+| `col.percentage()` | `decimal(5,2)`  | 0-100 range, two decimal places |
+| `col.counter()`    | `integer`       | Auto-defaults to 0              |
+| `col.quantity()`   | `integer`       | Non-negative integers           |
+| `col.rating()`     | `decimal(2,1)`  | 0-5 rating scale                |
+| `col.duration()`   | `integer`       | Duration in seconds, min(0)     |
+
+## URLs & Network
+
+| Type               | Base Type      | Details                      |
+| ------------------ | -------------- | ---------------------------- |
+| `col.url()`        | `string(2048)` | Full URLs with scheme        |
+| `col.ip()`         | `string(45)`   | IPv4 or IPv6 with validation |
+| `col.ipv4()`       | `string(15)`   | IPv4 only with validation    |
+| `col.ipv6()`       | `string(45)`   | IPv6 only with validation    |
+| `col.user_agent()` | `string(500)`  | Browser user agent strings   |
+
+## Media & Display
+
+| Type             | Base Type   | Details                       |
+| ---------------- | ----------- | ----------------------------- |
+| `col.color()`    | `string(7)` | Hex format (#FF5733)          |
+| `col.html()`     | `text`      | HTML content with format hint |
+| `col.markdown()` | `text`      | Markdown formatted content    |
+
+## Boolean Flags
+
+| Type             | Base Type | Details             |
+| ---------------- | --------- | ------------------- |
+| `col.flag()`     | `boolean` | Defaults to `false` |
+| `col.flag(true)` | `boolean` | Defaults to `true`  |
+
+## Internationalization
+
+| Type             | Base Type    | Details                 |
+| ---------------- | ------------ | ----------------------- |
+| `col.country()`  | `string(2)`  | ISO 3166-1 alpha-2 (US) |
+| `col.currency()` | `string(3)`  | ISO 4217 (USD)          |
+| `col.locale()`   | `string(10)` | BCP 47 (en-US)          |
+| `col.timezone()` | `string(50)` | IANA timezone names     |
+
+**Valid Values**
+
+- **Country**: `US`, `GB`, `DE`, `JP`, `BR`
+- **Currency**: `USD`, `EUR`, `GBP`, `JPY`, `BRL`
+- **Locale**: `en-US`, `en-GB`, `de-DE`, `ja-JP`, `pt-BR`
+- **Timezone**: `America/New_York`, `Europe/London`, `Asia/Tokyo`

@@ -1,0 +1,48 @@
+---
+title: Tables
+---
+
+```sh
+alab table blog post
+```
+
+## Basic Table Syntax
+
+Define tables using the `table({...})` function:
+
+```js
+export default table({
+  id: col.id(),
+  title: col.string(),
+  body: col.text(),
+  published: col.boolean().default(false),
+  author: col.belongs_to("auth.user"),
+});
+```
+
+## Table Modifiers
+
+Chain modifiers to add common functionality:
+
+```js
+// schemas/blog/article.js
+export default table({})
+  .timestamps()
+  .soft_delete()
+  .searchable(["title", "content"]);
+```
+
+### Available Modifiers
+
+| Modifier                       | What it does                                                |
+| ------------------------------ | ----------------------------------------------------------- |
+| `.timestamps()`                | Adds `created_at` and `updated_at` columns (auto-managed)   |
+| `.auditable()`                 | Adds `created_by` and `updated_by` UUID columns             |
+| `.soft_delete()`               | Adds nullable `deleted_at` column for soft deletes          |
+| `.sortable()`                  | Adds `position` integer column for manual ordering          |
+| `.sort_by([...])`              | Specifies default ORDER BY columns for queries              |
+| `.searchable([...])`           | Marks columns for full-text search indexing                 |
+| `.filterable([...])`           | Specifies which columns can be filtered in queries          |
+| `.unique("col1", "col2")`      | Creates composite unique constraint                         |
+| `.index("col1", "col2")`       | Creates composite index                                     |
+| `.many_to_many("other.table")` | Defines many-to-many relationship (auto-creates join table) |
