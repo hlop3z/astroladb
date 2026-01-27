@@ -7,8 +7,9 @@ import { Image } from "astro:assets";
 import MusicPNG from "../../assets/music.png";
 import MyBandPNG from "../../assets/my_band.gif";
 
-Welcome to **AstrolaDB** aka `alab`. A schema-first database orchestration tool
-with multi-language codegen.
+Welcome to **AstrolaDB** aka `alab`. A schema orchestration tool with
+multi-language code generation. It gives you the `types` and the `migrations`
+then **it gets out of the way**.
 
 **One** schema: **many** languages.
 
@@ -22,11 +23,22 @@ export default table({
 
 **Rust** | **Go** | **Python** | **TypeScript**
 
+<iframe
+  width="560"
+  height="315"
+  src="https://www.youtube.com/embed/NDUS5E1aJn8?si=o6YASG44LUKqmHP6"
+  title="YouTube video player"
+  frameborder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+  referrerpolicy="strict-origin-when-cross-origin"
+  allowfullscreen
+></iframe>
+
 ## What is AstrolaDB?
 
-**AstrolaDB** is a migrations tool. It lets you design your database `schemas`
-and `migrations` using **JavaScript**. It includes a built-in JavaScript engine
-powered by **Goja**.
+**AstrolaDB** is a schemas orchestration tool. It lets you design your database
+`schemas` and `migrations` using **JavaScript**. It includes a built-in
+JavaScript engine powered by **Goja**.
 
 Your `.js` schema files are the **single source of truth**:
 
@@ -93,8 +105,8 @@ migrations simple and explicit.
 <Image src={MusicPNG} alt="The Music" width="240px" />
 
 **Imagine a band**: Python on the **drums**, Go on the **guitar**, Rust on the
-**bass**, and TypeScript **singing**. Different instruments, different roles yet
-is the **same song**. The notes are universal and the rhythm must be shared.
+**bass**, and TypeScript **singing**. Different instruments, **different roles**
+yet is the **same song**. The notes are universal and the rhythm must be shared.
 
 This tool makes sure everyone stays in sync. No matter who writes the notes or
 lyrics, when the music plays, **each instrument hits its mark**, creating a full
@@ -111,6 +123,8 @@ graph LR
     C --> F[API Specs]
 ```
 
-The `schema.js` files are the **lead singers** of **Alab**.
+**AstrolaDB** is the **Universal Music Studio for Data Types!**
+
+And... The `schema.js` files are the **lead singers** of **Alab**.
 
 <Image src={MyBandPNG} alt="D12: My Band" width="540px" />
