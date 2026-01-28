@@ -90,16 +90,16 @@ Schema orchestration and type generation are **safe for development**:
 **Alab** acts as a database instrument, giving you **a
 lab** to play, explore and design your schemas.
 
-| Feature                     | Concept     | Technical Capability                                                  |
-| --------------------------- | ----------- | --------------------------------------------------------------------- |
-| **Unified Source of Truth** | Lead Singer | Centralizes schemas in **JavaScript**, preventing database/app drift. |
-| **Multi-Language Export**   | Instruments | Generates **type-safe** Rust, Go, Python, and TypeScript structures.  |
-| **Live Development**        | Sound Check | Built-in HTTP server (`alab live`) for instant schema previews.       |
-| **Embedded Engine**         | -           | Runs `.js` schemas via Goja in a standalone **Go binary**.            |
-| **Schema Orchestration**    | -           | Manages **SQL migrations** from generation to deployment.             |
-| **OpenAPI Integration**     | -           | Exports `openapi.json` for **25+ languages** via Quicktype.           |
-| **Logical Namespacing**     | -           | Groups tables (`auth.user`) to avoid naming collisions.               |
-| **Runtime Independence**    | -           | Produces **SQL** and **native types**.                                |
+| Feature                     | Technical Capability                                                  |
+| --------------------------- | --------------------------------------------------------------------- |
+| **Unified Source of Truth** | Centralizes schemas in **JavaScript**, preventing database/app drift. |
+| **Multi-Language Export**   | Generates **type-safe** Rust, Go, Python, and TypeScript structures.  |
+| **Live Development**        | Built-in HTTP server (`alab live`) for instant schema previews.       |
+| **Embedded Engine**         | Runs `.js` schemas via Goja in a standalone **Go binary**.            |
+| **Schema Orchestration**    | Manages **SQL migrations** from generation to deployment.             |
+| **OpenAPI Integration**     | Exports `openapi.json` for **25+ languages** via Quicktype.           |
+| **Logical Namespacing**     | Groups tables (`auth.user`) to avoid naming collisions.               |
+| **Runtime Independence**    | Produces **SQL** and **native types**.                                |
 
 ## Live Server
 
@@ -115,7 +115,6 @@ alab live
   <img src="docs/gifs/http-preview.gif" alt="HTTP Demo" width="800" />
   <img src="docs/gifs/dx.gif" alt="HTTP Demo" width="800" />
   <img src="docs/gifs/status.gif" alt="CLI status Demo" width="800" />
-  <img src="docs/gifs/workflow.gif" alt="CLI workflow Demo" width="800" />
 </p>
 
 ---
