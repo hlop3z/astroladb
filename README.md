@@ -17,10 +17,6 @@
 </p>
 
 <p align="center">
-    Define once in JavaScript then export strongly typed models.
-</p>
-
-<p align="center">
     <a href="https://github.com/hlop3z/astroladb/releases"><img
             src="https://img.shields.io/github/v/release/hlop3z/astroladb" alt="Release"></a>
     <img src="https://img.shields.io/badge/databases-PostgreSQL%20%7C%20SQLite-336791" alt="Databases">
@@ -33,12 +29,22 @@
 
 ---
 
-Welcome to **AstrolaDB** aka `alab`. A schema orchestration tool with
-**multi-language** code generation. It produces `types` and database `migrations`
-then **it gets out of the way**. Including: **GraphQL** schemas and **OpenAPI**
-specifications.
+Welcome to **AstrolaDB** aka `alab`. A schema orchestration tool with a `one-to-many` **multi-language** code generation.
 
-> No ORM. No framework lock-in. Just **clean migrations and type exports**.
+> **No** Node.js **dependency**. **No** runtime **lock-in**.
+
+Define your schema **once** in **JavaScript**, then generate **SQL** migrations, **Rust** structs, **Go** models, **Python** classes, **TypeScript** types, **GraphQL** schemas, and **OpenAPI** specs.
+
+Schemas are written in **constrained** JavaScript **not for logic**, but for **type safety**, **autocomplete**, IDE support and explicit **configuration**. Think of it as a **fancy** `JSON`.
+
+```mermaid
+flowchart TD
+    A[model.js] --> B[Generated Artifacts]
+
+    B --- D[Migrations]
+    B --- E[Code - Types]
+    B --- F[API Contracts]
+```
 
 ---
 
@@ -46,18 +52,8 @@ specifications.
 
 - **Lightweight & Portable**
 - Zero-dependency, **single binary (~8 MB)**
-- Fast, portable, and CI/CD-friendly
-- No heavy runtimes (JVM | Node.js | Python)
-- Types: **Rust** | **Go** | **Python** | **TypeScript**
-
-```mermaid
-flowchart TD
-    A[model.js] --> B[Generated Artifacts]
-
-    B --- D[Migrations]
-    B --- E[Types]
-    B --- F[API Contracts]
-```
+- Fast, portable and **CI/CD-friendly**
+- **No heavy runtimes**: JVM | Node.js | Python
 
 ---
 
@@ -116,9 +112,10 @@ alab live
 ---
 
 <p align="center">
-  <img src="docs/gifs/workflow.gif" alt="CLI workflow Demo" width="800" />
-  <img src="docs/gifs/status.gif" alt="CLI status Demo" width="800" />
   <img src="docs/gifs/http-preview.gif" alt="HTTP Demo" width="800" />
+  <img src="docs/gifs/dx.gif" alt="HTTP Demo" width="800" />
+  <img src="docs/gifs/status.gif" alt="CLI status Demo" width="800" />
+  <img src="docs/gifs/workflow.gif" alt="CLI workflow Demo" width="800" />
 </p>
 
 ---
