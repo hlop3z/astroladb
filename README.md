@@ -35,18 +35,17 @@
 ---
 
 Welcome to **AstrolaDB** aka `alab`. A schema orchestration tool with
-**multi-language** code generation. It produces `types` and database `migrations` then **it
-gets out of the way**.
-
-**No ORM. No framework lock-in. Just clean migrations and type exports.**
+**multi-language** code generation. It produces `types` and database `migrations`
+then **it gets out of the way**. Including: **GraphQL** schemas and **OpenAPI**
+specifications.
 
 Languages: **Rust** | **Go** | **Python** | **TypeScript**
 
-Exports: **GraphQL** schemas and **OpenAPI** specifications
+> No ORM. No framework lock-in. Just **clean migrations and type exports**.
 
 ```mermaid
 flowchart TD
-    A[schema.js] --> B[Generated Artifacts]
+    A[model.js] --> B[Generated Artifacts]
 
     B --- D[Migrations]
     B --- E[Types]
@@ -55,16 +54,51 @@ flowchart TD
 
 ---
 
-## Core Principles
+## Lightweight & Portable
 
-| Principle                  | What it means                                               |
-| -------------------------- | ----------------------------------------------------------- |
-| **Schema-First**           | Define intent once; outputs are deterministic and diff-able |
-| **Single Source of Truth** | One schema drives migrations, types, and API specs          |
-| **Language-Agnostic**      | One schema → multiple language projections                  |
-| **No Runtime Lock-In**     | Framework-agnostic. Generates contracts, not hidden logic   |
+Zero-dependency **AstrolaDB** is distributed as a **single binary (~8 MB):** fast, portable, and CI/CD-ready.
+
+Unlike traditional tools that require a heavy runtime **(JVM | Node.js | Python)**.
 
 ---
+
+## Experimental Status
+
+**AstrolaDB** is actively under development. Please review the current feature stability:
+
+### 1. Migrations: **Experimental**
+
+The migration engine is **not yet battle-tested** in large-scale production. Use `alab migrate` with caution:
+
+- **Stability:** Migration logic is evolving and hasn't undergone extensive stress testing.
+- **API Changes:** The migration API may change, potentially introducing breaking changes.
+
+### 2. **Code Generation**: Stable
+
+Schema orchestration and type generation are **safe for development**:
+
+- `alab export` produces types for **Rust, Go, Python, and TypeScript** without touching your live database.
+- **Recommended for development workflows**. For production, review generated SQL and verify migrations manually.
+
+> **Note:** Always validate migrations in a staging environment before applying to production.
+
+---
+
+## Features 🎸
+
+**Alab** acts as a database instrument, giving you **a
+lab** to play, explore and design your schemas.
+
+| Feature                     | Concept     | Technical Capability                                                  |
+| --------------------------- | ----------- | --------------------------------------------------------------------- |
+| **Unified Source of Truth** | Lead Singer | Centralizes schemas in **JavaScript**, preventing database/app drift. |
+| **Multi-Language Export**   | Instruments | Generates **type-safe** Rust, Go, Python, and TypeScript structures.  |
+| **Live Development**        | Sound Check | Built-in HTTP server (`alab live`) for instant schema previews.       |
+| **Embedded Engine**         | -           | Runs `.js` schemas via Goja in a standalone **Go binary**.            |
+| **Schema Orchestration**    | -           | Manages **SQL migrations** from generation to deployment.             |
+| **OpenAPI Integration**     | -           | Exports `openapi.json` for **25+ languages** via Quicktype.           |
+| **Logical Namespacing**     | -           | Groups tables (`auth.user`) to avoid naming collisions.               |
+| **Runtime Independence**    | -           | Produces **SQL** and **native types**.                                |
 
 ## Quick Start
 
@@ -122,7 +156,7 @@ alab export -f all
 **The live server provides instant API exploration with automatic hot reloading.**
 
 ```bash
-alab http
+alab live
 ```
 
 [See the full documentation →](https://hlop3z.github.io/astroladb/)
