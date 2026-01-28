@@ -173,20 +173,20 @@ func httpCmd() *cobra.Command {
 	var create bool
 
 	cmd := &cobra.Command{
-		Use:   "http",
+		Use:   "live",
 		Short: "Start local server for live API documentation",
 		Long: `Start local HTTP server with interactive API documentation and hot reload.
 
 Endpoints: / (Swagger UI), /openapi.json, /graphiql, /graphql, /graphql/examples.
 Watches schema files and auto-reloads browser on changes. Use --create to customize UI.`,
 		Example: `  # Start server on default port 8080
-  alab http
+  alab live
 
   # Start server on custom port
-  alab http -p 3000
+  alab live -p 3000
 
   # Create customizable HTML file for Swagger UI
-  alab http --create`,
+  alab live --create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Create alab.html if requested
 			if create {

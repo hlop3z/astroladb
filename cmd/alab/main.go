@@ -11,7 +11,7 @@
 //	alab rollback [n]            # Rollback last n migrations
 //	alab status                  # Show migration status
 //	alab export -f <format>      # Export schema (openapi, graphql, typescript, go, python, rust)
-//	alab http                    # Start live documentation server
+//	alab live                    # Start live documentation server
 package main
 
 import (
@@ -77,7 +77,7 @@ func customHelp(cmd *cobra.Command) {
 			Commands: []CommandInfo{
 				{"init", "Initialize project structure (schemas/, migrations/, types/)"},
 				{"table", "Create a new table schema file"},
-				{"http", "Start local server for live API documentation"},
+				{"live", "Start local server for live API documentation"},
 				{"export", "Export schema (openapi, graphql, typescript, go, python, rust)"},
 			},
 		},
