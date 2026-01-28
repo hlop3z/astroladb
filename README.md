@@ -37,7 +37,7 @@
 
 ---
 
-Welcome to **AstrolaDB** aka `alab`. A schema orchestration tool with a `one-to-many` **multi-language** code generation.
+Welcome to **AstrolaDB** aka `alab`. A **schema-as-code** orchestration tool with a `one-to-many` **multi-language** code generation.
 
 > **No** Node.js **dependency**. **No** runtime **lock-in**.
 
