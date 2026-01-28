@@ -103,8 +103,7 @@ alab export -f all
 
 ## Features 🎸
 
-**Alab** acts as a database instrument, giving you **a
-lab** to play, explore and design your schemas.
+**Alab** gives you **a lab** to play, explore and design your schemas.
 
 | Feature                     | Technical Capability                                                  |
 | --------------------------- | --------------------------------------------------------------------- |
