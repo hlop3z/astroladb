@@ -1,0 +1,7 @@
+# alab.yaml
+database:
+  dialect: postgres
+  url: postgres://alab:alab@localhost:5432/alab_test?sslmode=disable
+
+schemas: ./schemas
+migrations: ./migrations
