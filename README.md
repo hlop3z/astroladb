@@ -48,6 +48,12 @@ Schemas are written in **constrained** JavaScript **not for logic**, but for **t
 
 ---
 
+## Download Release
+
+[![Windows](https://img.shields.io/badge/Windows-Download-blue?logo=windows)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-windows-amd64.zip) [![Mac (Intel)](https://img.shields.io/badge/Mac%20Intel-Download-black?logo=apple)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-darwin-amd64.tar.gz) [![Mac (Apple Silicon)](https://img.shields.io/badge/Mac%20ARM-Download-black?logo=apple)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-darwin-arm64.tar.gz) [![Linux (amd64)](https://img.shields.io/badge/Linux%20amd64-Download-green?logo=linux)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-linux-amd64.tar.gz) [![Linux (arm64)](https://img.shields.io/badge/Linux%20ARM-Download-green?logo=linux)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-linux-arm64.tar.gz)
+
+---
+
 ## Install
 
 ```bash
