@@ -18,4 +18,5 @@ pre-commit:
 pre-push:
   commands:
     test:
+      glob: "*.go"
       run: go test ./...
