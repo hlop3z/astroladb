@@ -24,7 +24,12 @@
 </p>
 
 <p align="center">
-    <a href="https://hlop3z.github.io/astroladb/">Documentation</a>
+    <a href="https://hlop3z.github.io/astroladb/">Documentation</a> | 
+    <a href="https://hlop3z.github.io/astroladb/exports/">Exports</a>
+</p>
+
+<p align="center">
+    <img src="docs/gifs/flowchart.png" alt="Flowchart" width="400" />
 </p>
 
 ---
@@ -36,15 +41,6 @@ Welcome to **AstrolaDB** aka `alab`. A schema orchestration tool with a `one-to-
 Define your schema **once** in **JavaScript**, then generate **SQL** migrations, **Rust** structs, **Go** models, **Python** classes, **TypeScript** types, **GraphQL** schemas, and **OpenAPI** specs.
 
 Schemas are written in **constrained** JavaScript **not for logic**, but for **type safety**, **autocomplete**, IDE support and explicit **configuration**. Think of it as a **fancy** `JSON`.
-
-```mermaid
-flowchart TD
-    A[model.js] --> B[Generated Artifacts]
-
-    B --- D[Migrations]
-    B --- E[Code - Types]
-    B --- F[API Contracts]
-```
 
 ---
 
@@ -113,7 +109,7 @@ alab live
 
 <p align="center">
   <img src="docs/gifs/http-preview.gif" alt="HTTP Demo" width="800" />
-  <img src="docs/gifs/dx.gif" alt="HTTP Demo" width="800" />
+  <img src="docs/gifs/dx.gif" alt="DX Demo" width="800" />
   <img src="docs/gifs/status.gif" alt="CLI status Demo" width="800" />
 </p>
 
