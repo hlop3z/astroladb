@@ -97,11 +97,18 @@ func diffDropTables(old, new *Schema) []ast.Operation {
 func diffAlterTables(old, new *Schema) []ast.Operation {
 	var ops []ast.Operation
 
-	for name, newTable := range new.Tables {
-		oldTable, exists := old.Tables[name]
-		if !exists {
-			continue // Will be handled by create
+	// Sort table names for deterministic iteration order
+	var tableNames []string
+	for name := range new.Tables {
+		if _, exists := old.Tables[name]; exists {
+			tableNames = append(tableNames, name)
 		}
+	}
+	sort.Strings(tableNames)
+
+	for _, name := range tableNames {
+		newTable := new.Tables[name]
+		oldTable := old.Tables[name]
 
 		// Diff columns
 		columnOps := diffColumns(oldTable, newTable)

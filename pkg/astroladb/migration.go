@@ -993,7 +993,7 @@ func getOperationType(op ast.Operation) string {
 // It tries to use npx prettier, and falls back to unformatted code if Prettier is unavailable.
 func beautifyJavaScript(code string) string {
 	// Try to format with prettier via npx
-	cmd := exec.Command("npx", "--yes", "prettier@latest",
+	cmd := exec.Command("npx", "--yes", "prettier@3.4.2",
 		"--parser", "babel",
 		"--tab-width", "2",
 		"--no-semi",
@@ -1010,10 +1010,8 @@ func beautifyJavaScript(code string) string {
 	err := cmd.Run()
 	if err != nil {
 		// Notify user that Prettier is not available
-		fmt.Fprintln(os.Stderr, "⚠️  Warning: Prettier not found. Migration generated without formatting.")
-		fmt.Fprintln(os.Stderr, "   To enable beautiful formatting, install Node.js from: https://nodejs.org")
-		fmt.Fprintln(os.Stderr, "   Or run: npm install -g prettier")
-		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Warning: Prettier not found. Migration generated without formatting.")
+		fmt.Fprintln(os.Stderr, "  Install Node.js from https://nodejs.org or run: npm install -g prettier")
 
 		// Return unformatted code - migration will still work
 		return code
