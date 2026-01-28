@@ -17,15 +17,15 @@
 </p>
 
 <p align="center">
+    <a href="https://hlop3z.github.io/astroladb/">Documentation</a> | 
+    <a href="https://hlop3z.github.io/astroladb/exports/">Exports</a>
+</p>
+
+<p align="center">
     <a href="https://github.com/hlop3z/astroladb/releases"><img
             src="https://img.shields.io/github/v/release/hlop3z/astroladb" alt="Release"></a>
     <img src="https://img.shields.io/badge/databases-PostgreSQL%20%7C%20SQLite-336791" alt="Databases">
     <img src="https://img.shields.io/badge/status-experimental-orange" alt="Experimental">
-</p>
-
-<p align="center">
-    <a href="https://hlop3z.github.io/astroladb/">Documentation</a> | 
-    <a href="https://hlop3z.github.io/astroladb/exports/">Exports</a>
 </p>
 
 <p align="center">
