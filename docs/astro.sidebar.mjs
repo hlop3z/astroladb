@@ -1,21 +1,22 @@
 const SIDEBAR = [
-    // ==================== GUIDE ====================
-    {
-        label: "AstrolaDB (Alab)",
+  // ==================== GUIDE ====================
+  {
+    label: "AstrolaDB (Alab)",
+    items: [
+      { label: "Introduction", slug: "index" },
+      { label: "Comparison", slug: "comparison" },
+      { label: "Quick Start", slug: "quick-start" },
+      { label: "Commands", slug: "commands" },
+      { label: "Tables", slug: "tables" },
+      {
+        label: "Columns",
         items: [
-            { label: "Introduction", slug: "index" },
-            { label: "Quick Start", slug: "quick-start" },
-            { label: "Commands", slug: "commands" },
-            { label: "Tables", slug: "tables" },
-            {
-                label: "Columns",
-                items: [
-                    { label: "Low Level", slug: "cols/low-level" },
-                    { label: "Semantics", slug: "cols/semantics" },
-                    { label: "Relationships", slug: "cols/relationships" },
-                ],
-            },
-            /*
+          { label: "Low Level", slug: "cols/low-level" },
+          { label: "Semantics", slug: "cols/semantics" },
+          { label: "Relationships", slug: "cols/relationships" },
+        ],
+      },
+      /*
             {
                 label: "Getting Started",
                 items: [
@@ -29,9 +30,9 @@ const SIDEBAR = [
                 ],
             },
             */
-        ],
-    },
-]
+    ],
+  },
+];
 
 /*
     // ==================== SCHEMA ====================
@@ -90,4 +91,4 @@ const SIDEBAR = [
     },
 */
 
-export default SIDEBAR
+export default SIDEBAR;

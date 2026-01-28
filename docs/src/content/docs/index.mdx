@@ -64,31 +64,6 @@ The name is a play on **"Astrolabe"**, an ancient astronomical instrument. In
 this case, **Alab** acts as a database instrument 🎹🎸, giving you **a
 lab**oratory to play, explore and design your schema.
 
-## Why Postgres and SQLite
-
-I chose to support only these two databases because they cover 3 tiers:
-
-- **SQLite**: embedded, local development, and small-scale use cases
-- **Postgres**: most standard application needs
-- **CockroachDB**: when a multi-region Postgres setup is required
-
-## Why Go?
-
-**Go** was chosen for its ease of use, portability, and ability to compile to
-binaries. This ensures AstrolaDB can run efficiently in both **development** and
-**CI workflows**. Users don't need a **Node.JS** runtime to run the migrations.
-
-## Why JavaScript?
-
-Built with developer experience (**DX**) in mind, by using **JavaScript** to
-**"trick"** the **IDE** via the included `tsconfig.json` and `.d.ts` files. It's
-not meant to be a full JS utility. Think of it as a **fancy** `JSON` that lets
-you declare **configurations**.
-
-This approach gives **portability**, IDE **autocompletion**, and early **error
-detection**, letting you define **semantic types** for schemas while keeping
-migrations simple and explicit.
-
 ### Live Stage 🎤
 
 Before the main performance, we run a **sound check** to make sure everything is
@@ -132,7 +107,7 @@ graph LR
     C --> F[API Specs]
 ```
 
-**AstrolaDB** is the Universal Music **Orchestrator for Data Types!**
+**AstrolaDB** is the Universal Music **Orchestrator for Data Models!**
 
 And... The `schema.js` files are the **lead singers** of **Alab**.
 

@@ -1,0 +1,94 @@
+---
+title: AstrolaDB vs. The Giants
+---
+
+AstrolaDB focuses on schema definition, migration generation, and type export.
+It intentionally does not manage query execution, runtime validation, or
+database access patterns. These responsibilities remain with application
+frameworks and libraries best suited to each language.
+
+## Battle of the Bands 🥁
+
+| Dimension          | Prisma         | Drizzle    | Atlas          | Flyway      | **AstrolaDB (alab)**                       |
+| :----------------- | :------------- | :--------- | :------------- | :---------- | :----------------------------------------- |
+| **Focus**          | ORM            | ORM        | Infrastructure | Migrations  | **Schema Orchestration**                   |
+| **Definitions**    | Custom DSL     | TypeScript | HCL            | Raw SQL     | **Type-Safe JavaScript**                   |
+| **Export Targets** | TypeScript     | TypeScript | SQL            | SQL         | **Rust, Go, Python, TS, OpenAPI, GraphQL** |
+| **Runtime**        | Node.js + Rust | Node.js    | Go Binary      | JVM (Java)  | **Single Go Binary**                       |
+| **The Result**     | App Client     | TS Types   | DB State       | SQL Scripts | **Zero-Drift Polyglot Stack**              |
+
+If you want an all-in-one ORM with runtime guarantees, AstrolaDB is probably not
+what you're looking for.
+
+## What AstrolaDB is NOT
+
+To keep the band playing in sync, AstrolaDB stays in its lane. It focuses on
+orchestration rather than execution.
+
+- **NOT an ORM**: It does not handle `SELECT` queries or `INSERT` logic. Use
+  idiomatic tools like (**SQLx | GORM | SQLAlchemy**) with the types AstrolaDB
+  generates.
+- **NOT a Query Builder**: It defines the stage, it doesn't write the script.
+- **NOT a Runtime Validator**: It ensures code matches the database at build
+  time.
+
+## Hidden Gems: Beyond Migrations
+
+**AstrolaDB** is more than a migration engine, its true power lies in **Schema
+Orchestration**. You can use it as a **centralized type-management hub** even if
+you aren't ready to switch your migration workflow.
+
+### 1. The "Database-Less" Mode
+
+Use it purely to maintain a **Single Source of Truth** for the data models.
+
+- Define your entities in the `schema.js` (Lead Singer).
+- Run `alab export` to generate native types for your entire stack.
+
+**Benefit:** Your Rust structs and Python classes are guaranteed to stay in
+sync, even if they never talk to the same DB.
+
+### 2. OpenAPI & Quicktype Integration
+
+AstrolaDB exports a standard `openapi.json`. This isn't just for documentation:
+it's a bridge to the entire web ecosystem.
+
+**Workflow:** Use AstrolaDB to export the schema → Feed the `openapi.json` into
+tools like **Quicktype**.
+
+**Benefit:** Instant, idiomatic code generation for **50+ languages** (Java, C#,
+Swift, Kotlin, etc.) that AstrolaDB doesn't even support natively.
+
+### 3. Centralized Polyglot Governance
+
+**The Problem:** The Go team adds a field, then the Python team forgets to
+update their model. While, the frontend team guesses the type.
+
+**The Solution:** By making the `schema.js` the mandatory entry point for any
+data change, you eliminate **Schema Drift** by design. If it's not in the Lead
+Singer's script, it doesn't exist in the band.
+
+## Why Postgres and SQLite?
+
+I chose to support only these two databases because they cover 3 tiers:
+
+- **SQLite**: embedded, local development, and small-scale use cases
+- **Postgres**: most standard application needs
+- **CockroachDB**: when a multi-region Postgres setup is required
+
+## Why Go?
+
+**Go** was chosen for its ease of use, portability, and ability to compile to
+binaries. This ensures AstrolaDB can run efficiently in both **development** and
+**CI workflows**. Users don't need a **Node.JS** runtime to run the migrations.
+
+## Why JavaScript?
+
+Built with developer experience (**DX**) in mind, by using **JavaScript** to
+**"trick"** the **IDE** via the included `tsconfig.json` and `.d.ts` files. It's
+not meant to be a full JS utility. Think of it as a **fancy Type-Safe** `JSON`
+that lets you declare **configurations** with comments, not a runtime script.
+
+This approach gives **portability**, IDE **autocompletion**, and early **error
+detection**, letting you define **semantic types** for schemas while keeping
+migrations simple and explicit.
