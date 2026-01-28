@@ -39,9 +39,23 @@ Welcome to **AstrolaDB** aka `alab`. A schema orchestration tool with
 then **it gets out of the way**. Including: **GraphQL** schemas and **OpenAPI**
 specifications.
 
-Languages: **Rust** | **Go** | **Python** | **TypeScript**
-
 > No ORM. No framework lock-in. Just **clean migrations and type exports**.
+
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh | sh
+```
+
+---
+
+## Key Highlights
+
+- **Lightweight & Portable**
+- Zero-dependency, **single binary (~8 MB)**
+- Fast, portable, and CI/CD-friendly
+- No heavy runtimes (JVM | Node.js | Python)
+- Types: **Rust** | **Go** | **Python** | **TypeScript**
 
 ```mermaid
 flowchart TD
@@ -51,14 +65,6 @@ flowchart TD
     B --- E[Types]
     B --- F[API Contracts]
 ```
-
----
-
-## Lightweight & Portable
-
-Zero-dependency **AstrolaDB** is distributed as a **single binary (~8 MB):** fast, portable, and CI/CD-ready.
-
-Unlike traditional tools that require a heavy runtime **(JVM | Node.js | Python)**.
 
 ---
 
@@ -100,13 +106,25 @@ lab** to play, explore and design your schemas.
 | **Logical Namespacing**     | -           | Groups tables (`auth.user`) to avoid naming collisions.               |
 | **Runtime Independence**    | -           | Produces **SQL** and **native types**.                                |
 
-## Quick Start
+## Live Server
 
-**Install**
+**The live server provides instant API exploration with automatic hot reloading.**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh | sh
+alab live
 ```
+
+---
+
+<p align="center">
+  <img src="docs/gifs/workflow.gif" alt="CLI workflow Demo" width="800" />
+  <img src="docs/gifs/status.gif" alt="CLI status Demo" width="800" />
+  <img src="docs/gifs/http-preview.gif" alt="HTTP Demo" width="800" />
+</p>
+
+---
+
+## Quick Start
 
 **Initialize project**
 
@@ -150,26 +168,6 @@ alab migrate
 ```bash
 alab export -f all
 ```
-
-## Live Server
-
-**The live server provides instant API exploration with automatic hot reloading.**
-
-```bash
-alab live
-```
-
-[See the full documentation →](https://hlop3z.github.io/astroladb/)
-
----
-
-<p align="center">
-  <img src="docs/gifs/workflow.gif" alt="CLI workflow Demo" width="800" />
-  <img src="docs/gifs/status.gif" alt="CLI status Demo" width="800" />
-  <img src="docs/gifs/http-preview.gif" alt="HTTP Demo" width="800" />
-</p>
-
----
 
 ## License
 
