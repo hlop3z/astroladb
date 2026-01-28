@@ -42,6 +42,8 @@ gets out of the way**.
 
 Languages: **Rust** | **Go** | **Python** | **TypeScript**
 
+Exports: **GraphQL** schemas and **OpenAPI** specifications
+
 ```mermaid
 flowchart TD
     A[schema.js] --> B[Generated Artifacts]
