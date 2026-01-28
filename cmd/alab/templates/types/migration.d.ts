@@ -485,39 +485,77 @@ export interface MigrationBuilder {
    */
   sql(sql: string): void;
 
+  // ===========================================================================
+  // FOREIGN KEYS (PostgreSQL / CockroachDB only)
+  // ===========================================================================
+
   /**
-   * Executes dialect-specific SQL.
+   * Adds a foreign key constraint to an existing table.
    *
-   * Use when PostgreSQL and SQLite require different syntax.
-   * Empty string means "skip for this database".
+   * NOTE: Not supported on SQLite. Use belongs_to() in create_table for
+   * automatic foreign keys instead.
    *
-   * @param postgres - PostgreSQL SQL statement
-   * @param sqlite - SQLite SQL statement
-   *
-   * @example
-   * // PostgreSQL-only extension
-   * m.sql_dialect(
-   *   "CREATE EXTENSION IF NOT EXISTS pg_trgm",
-   *   "" // Skip on SQLite
-   * )
+   * @param table - Table reference containing the foreign key columns
+   * @param columns - Column names in the source table
+   * @param refTable - Referenced table reference
+   * @param refColumns - Referenced column names
+   * @param opts - Optional: { name, on_delete, on_update }
    *
    * @example
-   * // Different syntax for full-text search
-   * m.sql_dialect(
-   *   // PostgreSQL: GIN index for full-text
-   *   "CREATE INDEX idx_post_fts ON blog_post USING GIN (to_tsvector('english', content))",
-   *   // SQLite: FTS5 virtual table
-   *   "CREATE VIRTUAL TABLE post_fts USING fts5(content)"
-   * )
-   *
-   * @example
-   * // Database-specific optimizations
-   * m.sql_dialect(
-   *   "ALTER TABLE blog_post SET (autovacuum_enabled = true)",  // PostgreSQL
-   *   "PRAGMA optimize"  // SQLite
+   * m.add_foreign_key(
+   *   "blog.comment", ["post_id"],
+   *   "blog.post", ["id"],
+   *   { name: "fk_comment_post", on_delete: "CASCADE" }
    * )
    */
-  sql_dialect(postgres: string, sqlite: string): void;
+  add_foreign_key(
+    table: string,
+    columns: string[],
+    refTable: string,
+    refColumns: string[],
+    opts?: { name?: string; on_delete?: string; on_update?: string },
+  ): void;
+
+  /**
+   * Drops a foreign key constraint by name.
+   *
+   * @param table - Table reference
+   * @param name - Constraint name to drop
+   *
+   * @example
+   * m.drop_foreign_key("blog.comment", "fk_comment_post")
+   */
+  drop_foreign_key(table: string, name: string): void;
+
+  // ===========================================================================
+  // CHECK CONSTRAINTS (PostgreSQL / CockroachDB only)
+  // ===========================================================================
+
+  /**
+   * Adds a CHECK constraint to a table.
+   *
+   * NOTE: Not supported on SQLite.
+   *
+   * @param table - Table reference
+   * @param name - Constraint name
+   * @param expression - SQL expression that must evaluate to true
+   *
+   * @example
+   * m.add_check("auth.user", "chk_email_length", "length(email) > 0")
+   * m.add_check("shop.product", "chk_price_positive", "price >= 0")
+   */
+  add_check(table: string, name: string, expression: string): void;
+
+  /**
+   * Drops a CHECK constraint by name.
+   *
+   * @param table - Table reference
+   * @param name - Constraint name to drop
+   *
+   * @example
+   * m.drop_check("auth.user", "chk_email_length")
+   */
+  drop_check(table: string, name: string): void;
 }
 
 // ===========================================================================
