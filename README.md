@@ -4,21 +4,20 @@
 
 <h1 align="center">AstrolaDB (alab)</h1>
 
-<div align="center">
-    <p>
-        <strong>One schema: many languages.</strong>
-    </p>
-    <p>
-        Define once in JavaScript then export strongly typed models.
-    </p>
-</div>
-
 <p align="center">
     <a href="https://github.com/hlop3z/astroladb/actions/workflows/ci.yml"><img
             src="https://github.com/hlop3z/astroladb/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="https://goreportcard.com/report/github.com/hlop3z/astroladb"><img
             src="https://goreportcard.com/badge/github.com/hlop3z/astroladb" alt="Go Report Card"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue.svg" alt="License"></a>
+</p>
+
+<p align="center">
+    <strong>One schema: many languages.</strong>
+</p>
+
+<p align="center">
+    Define once in JavaScript then export strongly typed models.
 </p>
 
 <p align="center">
@@ -41,12 +40,6 @@ specifications.
 
 > No ORM. No framework lock-in. Just **clean migrations and type exports**.
 
-## Install
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh | sh
-```
-
 ---
 
 ## Key Highlights
@@ -67,6 +60,12 @@ flowchart TD
 ```
 
 ---
+
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh | sh
+```
 
 ## Experimental Status
 

@@ -42,7 +42,7 @@ you aren't ready to switch your migration workflow.
 
 Use it purely to maintain a **Single Source of Truth** for the data models.
 
-- Define your entities in the `schema.js` (Lead Singer).
+- Define your entities in the `model.js` (Lead Singer).
 - Run `alab export` to generate native types for your entire stack.
 
 **Benefit:** Your Rust structs and Python classes are guaranteed to stay in
@@ -56,7 +56,7 @@ it's a bridge to the entire web ecosystem.
 **Workflow:** Use AstrolaDB to export the schema → Feed the `openapi.json` into
 tools like **Quicktype**.
 
-**Benefit:** Instant, idiomatic code generation for **50+ languages** (Java, C#,
+**Benefit:** Instant, idiomatic code generation for **25+ languages** (Java, C#,
 Swift, Kotlin, etc.) that AstrolaDB doesn't even support natively.
 
 ### 3. Centralized Polyglot Governance
@@ -64,7 +64,7 @@ Swift, Kotlin, etc.) that AstrolaDB doesn't even support natively.
 **The Problem:** The Go team adds a field, then the Python team forgets to
 update their model. While, the frontend team guesses the type.
 
-**The Solution:** By making the `schema.js` the mandatory entry point for any
+**The Solution:** By making the `model.js` the mandatory entry point for any
 data change, you eliminate **Schema Drift** by design. If it's not in the Lead
 Singer's script, it doesn't exist in the band.
 
@@ -92,3 +92,12 @@ that lets you declare **configurations** with comments, not a runtime script.
 This approach gives **portability**, IDE **autocompletion**, and early **error
 detection**, letting you define **semantic types** for schemas while keeping
 migrations simple and explicit.
+
+## Core Principles
+
+| Principle                  | What it means                                               |
+| -------------------------- | ----------------------------------------------------------- |
+| **Schema-First**           | Define intent once; outputs are deterministic and diff-able |
+| **Single Source of Truth** | One schema drives migrations, types, and API specs          |
+| **Language-Agnostic**      | One schema → multiple language projections                  |
+| **No Runtime Lock-In**     | Framework-agnostic. Generates contracts, not hidden logic   |
