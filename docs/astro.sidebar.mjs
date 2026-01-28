@@ -8,6 +8,7 @@ const SIDEBAR = [
       { label: "Comparison", slug: "comparison" },
       { label: "Exports", slug: "exports" },
       { label: "Commands", slug: "commands" },
+      { label: "Migrations", slug: "migrations" },
       { label: "Tables", slug: "tables" },
       {
         label: "Columns",
