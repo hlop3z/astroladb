@@ -1,0 +1,150 @@
+---
+title: Export
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+The `alab export` command generates native, type-safe structures from your
+schema.
+
+```bash
+alab export -f <rust, go, python, typescript, openapi, graphql, all>
+```
+
+## Schema
+
+```js
+// schemas/auth/user.js
+export default table({
+  id: col.id(),
+  username: col.string(50).unique(),
+  bio: col.text().optional(),
+  age: col.integer().optional(),
+  score: col.float().optional(),
+  balance: col.decimal(19, 4).default(0),
+  is_active: col.boolean().default(true),
+  birthdate: col.date().optional(),
+  login_time: col.time().optional(),
+  last_seen: col.datetime().optional(),
+  external_id: col.uuid().optional(),
+  settings: col.json().optional(),
+  avatar: col.base64().optional(),
+  role: col.enum(["admin", "editor", "viewer"]).default("viewer"),
+}).timestamps();
+```
+
+## Outputs
+
+<Tabs>
+  <TabItem label="Rust">
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthUserRole {
+    Admin,
+    Editor,
+    Viewer,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthUser {
+    pub age: Option<i32>,
+    pub avatar: Option<Vec<u8>>,
+    pub balance: String,
+    pub bio: Option<String>,
+    pub birthdate: Option<NaiveDate>,
+    pub external_id: Option<String>,
+    pub id: String,
+    pub is_active: bool,
+    pub last_seen: Option<DateTime<Utc>>,
+    pub login_time: Option<NaiveTime>,
+    pub role: AuthUserRole,
+    pub score: Option<f32>,
+    pub settings: Option<serde_json::Value>,
+    pub username: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+```
+
+  </TabItem>
+  <TabItem label="Go">
+```go
+type AuthUser struct {
+	Age        *int32   `json:"age,omitempty"`
+	Avatar     *string  `json:"avatar,omitempty"`
+	Balance    string   `json:"balance"`
+	Bio        *string  `json:"bio,omitempty"`
+	Birthdate  *string  `json:"birthdate,omitempty"`
+	ExternalId *string  `json:"external_id,omitempty"`
+	Id         string   `json:"id"`
+	IsActive   bool     `json:"is_active"`
+	LastSeen   *string  `json:"last_seen,omitempty"`
+	LoginTime  *string  `json:"login_time,omitempty"`
+	Role       string   `json:"role"`
+	Score      *float32 `json:"score,omitempty"`
+	Settings   *any     `json:"settings,omitempty"`
+	Username   string   `json:"username"`
+	CreatedAt  string   `json:"created_at"`
+	UpdatedAt  string   `json:"updated_at"`
+}
+```
+
+  </TabItem>
+  <TabItem label="Python">
+```python
+class AuthUserRole(str, Enum):
+    ADMIN = "admin"
+    EDITOR = "editor"
+    VIEWER = "viewer"
+
+@dataclass
+class AuthUser:
+    balance: str
+    id: str
+    is_active: bool
+    role: AuthUserRole
+    username: str
+    created_at: datetime
+    updated_at: datetime
+    age: Optional[int] = None
+    avatar: Optional[bytes] = None
+    bio: Optional[str] = None
+    birthdate: Optional[date] = None
+    external_id: Optional[str] = None
+    last_seen: Optional[datetime] = None
+    login_time: Optional[time] = None
+    score: Optional[float] = None
+    settings: Optional[Any] = None
+```
+
+  </TabItem>
+  <TabItem label="TypeScript">
+```typescript
+export interface AuthUser {
+  age?: number;
+  avatar?: string;
+  balance: string;
+  bio?: string;
+  birthdate?: string;
+  external_id?: string;
+  id: string;
+  is_active: boolean;
+  last_seen?: string;
+  login_time?: string;
+  role: "admin" | "editor" | "viewer";
+  score?: number;
+  settings?: Record<string, unknown>;
+  username: string;
+  created_at: string;
+  updated_at: string;
+}
+```
+  </TabItem>
+</Tabs>
+
+
+💡 **Why are Decimals strings?** 
+
+Balances are exported as strings in all languages to preserve financial precision.
+By exporting a string, alab lets you choose your favorite precision library (like `decimal.Decimal` in Python, or `rust_decimal` in Rust) to handle the math.

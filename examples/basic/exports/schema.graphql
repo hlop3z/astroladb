@@ -1,0 +1,34 @@
+# Auto-generated GraphQL schema from database schema
+# Do not edit manually
+
+scalar DateTime
+scalar JSON
+
+enum AuthUserRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+type AuthUser {
+  age: Int
+  avatar: String
+  balance: String!
+  bio: String
+  birthdate: DateTime
+  external_id: ID
+  id: ID!
+  is_active: Boolean!
+  last_seen: DateTime
+  login_time: DateTime
+  role: AuthUserRole!
+  score: Float
+  settings: JSON
+  username: String!
+  created_at: DateTime!
+  updated_at: DateTime!
+}
+
+type Query {
+  authUser: AuthUser
+}

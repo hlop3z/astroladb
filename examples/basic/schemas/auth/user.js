@@ -1,0 +1,16 @@
+export default table({
+  id: col.id(),
+  username: col.string(50).unique(),
+  bio: col.text().optional(),
+  age: col.integer().optional(),
+  score: col.float().optional(),
+  balance: col.decimal(19, 4).default(0),
+  is_active: col.boolean().default(true),
+  birthdate: col.date().optional(),
+  login_time: col.time().optional(),
+  last_seen: col.datetime().optional(),
+  external_id: col.uuid().optional(),
+  settings: col.json().optional(),
+  avatar: col.base64().optional(),
+  role: col.enum(["admin", "editor", "viewer"]).default("viewer"),
+}).timestamps();

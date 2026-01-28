@@ -4,8 +4,9 @@ const SIDEBAR = [
     label: "AstrolaDB (Alab)",
     items: [
       { label: "Introduction", slug: "index" },
-      { label: "Comparison", slug: "comparison" },
       { label: "Quick Start", slug: "quick-start" },
+      { label: "Comparison", slug: "comparison" },
+      { label: "Exports", slug: "exports" },
       { label: "Commands", slug: "commands" },
       { label: "Tables", slug: "tables" },
       {
