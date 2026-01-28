@@ -18,9 +18,9 @@
 <p align="center">
   <a href="https://hlop3z.github.io/astroladb/">Documentation</a> |
   <a href="https://hlop3z.github.io/astroladb/comparison/">Comparison</a> |
-  <a href="https://hlop3z.github.io/astroladb/cols/semantics/">Fields</a> |
+  <a href="https://hlop3z.github.io/astroladb/exports/">Generated-Code</a> |
   <a href="https://hlop3z.github.io/astroladb/commands/">Commands</a> |
-  <a href="https://hlop3z.github.io/astroladb/exports/">Generated-Code</a>
+  <a href="https://hlop3z.github.io/astroladb/cols/semantics/">Fields</a>
 </p>
 
 <p align="center">
