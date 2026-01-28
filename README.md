@@ -107,26 +107,6 @@ alab migrate
 alab export -f all
 ```
 
-## Experimental Status
-
-**AstrolaDB** is actively under development. Please review the current feature stability:
-
-### 1. Migrations: **Experimental**
-
-The migration engine is **not yet battle-tested** in large-scale production. Use `alab migrate` with caution:
-
-- **Stability:** Migration logic is evolving and hasn't undergone extensive stress testing.
-- **API Changes:** The migration API may change, potentially introducing breaking changes.
-
-### 2. **Code Generation**: Stable
-
-Schema orchestration and type generation are **safe for development**:
-
-- `alab export` produces types for **Rust, Go, Python, and TypeScript** without touching your live database.
-- **Recommended for development workflows**. For production, review generated SQL and verify migrations manually.
-
-> **Note:** Always validate migrations in a staging environment before applying to production.
-
 ---
 
 ## Features 🎸
@@ -162,6 +142,26 @@ alab live
 </p>
 
 ---
+
+## Experimental Status
+
+**AstrolaDB** is actively under development. Please review the current feature stability:
+
+### 1. Migrations: **Experimental**
+
+The migration engine is **not yet battle-tested** in large-scale production. Use `alab migrate` with caution:
+
+- **Stability:** Migration logic is evolving and hasn't undergone extensive stress testing.
+- **API Changes:** The migration API may change, potentially introducing breaking changes.
+
+### 2. **Code Generation**: Stable
+
+Schema orchestration and type generation are **safe for development**:
+
+- `alab export` produces types for **Rust, Go, Python, and TypeScript** without touching your live database.
+- **Recommended for development workflows**. For production, review generated SQL and verify migrations manually.
+
+> **Note:** Always validate migrations in a staging environment before applying to production.
 
 ## License
 
