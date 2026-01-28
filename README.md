@@ -62,6 +62,51 @@ Schemas are written in **constrained** JavaScript **not for logic**, but for **t
 curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh | sh
 ```
 
+## Quick Start
+
+**Initialize project**
+
+```bash
+alab init
+```
+
+**Create a table schema**
+
+```bash
+alab table auth user
+```
+
+**Edit your schema**
+
+```js
+// schemas/auth/user.js
+export default table({
+  id: col.id(),
+  email: col.email().unique(),
+  username: col.username().unique(),
+  password: col.password_hash(),
+  is_active: col.flag(true),
+}).timestamps();
+```
+
+**Generate migration**
+
+```bash
+alab new create_users
+```
+
+**Apply migration**
+
+```bash
+alab migrate
+```
+
+**Export types**
+
+```bash
+alab export -f all
+```
+
 ## Experimental Status
 
 **AstrolaDB** is actively under development. Please review the current feature stability:
@@ -117,51 +162,6 @@ alab live
 </p>
 
 ---
-
-## Quick Start
-
-**Initialize project**
-
-```bash
-alab init
-```
-
-**Create a table schema**
-
-```bash
-alab table auth user
-```
-
-**Edit your schema**
-
-```js
-// schemas/auth/user.js
-export default table({
-  id: col.id(),
-  email: col.email().unique(),
-  username: col.username().unique(),
-  password: col.password_hash(),
-  is_active: col.flag(true),
-}).timestamps();
-```
-
-**Generate migration**
-
-```bash
-alab new create_users
-```
-
-**Apply migration**
-
-```bash
-alab migrate
-```
-
-**Export types**
-
-```bash
-alab export -f all
-```
 
 ## License
 
