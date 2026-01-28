@@ -23,6 +23,12 @@ func writeTypeDefinitions() error {
 		return err
 	}
 
+	// Create .gitignore to exclude generated type definitions from version control
+	gitignorePath := filepath.Join(typesDir, ".gitignore")
+	if err := os.WriteFile(gitignorePath, []byte("*\n"), FilePerm); err != nil {
+		return err
+	}
+
 	// Map of output file names to their embedded template paths
 	files := map[string]string{
 		"index.d.ts":     templateIndexDTS,
