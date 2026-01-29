@@ -8,7 +8,7 @@
             "nullable": true,
             "type": "integer",
             "x-db": {
-              "sqlType": {
+              "sql_type": {
                 "postgres": "INTEGER",
                 "sqlite": "INTEGER"
               }
@@ -19,7 +19,7 @@
             "nullable": true,
             "type": "string",
             "x-db": {
-              "sqlType": {
+              "sql_type": {
                 "postgres": "BYTEA",
                 "sqlite": "BLOB"
               }
@@ -31,7 +31,7 @@
             "type": "string",
             "x-db": {
               "default": 0,
-              "sqlType": {
+              "sql_type": {
                 "postgres": "NUMERIC(10,2)",
                 "sqlite": "TEXT"
               }
@@ -41,7 +41,7 @@
             "nullable": true,
             "type": "string",
             "x-db": {
-              "sqlType": {
+              "sql_type": {
                 "postgres": "TEXT",
                 "sqlite": "TEXT"
               }
@@ -52,7 +52,7 @@
             "nullable": true,
             "type": "string",
             "x-db": {
-              "sqlType": {
+              "sql_type": {
                 "postgres": "DATE",
                 "sqlite": "TEXT"
               }
@@ -63,12 +63,12 @@
             "readOnly": true,
             "type": "string",
             "x-db": {
-              "autoManaged": false,
+              "auto_managed": false,
               "default": {
-                "Expr": "NOW()"
+                "expr": "NOW()"
               },
               "semantic": "created_at",
-              "sqlType": {
+              "sql_type": {
                 "postgres": "TIMESTAMPTZ",
                 "sqlite": "TEXT"
               }
@@ -79,7 +79,7 @@
             "nullable": true,
             "type": "string",
             "x-db": {
-              "sqlType": {
+              "sql_type": {
                 "postgres": "UUID",
                 "sqlite": "TEXT"
               }
@@ -91,7 +91,7 @@
             "type": "string",
             "x-db": {
               "semantic": "id",
-              "sqlType": {
+              "sql_type": {
                 "postgres": "UUID",
                 "sqlite": "TEXT"
               }
@@ -102,7 +102,7 @@
             "x-db": {
               "default": true,
               "semantic": "flag",
-              "sqlType": {
+              "sql_type": {
                 "postgres": "BOOLEAN",
                 "sqlite": "INTEGER"
               }
@@ -113,7 +113,7 @@
             "nullable": true,
             "type": "string",
             "x-db": {
-              "sqlType": {
+              "sql_type": {
                 "postgres": "TIMESTAMPTZ",
                 "sqlite": "TEXT"
               }
@@ -124,7 +124,7 @@
             "nullable": true,
             "type": "string",
             "x-db": {
-              "sqlType": {
+              "sql_type": {
                 "postgres": "TIME",
                 "sqlite": "TEXT"
               }
@@ -139,7 +139,7 @@
             "type": "string",
             "x-db": {
               "default": "viewer",
-              "sqlType": {
+              "sql_type": {
                 "postgres": "VARCHAR(50) CHECK (role IN ('admin', 'editor', 'viewer'))",
                 "sqlite": "TEXT CHECK (role IN ('admin', 'editor', 'viewer'))"
               }
@@ -150,7 +150,7 @@
             "nullable": true,
             "type": "number",
             "x-db": {
-              "sqlType": {
+              "sql_type": {
                 "postgres": "REAL",
                 "sqlite": "REAL"
               }
@@ -161,7 +161,7 @@
             "nullable": true,
             "type": "object",
             "x-db": {
-              "sqlType": {
+              "sql_type": {
                 "postgres": "JSONB",
                 "sqlite": "TEXT"
               }
@@ -172,12 +172,12 @@
             "readOnly": true,
             "type": "string",
             "x-db": {
-              "autoManaged": false,
+              "auto_managed": false,
               "default": {
-                "Expr": "NOW()"
+                "expr": "NOW()"
               },
               "semantic": "updated_at",
-              "sqlType": {
+              "sql_type": {
                 "postgres": "TIMESTAMPTZ",
                 "sqlite": "TEXT"
               }
@@ -188,7 +188,7 @@
             "type": "string",
             "x-db": {
               "semantic": "username",
-              "sqlType": {
+              "sql_type": {
                 "postgres": "VARCHAR(50)",
                 "sqlite": "TEXT"
               }
@@ -224,7 +224,7 @@
             }
           ],
           "namespace": "auth",
-          "primaryKey": [
+          "primary_key": [
             "id"
           ],
           "table": "auth_user",
@@ -343,14 +343,14 @@
                           },
                           {
                             "default": {
-                              "Expr": "NOW()"
+                              "expr": "NOW()"
                             },
                             "name": "created_at",
                             "type": "datetime"
                           },
                           {
                             "default": {
-                              "Expr": "NOW()"
+                              "expr": "NOW()"
                             },
                             "name": "updated_at",
                             "type": "datetime"
@@ -377,7 +377,7 @@
                           "username": "johndoe"
                         },
                         "name": "user",
-                        "primaryKey": "id",
+                        "primary_key": "id",
                         "table": "auth_user",
                         "timestamps": true
                       }

@@ -513,7 +513,7 @@ func buildModelEntry(table *ast.TableDef) map[string]any {
 
 	// Primary key
 	if pk := findPrimaryKey(table); len(pk) > 0 {
-		entry["primaryKey"] = pk[0]
+		entry["primary_key"] = pk[0]
 	}
 
 	// Timestamps
@@ -523,7 +523,7 @@ func buildModelEntry(table *ast.TableDef) map[string]any {
 
 	// Soft delete
 	if table.HasColumn("deleted_at") {
-		entry["softDelete"] = true
+		entry["soft_delete"] = true
 	}
 
 	// Auditable
@@ -533,7 +533,7 @@ func buildModelEntry(table *ast.TableDef) map[string]any {
 
 	// Foreign keys
 	if fks := buildForeignKeys(table); len(fks) > 0 {
-		entry["foreignKeys"] = fks
+		entry["foreign_keys"] = fks
 	}
 
 	return entry
@@ -838,13 +838,13 @@ func buildSchemaXDB(table *ast.TableDef, allTables []*ast.TableDef, meta *metada
 	// Primary key
 	pk := findPrimaryKey(table)
 	if len(pk) > 0 {
-		xdb["primaryKey"] = pk
+		xdb["primary_key"] = pk
 	}
 
 	// Check if this is a join table and add joinTable metadata
 	if meta != nil {
 		if joinTableInfo := findJoinTableInfo(table.FullName(), meta); joinTableInfo != nil {
-			xdb["joinTable"] = joinTableInfo
+			xdb["join_table"] = joinTableInfo
 		}
 	}
 
@@ -862,12 +862,12 @@ func buildSchemaXDB(table *ast.TableDef, allTables []*ast.TableDef, meta *metada
 
 	// Check for soft delete
 	if table.HasColumn("deleted_at") {
-		xdb["softDelete"] = true
+		xdb["soft_delete"] = true
 	}
 
 	// Sort by
 	if len(table.SortBy) > 0 {
-		xdb["sortBy"] = table.SortBy
+		xdb["sort_by"] = table.SortBy
 	}
 
 	// Searchable columns
@@ -1037,18 +1037,18 @@ func buildRelationships(table *ast.TableDef, allTables []*ast.TableDef, meta *me
 			}
 
 			// Create hasMany relationship (or hasOne if unique)
-			relType := "hasMany"
+			relType := "has_many"
 			if col.Unique {
-				relType = "hasOne"
+				relType = "has_one"
 			}
 
 			relationships[relationName] = map[string]any{
-				"type":        relType,
-				"target":      otherTable.QualifiedName(),
-				"targetTable": otherTable.FullName(),
-				"foreignKey":  col.Name,
-				"localKey":    "id",
-				"backref":     relationName,
+				"type":         relType,
+				"target":       otherTable.QualifiedName(),
+				"target_table": otherTable.FullName(),
+				"foreign_key":  col.Name,
+				"local_key":    "id",
+				"backref":      relationName,
 			}
 		}
 	}
@@ -1063,15 +1063,15 @@ func buildRelationships(table *ast.TableDef, allTables []*ast.TableDef, meta *me
 				targetName := targetParts[len(targetParts)-1]
 
 				relationships[targetName] = map[string]any{
-					"type":        "manyToMany",
-					"target":      m2m.Target,
-					"targetTable": strings.ReplaceAll(m2m.Target, ".", "_"),
-					"localKey":    "id",
-					"backref":     table.Name,
+					"type":         "many_to_many",
+					"target":       m2m.Target,
+					"target_table": strings.ReplaceAll(m2m.Target, ".", "_"),
+					"local_key":    "id",
+					"backref":      table.Name,
 					"through": map[string]any{
-						"table":      m2m.JoinTable,
-						"localKey":   m2m.SourceFK,
-						"foreignKey": m2m.TargetFK,
+						"table":       m2m.JoinTable,
+						"local_key":   m2m.SourceFK,
+						"foreign_key": m2m.TargetFK,
 					},
 				}
 			}
@@ -1083,15 +1083,15 @@ func buildRelationships(table *ast.TableDef, allTables []*ast.TableDef, meta *me
 				sourceName := sourceParts[len(sourceParts)-1]
 
 				relationships[sourceName] = map[string]any{
-					"type":        "manyToMany",
-					"target":      m2m.Source,
-					"targetTable": strings.ReplaceAll(m2m.Source, ".", "_"),
-					"localKey":    "id",
-					"backref":     table.Name,
+					"type":         "many_to_many",
+					"target":       m2m.Source,
+					"target_table": strings.ReplaceAll(m2m.Source, ".", "_"),
+					"local_key":    "id",
+					"backref":      table.Name,
 					"through": map[string]any{
-						"table":      m2m.JoinTable,
-						"localKey":   m2m.TargetFK,
-						"foreignKey": m2m.SourceFK,
+						"table":       m2m.JoinTable,
+						"local_key":   m2m.TargetFK,
+						"foreign_key": m2m.SourceFK,
 					},
 				}
 			}
@@ -1253,10 +1253,10 @@ func buildPropertyXDB(col *ast.ColumnDef, table *ast.TableDef, meta *metadata.Me
 
 	// Auto-managed (timestamps - adapters must set these)
 	if col.Name == "created_at" || col.Name == "updated_at" || col.Name == "deleted_at" {
-		xdb["autoManaged"] = false
+		xdb["auto_managed"] = false
 	}
 	if col.Name == "created_by" || col.Name == "updated_by" {
-		xdb["autoManaged"] = false
+		xdb["auto_managed"] = false
 	}
 
 	// Default value
@@ -1270,10 +1270,10 @@ func buildPropertyXDB(col *ast.ColumnDef, table *ast.TableDef, meta *metadata.Me
 		xdb["fk"] = col.Reference.Table + "." + col.Reference.Column
 
 		if col.Reference.OnDelete != "" {
-			xdb["onDelete"] = strutil.ToCamelCase(col.Reference.OnDelete)
+			xdb["on_delete"] = col.Reference.OnDelete
 		}
 		if col.Reference.OnUpdate != "" {
-			xdb["onUpdate"] = strutil.ToCamelCase(col.Reference.OnUpdate)
+			xdb["on_update"] = col.Reference.OnUpdate
 		}
 
 		// Relationship name (strip _id suffix)
@@ -1283,13 +1283,13 @@ func buildPropertyXDB(col *ast.ColumnDef, table *ast.TableDef, meta *metadata.Me
 		}
 
 		// Inverse relationship name
-		xdb["inverseOf"] = table.Name
+		xdb["inverse_of"] = table.Name
 	}
 
 	// SQL type per dialect
 	sqlType := buildSQLType(col)
 	if len(sqlType) > 0 {
-		xdb["sqlType"] = sqlType
+		xdb["sql_type"] = sqlType
 	}
 
 	// Computed columns

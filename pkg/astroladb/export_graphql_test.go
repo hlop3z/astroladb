@@ -748,14 +748,14 @@ func TestBuildPropertyXDB_WithFK(t *testing.T) {
 	if xdb["fk"] != "auth.user.id" {
 		t.Errorf("fk = %v, want auth.user.id", xdb["fk"])
 	}
-	if xdb["onDelete"] != "cascade" {
-		t.Errorf("onDelete = %v, want cascade", xdb["onDelete"])
+	if xdb["on_delete"] != "CASCADE" {
+		t.Errorf("on_delete = %v, want CASCADE", xdb["on_delete"])
 	}
 	if xdb["relation"] != "author" {
 		t.Errorf("relation = %v, want author", xdb["relation"])
 	}
-	if xdb["inverseOf"] != "post" {
-		t.Errorf("inverseOf = %v, want post", xdb["inverseOf"])
+	if xdb["inverse_of"] != "post" {
+		t.Errorf("inverse_of = %v, want post", xdb["inverse_of"])
 	}
 }
 
@@ -793,8 +793,8 @@ func TestBuildPropertyXDB_AutoManaged(t *testing.T) {
 
 		xdb := buildPropertyXDB(col, table, nil)
 
-		if xdb["autoManaged"] != false {
-			t.Errorf("%s should have autoManaged=false", name)
+		if xdb["auto_managed"] != false {
+			t.Errorf("%s should have auto_managed=false", name)
 		}
 	}
 }
@@ -1133,14 +1133,14 @@ func TestBuildRelationships_HasMany(t *testing.T) {
 		t.Fatal("expected 'author' relationship")
 	}
 
-	if author["type"] != "hasMany" {
-		t.Errorf("type = %v, want hasMany", author["type"])
+	if author["type"] != "has_many" {
+		t.Errorf("type = %v, want has_many", author["type"])
 	}
 	if author["target"] != "blog.post" {
 		t.Errorf("target = %v, want blog.post", author["target"])
 	}
-	if author["foreignKey"] != "author_id" {
-		t.Errorf("foreignKey = %v, want author_id", author["foreignKey"])
+	if author["foreign_key"] != "author_id" {
+		t.Errorf("foreign_key = %v, want author_id", author["foreign_key"])
 	}
 }
 
@@ -1172,8 +1172,8 @@ func TestBuildRelationships_HasOne(t *testing.T) {
 		t.Fatal("expected 'user' relationship (hasOne)")
 	}
 
-	if user["type"] != "hasOne" {
-		t.Errorf("type = %v, want hasOne", user["type"])
+	if user["type"] != "has_one" {
+		t.Errorf("type = %v, want has_one", user["type"])
 	}
 }
 
@@ -1215,8 +1215,8 @@ func TestBuildRelationships_ManyToMany(t *testing.T) {
 		t.Fatal("expected 'role' relationship")
 	}
 
-	if role["type"] != "manyToMany" {
-		t.Errorf("type = %v, want manyToMany", role["type"])
+	if role["type"] != "many_to_many" {
+		t.Errorf("type = %v, want many_to_many", role["type"])
 	}
 	if role["target"] != "auth.role" {
 		t.Errorf("target = %v, want auth.role", role["target"])
@@ -1234,8 +1234,8 @@ func TestBuildRelationships_ManyToMany(t *testing.T) {
 		t.Fatal("expected 'user' relationship")
 	}
 
-	if user["type"] != "manyToMany" {
-		t.Errorf("type = %v, want manyToMany", user["type"])
+	if user["type"] != "many_to_many" {
+		t.Errorf("type = %v, want many_to_many", user["type"])
 	}
 }
 

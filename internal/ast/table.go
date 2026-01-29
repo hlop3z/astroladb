@@ -245,7 +245,7 @@ func (c *ColumnDef) HasBackfill() bool {
 //   - sql("gen_random_uuid()") -> generate UUID
 //   - sql("CURRENT_USER") -> current database user
 type SQLExpr struct {
-	Expr string
+	Expr string `json:"expr"`
 }
 
 // NewSQLExpr creates a new SQLExpr with the given expression.
