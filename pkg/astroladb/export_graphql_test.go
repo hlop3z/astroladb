@@ -124,12 +124,12 @@ func TestExportGraphQL_AllTypes(t *testing.T) {
 		{"email", "email: String!"},
 		{"age", "age: Int"},             // nullable - no !
 		{"balance", "balance: String!"}, // decimal as string
-		{"is_active", "is_active: Boolean!"},
+		{"is_active", "isActive: Boolean!"},
 		{"status", "status: AuthUserStatus!"},
-		{"metadata", "metadata: JSON"},         // nullable
-		{"avatar", "avatar: String"},           // nullable
-		{"birth_date", "birth_date: DateTime"}, // nullable
-		{"created_at", "created_at: DateTime!"},
+		{"metadata", "metadata: JSON"},        // nullable
+		{"avatar", "avatar: String"},          // nullable
+		{"birth_date", "birthDate: DateTime"}, // nullable
+		{"created_at", "createdAt: DateTime!"},
 	}
 
 	for _, tt := range tests {

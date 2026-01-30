@@ -95,9 +95,9 @@ func TestPostgresDecimalType(t *testing.T) {
 func TestPostgresEnumType(t *testing.T) {
 	d := Postgres()
 
-	// PostgreSQL returns the type name directly (CREATE TYPE is separate)
+	// PostgreSQL now uses VARCHAR(50) with CHECK constraint (same as SQLite)
 	got := d.EnumType("status_type", []string{"active", "inactive"})
-	want := "status_type"
+	want := "VARCHAR(50)"
 	if got != want {
 		t.Errorf("EnumType() = %q, want %q", got, want)
 	}

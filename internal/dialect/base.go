@@ -101,7 +101,7 @@ func buildColumnTypeSQL(typeName string, typeArgs []any, mapper TypeMapper) stri
 		// Fallback for custom types - validate name is safe for SQL
 		upper := strings.ToUpper(typeName)
 		if ast.ValidateTypeName(upper) != nil {
-			return "TEXT" // Safe fallback for invalid type names
+			return "" // Reject invalid type names
 		}
 		return upper
 	}
@@ -168,12 +168,16 @@ func buildForeignKeyConstraintSQL(fk *ast.ForeignKeyDef, quoteIdent QuoteIdentFu
 	b.WriteString(")")
 
 	if fk.OnDelete != "" {
-		b.WriteString(" ON DELETE ")
-		b.WriteString(fk.OnDelete)
+		if normalized, err := ast.NormalizeFKAction(fk.OnDelete); err == nil && normalized != "" {
+			b.WriteString(" ON DELETE ")
+			b.WriteString(normalized)
+		}
 	}
 	if fk.OnUpdate != "" {
-		b.WriteString(" ON UPDATE ")
-		b.WriteString(fk.OnUpdate)
+		if normalized, err := ast.NormalizeFKAction(fk.OnUpdate); err == nil && normalized != "" {
+			b.WriteString(" ON UPDATE ")
+			b.WriteString(normalized)
+		}
 	}
 
 	return b.String()
@@ -564,6 +568,9 @@ func computedExprSQL(computed any, dialectName string, quoteIdent QuoteIdentFunc
 	if fn == "raw" {
 		if sqlMap, ok := m["sql"].(map[string]any); ok {
 			if s, ok := sqlMap[dialectName].(string); ok {
+				if ast.ValidateSQLExpression(s) != nil {
+					return ""
+				}
 				return s
 			}
 		}
@@ -684,8 +691,8 @@ func computedExprSQL(computed any, dialectName string, quoteIdent QuoteIdentFunc
 		return binaryOp(args, "=")
 
 	default:
-		// Unknown function — render as FUNCTION(args)
-		return strings.ToUpper(fn) + "(" + strings.Join(args, ", ") + ")"
+		// Unknown function — reject to prevent SQL injection
+		return ""
 	}
 }
 
@@ -800,6 +807,13 @@ func buildCreateIndexSQL(op *ast.CreateIndex, quoteIdent QuoteIdentFunc, opts In
 	b.WriteString(" (")
 	writeQuotedList(&b, op.Columns, quoteIdent)
 	b.WriteString(")")
+
+	if op.Where != "" {
+		if err := ast.ValidateSQLExpression(op.Where); err == nil {
+			b.WriteString(" WHERE ")
+			b.WriteString(op.Where)
+		}
+	}
 
 	return b.String(), nil
 }

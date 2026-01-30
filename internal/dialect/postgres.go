@@ -78,9 +78,9 @@ func (d *postgres) Base64Type() string {
 }
 
 func (d *postgres) EnumType(name string, values []string) string {
-	// PostgreSQL uses named enum types.
-	// The CREATE TYPE is generated separately; here we return the type name.
-	return name
+	// Use VARCHAR(50) with CHECK constraint (same approach as SQLite and export.go).
+	// This avoids needing separate CREATE TYPE DDL for enums.
+	return "VARCHAR(50)"
 }
 
 // -----------------------------------------------------------------------------
@@ -249,20 +249,82 @@ func (d *postgres) columnDefSQL(col *ast.ColumnDef, tableName string) string {
 		DefaultSQL:  d.defaultValueSQL,
 		Order:       PostgresColumnOrder,
 		TableName:   tableName,
+		EnumCheck:   d.enumCheckSQL,
 		DialectName: "postgres",
 	})
 }
 
-// columnTypeSQL returns the SQL type for a column.
-func (d *postgres) columnTypeSQL(typeName string, typeArgs []any) string {
-	// Handle enum specially for PostgreSQL (uses named types)
-	if typeName == "enum" {
-		if len(typeArgs) > 0 {
-			if name, ok := typeArgs[0].(string); ok {
-				return d.EnumType(name, nil)
+// enumCheckSQL generates the CHECK constraint for enum columns.
+func (d *postgres) enumCheckSQL(col *ast.ColumnDef, tableName string) string {
+	if col.Type != "enum" || len(col.TypeArgs) == 0 {
+		return ""
+	}
+	values := d.getEnumValues(col.TypeArgs)
+	if len(values) == 0 {
+		return ""
+	}
+
+	constraintName := checkConstraintName(tableName, col.Name+"_enum")
+	var b strings.Builder
+	b.WriteString(" CONSTRAINT ")
+	b.WriteString(d.QuoteIdent(constraintName))
+	b.WriteString(" CHECK (")
+	b.WriteString(d.QuoteIdent(col.Name))
+	b.WriteString(" IN (")
+	for i, v := range values {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		escaped := strings.ReplaceAll(v, "'", "''")
+		b.WriteString("'")
+		b.WriteString(escaped)
+		b.WriteString("'")
+	}
+	b.WriteString("))")
+	return b.String()
+}
+
+// getEnumValues extracts enum values from type arguments.
+func (d *postgres) getEnumValues(typeArgs []any) []string {
+	if len(typeArgs) == 0 {
+		return nil
+	}
+	// TypeArgs[0] is the enum values slice (from col.id() API)
+	if values, ok := typeArgs[0].([]string); ok {
+		return values
+	}
+	if values, ok := typeArgs[0].([]any); ok {
+		var result []string
+		for _, v := range values {
+			if s, ok := v.(string); ok {
+				result = append(result, s)
 			}
 		}
-		return "TEXT"
+		return result
+	}
+	// Legacy format: TypeArgs[1] has enum values
+	if len(typeArgs) > 1 {
+		if values, ok := typeArgs[1].([]string); ok {
+			return values
+		}
+		if values, ok := typeArgs[1].([]any); ok {
+			var result []string
+			for _, v := range values {
+				if s, ok := v.(string); ok {
+					result = append(result, s)
+				}
+			}
+			return result
+		}
+	}
+	return nil
+}
+
+// columnTypeSQL returns the SQL type for a column.
+func (d *postgres) columnTypeSQL(typeName string, typeArgs []any) string {
+	// Handle enum — use VARCHAR(50) with CHECK (same approach as SQLite)
+	if typeName == "enum" {
+		return "VARCHAR(50)"
 	}
 	// Use shared implementation for all other types
 	return buildColumnTypeSQL(typeName, typeArgs, d)
