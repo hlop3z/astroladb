@@ -41,10 +41,32 @@ export default defineConfig({
           href: Config.repo,
         },
       ],
+      favicon: "./src/assets/logo.png",
       logo: {
         src: "./src/assets/logo.png",
         replacesTitle: false,
       },
+      head: [
+        {
+          tag: "meta",
+          attrs: {
+            property: "og:image",
+            content: `${Config.site}${Config.base}/og-image.png`,
+          },
+        },
+        {
+          tag: "meta",
+          attrs: { property: "og:type", content: "website" },
+        },
+        {
+          tag: "meta",
+          attrs: { property: "og:site_name", content: Config.title },
+        },
+        {
+          tag: "meta",
+          attrs: { name: "twitter:card", content: "summary_large_image" },
+        },
+      ],
       customCss: ["./src/styles/custom.css"],
       sidebar: SIDEBAR,
       pagefind: true,

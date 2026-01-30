@@ -1,0 +1,197 @@
+---
+title: Computed & Virtual Columns
+---
+
+Computed columns are fields whose values are derived from other columns or
+expressions. Chain `.computed(expr)` on any column type:
+
+```js
+export default table({
+  first_name: col.string(50),
+  last_name: col.string(50),
+
+  // DB-computed: GENERATED ALWAYS AS (expr) STORED
+  full_name: col
+    .text()
+    .computed(fn.concat(fn.col("first_name"), " ", fn.col("last_name"))),
+
+  // DB-virtual: computed on read, not stored to disk
+  name_upper: col
+    .text()
+    .computed(fn.upper(fn.col("first_name")))
+    .virtual(),
+
+  // App-only: no DB column, OpenAPI/schema only
+  display_label: col.text().virtual(),
+}).timestamps();
+```
+
+| Modifier                        | SQL                                  | Behavior                          |
+| ------------------------------- | ------------------------------------ | --------------------------------- |
+| `.computed(expr)`               | `GENERATED ALWAYS AS (expr) STORED`  | Written to disk, indexable        |
+| `.computed(expr).virtual()`     | `GENERATED ALWAYS AS (expr) VIRTUAL` | Computed on read, no disk storage |
+| `.virtual()` (no `.computed()`) | _(no column in DDL)_                 | App-only, OpenAPI schema only     |
+
+> `.computed()` and `.virtual()` chain with any modifier `.optional()`,
+> `.docs()`, etc.
+
+---
+
+## Expression Builder (`fn.*`)
+
+The `fn` helper builds portable expressions. AstrolaDB translates them into
+dialect-specific SQL automatically.
+
+### Column References
+
+```js
+fn.col("column_name"); // Reference another column in the same table
+```
+
+### String Functions
+
+| Function                        | SQL (PostgreSQL)                    | Description        |
+| ------------------------------- | ----------------------------------- | ------------------ |
+| `fn.concat(...args)`            | `(a \|\| b \|\| c)`                 | Concatenate values |
+| `fn.upper(arg)`                 | `UPPER(col)`                        | Uppercase          |
+| `fn.lower(arg)`                 | `LOWER(col)`                        | Lowercase          |
+| `fn.trim(arg)`                  | `TRIM(col)`                         | Trim whitespace    |
+| `fn.length(arg)`                | `LENGTH(col)`                       | String length      |
+| `fn.substring(str, start, len)` | `SUBSTRING(col FROM start FOR len)` | Extract substring  |
+
+### Math Functions
+
+| Function        | SQL          | Description    |
+| --------------- | ------------ | -------------- |
+| `fn.add(a, b)`  | `(a + b)`    | Addition       |
+| `fn.sub(a, b)`  | `(a - b)`    | Subtraction    |
+| `fn.mul(a, b)`  | `(a * b)`    | Multiplication |
+| `fn.div(a, b)`  | `(a / b)`    | Division       |
+| `fn.abs(arg)`   | `ABS(col)`   | Absolute value |
+| `fn.round(arg)` | `ROUND(col)` | Round          |
+| `fn.floor(arg)` | `FLOOR(col)` | Floor          |
+| `fn.ceil(arg)`  | `CEIL(col)`  | Ceiling        |
+
+### Date Functions
+
+| Function              | SQL (PostgreSQL)                     | SQL (SQLite)                                                    |
+| --------------------- | ------------------------------------ | --------------------------------------------------------------- |
+| `fn.year(arg)`        | `EXTRACT(YEAR FROM col)`             | `CAST(STRFTIME('%Y', col) AS INTEGER)`                          |
+| `fn.month(arg)`       | `EXTRACT(MONTH FROM col)`            | `CAST(STRFTIME('%m', col) AS INTEGER)`                          |
+| `fn.day(arg)`         | `EXTRACT(DAY FROM col)`              | `CAST(STRFTIME('%d', col) AS INTEGER)`                          |
+| `fn.now()`            | `NOW()`                              | `CURRENT_TIMESTAMP`                                             |
+| `fn.years_since(arg)` | `EXTRACT(YEAR FROM AGE(NOW(), col))` | `CAST((JULIANDAY('now') - JULIANDAY(col)) / 365.25 AS INTEGER)` |
+| `fn.days_since(arg)`  | `EXTRACT(DAY FROM (NOW() - col))`    | `CAST(JULIANDAY('now') - JULIANDAY(col) AS INTEGER)`            |
+
+### Conditional Functions
+
+| Function                       | SQL Output                             | Description            |
+| ------------------------------ | -------------------------------------- | ---------------------- |
+| `fn.coalesce(...args)`         | `COALESCE(a, b, c)`                    | First non-null value   |
+| `fn.nullif(a, b)`              | `NULLIF(a, b)`                         | NULL if `a == b`       |
+| `fn.if_null(arg, default)`     | `COALESCE(a, b)` / `IFNULL(a, b)`      | Default when NULL      |
+| `fn.if_then(cond, then, else)` | `CASE WHEN cond THEN val ELSE val END` | Conditional expression |
+
+### Comparison Functions
+
+| Function       | SQL        | Description      |
+| -------------- | ---------- | ---------------- |
+| `fn.gt(a, b)`  | `(a > b)`  | Greater than     |
+| `fn.gte(a, b)` | `(a >= b)` | Greater or equal |
+| `fn.lt(a, b)`  | `(a < b)`  | Less than        |
+| `fn.lte(a, b)` | `(a <= b)` | Less or equal    |
+| `fn.eq(a, b)`  | `(a = b)`  | Equal            |
+
+### Raw SQL Escape Hatch
+
+When portable expressions are not enough, use `fn.sql()` with per-dialect SQL:
+
+```js
+price_with_tax: col.decimal(10, 2).computed(
+  fn.sql({
+    postgres: "price * (1 + tax_rate)",
+    sqlite: "price * (1.0 + tax_rate)",
+  })
+),
+```
+
+---
+
+## Examples
+
+```js
+// Line item total (nested math)
+total: col.decimal(10, 2).computed(
+  fn.round(fn.mul(fn.col("qty"), fn.sub(fn.col("unit_price"), fn.col("discount"))))
+),
+
+// Age from birthdate
+age: col.integer().computed(fn.years_since(fn.col("birthdate"))),
+
+// Display name with fallback
+display_name: col.text().computed(
+  fn.coalesce(fn.col("nickname"), fn.col("username"))
+),
+
+// Grade from score
+grade: col.text().computed(
+  fn.if_then(fn.gte(fn.col("score"), 90), "A",
+    fn.if_then(fn.gte(fn.col("score"), 80), "B", "C"))
+),
+
+// Boolean flag
+is_adult: col.boolean().computed(fn.gte(fn.col("age"), 18)),
+```
+
+---
+
+## Generated SQL
+
+```sql
+-- PostgreSQL / CockroachDB
+"full_name" TEXT NOT NULL GENERATED ALWAYS AS (("first_name" || ' ' || "last_name")) STORED
+
+-- SQLite (same syntax, different type mappings)
+"full_name" TEXT NOT NULL GENERATED ALWAYS AS (("first_name" || ' ' || "last_name")) STORED
+```
+
+---
+
+## Limitations
+
+- **Immutable expressions only** — PostgreSQL and CockroachDB require immutable
+  functions. AstrolaDB uses `||` instead of `CONCAT()` because `CONCAT()` is not
+  immutable in PostgreSQL.
+
+- **SQLite: no STORED via ALTER TABLE** — SQLite cannot add a STORED generated
+  column via `ALTER TABLE`. Use `.virtual()` instead (VIRTUAL columns are
+  allowed). AstrolaDB returns an error for STORED additions.
+
+- **No self-referencing** — a computed column cannot reference itself or other
+  computed columns.
+
+- **No default values** — computed columns cannot have a `DEFAULT`.
+
+---
+
+## OpenAPI Output
+
+```json
+"full_name": {
+  "type": "string",
+  "x-db": {
+    "virtual": true,
+    "storage": "stored",
+    "computed": {
+      "fn": "concat",
+      "args": [{ "col": "first_name" }, " ", { "col": "last_name" }]
+    },
+    "sql_type": { "postgres": "TEXT", "sqlite": "TEXT" }
+  }
+}
+```
+
+- **`virtual: true`** — column is database-managed or app-only
+- **`storage`** — `"stored"`, `"virtual"`, or `"app_only"`
+- **`computed`** — expression tree (absent for app-only)
+- **`sql_type`** — native SQL type per dialect

@@ -68,7 +68,7 @@ lab**oratory to play, explore and design your schemas.
 ### Live Stage 🎤
 
 Before the main performance, we run a **sound check** to make sure everything is
-working. Fire up the local server:
+working. Fire up the **local server**:
 
 ```sh
 alab live
@@ -104,12 +104,24 @@ graph LR
     A[Schema Files] --> B[alab migrate]
     A --> C[alab export]
     B --> D[(Database)]
-    C --> E[Types]
-    C --> F[API Specs]
+    C --> E{Types}
+    C --> F(API Specs)
 ```
 
-**AstrolaDB** is the Universal Music **Orchestrator for Data Models!**
+**AstrolaDB** is the Universal Music **Orchestrator for Data Models!** And...
+The `model.js` files are the **lead singers** of **Alab**.
 
-And... The `model.js` files are the **lead singers** of **Alab**.
+**One schema** change, and it rewrites the **Sheet Music** for all instruments,
+no coordination needed. That's **Passive Orchestration**.
+
+It solves the **"Three-Headed Monster"** of backend dev: **Schema Drift**,
+**Type-Safety** and **Documentation**.
+
+```mermaid
+graph TB
+  A[(Database)]
+  B{Types}
+  C(API Specs)
+```
 
 <Image src={MyBandPNG} alt="D12: My Band" width="540px" />
