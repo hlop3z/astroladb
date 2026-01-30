@@ -161,6 +161,9 @@ func (d *postgres) AlterColumnSQL(op *ast.AlterColumn) (string, error) {
 		stmt := fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s DROP DEFAULT", tableName, colName)
 		statements = append(statements, stmt)
 	} else if op.ServerDefault != "" {
+		if err := ast.ValidateSQLExpression(op.ServerDefault); err != nil {
+			return "", fmt.Errorf("unsafe ServerDefault expression: %w", err)
+		}
 		stmt := fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s SET DEFAULT %s", tableName, colName, op.ServerDefault)
 		statements = append(statements, stmt)
 	} else if op.SetDefault != nil {

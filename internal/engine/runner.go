@@ -3,6 +3,8 @@ package engine
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -19,7 +21,11 @@ type Runner struct {
 }
 
 // NewRunner creates a new migration runner.
+// Returns nil if db or dialect is nil.
 func NewRunner(db *sql.DB, d dialect.Dialect) *Runner {
+	if db == nil || d == nil {
+		return nil
+	}
 	return &Runner{
 		db:       db,
 		dialect:  d,
@@ -75,7 +81,9 @@ func (r *Runner) RunWithLock(ctx context.Context, plan *Plan, lockTimeout time.D
 		// Use background context for release in case ctx is cancelled
 		releaseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		r.versions.ReleaseLock(releaseCtx)
+		if err := r.versions.ReleaseLock(releaseCtx); err != nil {
+			slog.Warn("failed to release migration lock", "error", err)
+		}
 	}()
 
 	// Run the migrations
@@ -614,12 +622,10 @@ func (r *Runner) formatBackfillValue(v any) string {
 	case nil:
 		return "NULL"
 	default:
-		return "'" + strings.ReplaceAll(strings.TrimSpace(strings.Trim(strings.Trim(strings.TrimSpace(
-			strings.ReplaceAll(
-				strings.ReplaceAll(
-					strings.ReplaceAll(v.(string), "'", "''"),
-					"\\", "\\\\"),
-				"\n", "\\n")), "'"), `"`)), "'", "''") + "'"
+		// Safe fallback: convert to string and escape
+		s := fmt.Sprintf("%v", v)
+		escaped := strings.ReplaceAll(s, "'", "''")
+		return "'" + escaped + "'"
 	}
 }
 
@@ -673,23 +679,52 @@ func (r *Runner) rawSQL(op *ast.RawSQL) []string {
 }
 
 // splitStatements splits a multi-statement SQL string.
+// Uses a simple state machine to avoid splitting on semicolons inside string literals.
 func (r *Runner) splitStatements(sql string) []string {
 	if sql == "" {
 		return nil
 	}
 
-	// Split on semicolon-newline or just semicolon
 	var statements []string
-	parts := strings.Split(sql, ";\n")
-	for _, part := range parts {
-		// Further split on remaining semicolons
-		subParts := strings.Split(part, ";")
-		for _, s := range subParts {
-			s = strings.TrimSpace(s)
-			if s != "" {
-				statements = append(statements, s)
+	var current strings.Builder
+	inSingleQuote := false
+
+	for i := 0; i < len(sql); i++ {
+		ch := sql[i]
+
+		if inSingleQuote {
+			current.WriteByte(ch)
+			if ch == '\'' {
+				// Check for escaped quote ('')
+				if i+1 < len(sql) && sql[i+1] == '\'' {
+					current.WriteByte(sql[i+1])
+					i++
+				} else {
+					inSingleQuote = false
+				}
 			}
+			continue
 		}
+
+		switch ch {
+		case '\'':
+			inSingleQuote = true
+			current.WriteByte(ch)
+		case ';':
+			stmt := strings.TrimSpace(current.String())
+			if stmt != "" {
+				statements = append(statements, stmt)
+			}
+			current.Reset()
+		default:
+			current.WriteByte(ch)
+		}
+	}
+
+	// Don't forget the last statement
+	stmt := strings.TrimSpace(current.String())
+	if stmt != "" {
+		statements = append(statements, stmt)
 	}
 
 	return statements
@@ -719,7 +754,7 @@ func (r *Runner) Migrate(ctx context.Context, all []Migration) error {
 // Rollback is a convenience function that rolls back the last N migrations.
 func (r *Runner) Rollback(ctx context.Context, all []Migration, count int) error {
 	if count <= 0 {
-		count = 1
+		return nil // count=0 means no rollback
 	}
 
 	// Get applied migrations

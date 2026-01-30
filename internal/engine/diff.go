@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"log/slog"
 	"reflect"
 	"sort"
 
@@ -675,7 +676,10 @@ func sortCreateTablesByDependency(ops []*ast.CreateTable, schema *Schema) []*ast
 	// Perform topological sort
 	sorted, err := TopoSort(nodes)
 	if err != nil {
-		// Circular dependency - return original order (shouldn't happen with validated schema)
+		// Circular dependency - log warning and return original order
+		// This should not happen with a properly validated schema
+		slog.Warn("circular dependency detected in table creation order, using original order",
+			"error", err)
 		return ops
 	}
 

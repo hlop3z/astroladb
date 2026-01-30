@@ -368,6 +368,12 @@ func (op *AddForeignKey) Validate() error {
 			With("columns", len(op.Columns)).
 			With("ref_columns", len(op.RefColumns))
 	}
+	if err := ValidateFKAction(op.OnDelete); err != nil {
+		return err
+	}
+	if err := ValidateFKAction(op.OnUpdate); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -418,6 +424,9 @@ func (op *AddCheck) Validate() error {
 	if op.Expression == "" {
 		return alerr.New(alerr.ErrSchemaInvalid, "check expression is required").
 			WithTable(op.Namespace, op.Table_)
+	}
+	if err := ValidateSQLExpression(op.Expression); err != nil {
+		return err
 	}
 	return nil
 }

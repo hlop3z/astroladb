@@ -3,6 +3,8 @@
 package dialect
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -96,8 +98,12 @@ func buildColumnTypeSQL(typeName string, typeArgs []any, mapper TypeMapper) stri
 	case "base64":
 		return mapper.Base64Type()
 	default:
-		// Fallback for custom types
-		return strings.ToUpper(typeName)
+		// Fallback for custom types - validate name is safe for SQL
+		upper := strings.ToUpper(typeName)
+		if ast.ValidateTypeName(upper) != nil {
+			return "TEXT" // Safe fallback for invalid type names
+		}
+		return upper
 	}
 }
 
@@ -136,7 +142,9 @@ func buildDefaultValueSQL(value any, bools BooleanLiterals) string {
 	case nil:
 		return "NULL"
 	default:
-		return fmt.Sprintf("'%v'", v)
+		// Unsupported type - escape as string literal for safety
+		escaped := strings.ReplaceAll(fmt.Sprintf("%v", v), "'", "''")
+		return fmt.Sprintf("'%s'", escaped)
 	}
 }
 
@@ -398,6 +406,10 @@ func writeDefault(b *strings.Builder, col *ast.ColumnDef, defaultSQL func(any) s
 
 	// Handle ServerDefault field (from introspection/normalized schemas)
 	if col.ServerDefault != "" {
+		if err := ast.ValidateSQLExpression(col.ServerDefault); err != nil {
+			// Skip unsafe ServerDefault values
+			return
+		}
 		b.WriteString(" DEFAULT ")
 		b.WriteString(col.ServerDefault)
 	}
@@ -457,10 +469,24 @@ type IndexSQLOpts struct {
 // indexNameFunc is the default index name generator using strutil conventions.
 // This is shared across all dialects for consistent naming.
 func indexNameFunc(table string, unique bool, cols ...string) string {
+	var name string
 	if unique {
-		return "uniq_" + table + "_" + joinCols(cols)
+		name = "uniq_" + table + "_" + joinCols(cols)
+	} else {
+		name = "idx_" + table + "_" + joinCols(cols)
 	}
-	return "idx_" + table + "_" + joinCols(cols)
+	return truncateIdentifier(name, 63)
+}
+
+// truncateIdentifier ensures a generated identifier fits within maxBytes.
+// If it exceeds the limit, it truncates and appends a short hash suffix for uniqueness.
+func truncateIdentifier(name string, maxBytes int) string {
+	if len(name) <= maxBytes {
+		return name
+	}
+	hash := sha256.Sum256([]byte(name))
+	suffix := "_" + hex.EncodeToString(hash[:4]) // 8 hex chars
+	return name[:maxBytes-len(suffix)] + suffix
 }
 
 // joinCols joins column names with underscores.
@@ -481,12 +507,12 @@ func uniqueConstraintName(table string, cols ...string) string {
 	for _, col := range cols {
 		result += "_" + col
 	}
-	return result
+	return truncateIdentifier(result, 63)
 }
 
 // checkConstraintName generates a check constraint name: chk_table_name
 func checkConstraintName(table string, name string) string {
-	return "chk_" + table + "_" + name
+	return truncateIdentifier("chk_"+table+"_"+name, 63)
 }
 
 // buildAddCheckSQL generates ALTER TABLE ADD CONSTRAINT CHECK SQL.
@@ -546,11 +572,30 @@ func computedExprSQL(computed any, dialectName string, quoteIdent QuoteIdentFunc
 
 	args := exprArgs(m, dialectName, quoteIdent)
 
+	// Minimum arg counts per function
+	var minArgs int
+	switch fn {
+	case "upper", "lower", "trim", "length", "abs", "round", "floor", "ceil",
+		"year", "month", "day", "years_since", "days_since":
+		minArgs = 1
+	case "add", "sub", "mul", "div", "nullif", "if_null",
+		"gt", "gte", "lt", "lte", "eq":
+		minArgs = 2
+	case "substring", "if_then":
+		minArgs = 3
+	case "concat", "coalesce":
+		minArgs = 1
+	case "now":
+		minArgs = 0
+	}
+	if len(args) < minArgs {
+		// Insufficient args - return empty (will be caught by caller)
+		return ""
+	}
+
 	switch fn {
 	// String functions
 	case "concat":
-		// Use || operator for all dialects — CONCAT() is not immutable in PostgreSQL
-		// and cannot be used in GENERATED ALWAYS AS expressions.
 		return joinArgs(args, " || ")
 	case "upper":
 		return "UPPER(" + firstArg(args) + ")"
@@ -561,10 +606,7 @@ func computedExprSQL(computed any, dialectName string, quoteIdent QuoteIdentFunc
 	case "length":
 		return "LENGTH(" + firstArg(args) + ")"
 	case "substring":
-		if len(args) >= 3 {
-			return "SUBSTRING(" + args[0] + " FROM " + args[1] + " FOR " + args[2] + ")"
-		}
-		return "SUBSTRING(" + strings.Join(args, ", ") + ")"
+		return "SUBSTRING(" + args[0] + " FROM " + args[1] + " FOR " + args[2] + ")"
 
 	// Math functions (binary operators)
 	case "add":
@@ -627,10 +669,7 @@ func computedExprSQL(computed any, dialectName string, quoteIdent QuoteIdentFunc
 		}
 		return "COALESCE(" + strings.Join(args, ", ") + ")"
 	case "if_then":
-		if len(args) >= 3 {
-			return "CASE WHEN " + args[0] + " THEN " + args[1] + " ELSE " + args[2] + " END"
-		}
-		return ""
+		return "CASE WHEN " + args[0] + " THEN " + args[1] + " ELSE " + args[2] + " END"
 
 	// Comparison functions
 	case "gt":
@@ -689,7 +728,9 @@ func renderArg(arg any, dialectName string, quoteIdent QuoteIdentFunc) string {
 	case nil:
 		return "NULL"
 	default:
-		return fmt.Sprintf("'%v'", v)
+		// Unsupported type - escape as string literal for safety
+		escaped := strings.ReplaceAll(fmt.Sprintf("%v", v), "'", "''")
+		return fmt.Sprintf("'%s'", escaped)
 	}
 }
 

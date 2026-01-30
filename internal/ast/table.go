@@ -2,10 +2,78 @@ package ast
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
 )
+
+// ValidFKActions is the set of valid ON DELETE / ON UPDATE actions.
+var ValidFKActions = map[string]bool{
+	"":            true, // empty = no action specified (valid)
+	"CASCADE":     true,
+	"SET NULL":    true,
+	"SET DEFAULT": true,
+	"RESTRICT":    true,
+	"NO ACTION":   true,
+}
+
+// ValidateFKAction checks if the given action is a valid FK referential action.
+func ValidateFKAction(action string) error {
+	upper := strings.ToUpper(strings.TrimSpace(action))
+	if !ValidFKActions[upper] {
+		return alerr.New(alerr.ErrSchemaInvalid,
+			fmt.Sprintf("invalid foreign key action %q; must be one of: CASCADE, SET NULL, SET DEFAULT, RESTRICT, NO ACTION", action))
+	}
+	return nil
+}
+
+// NormalizeFKAction normalizes and validates an FK action string.
+// Returns the uppercased action or error if invalid.
+func NormalizeFKAction(action string) (string, error) {
+	if action == "" {
+		return "", nil
+	}
+	upper := strings.ToUpper(strings.TrimSpace(action))
+	if !ValidFKActions[upper] {
+		return "", alerr.New(alerr.ErrSchemaInvalid,
+			fmt.Sprintf("invalid foreign key action %q; must be one of: CASCADE, SET NULL, SET DEFAULT, RESTRICT, NO ACTION", action))
+	}
+	return upper, nil
+}
+
+// dangerousSQLPattern matches SQL injection patterns in expressions.
+// Blocks: semicolons, double-dashes (comments), DDL keywords at word boundaries.
+var dangerousSQLPattern = regexp.MustCompile(
+	`(?i)(;\s*|--|\b(DROP|ALTER|CREATE|GRANT|REVOKE|TRUNCATE|INSERT|UPDATE|DELETE|EXEC|EXECUTE)\b)`,
+)
+
+// ValidateSQLExpression checks a raw SQL expression for dangerous patterns.
+// Used for CHECK constraints, WHERE clauses, and ServerDefault values.
+func ValidateSQLExpression(expr string) error {
+	if expr == "" {
+		return nil
+	}
+	if dangerousSQLPattern.MatchString(expr) {
+		return alerr.New(alerr.ErrSchemaInvalid,
+			"SQL expression contains potentially dangerous pattern").
+			With("expression", expr).
+			WithHelp("expressions must not contain ';', '--', or DDL/DML keywords (DROP, ALTER, CREATE, INSERT, UPDATE, DELETE, etc.)")
+	}
+	return nil
+}
+
+// validTypeNamePattern matches safe SQL type names.
+var validTypeNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_ ()\[\],]*$`)
+
+// ValidateTypeName checks that a custom type name is safe for SQL.
+func ValidateTypeName(name string) error {
+	if !validTypeNamePattern.MatchString(name) {
+		return alerr.New(alerr.ErrSchemaInvalid,
+			fmt.Sprintf("invalid type name %q; must match [a-zA-Z_][a-zA-Z0-9_ ()\\[\\],]*", name))
+	}
+	return nil
+}
 
 // -----------------------------------------------------------------------------
 // TableDef - complete table definition
@@ -224,7 +292,8 @@ func formatDefaultValue(val any) string {
 	case int, int32, int64, float32, float64:
 		return fmt.Sprintf("%v", v)
 	default:
-		return fmt.Sprintf("%v", v)
+		// Unsupported types fall back to escaped string representation
+		return fmt.Sprintf("'%s'", strings.ReplaceAll(fmt.Sprintf("%v", v), "'", "''"))
 	}
 }
 
@@ -283,6 +352,11 @@ func (i *IndexDef) Validate() error {
 	if len(i.Columns) == 0 {
 		return alerr.New(alerr.ErrSchemaInvalid, "index must have at least one column")
 	}
+	if i.Where != "" {
+		if err := ValidateSQLExpression(i.Where); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -316,6 +390,12 @@ func (fk *ForeignKeyDef) Validate() error {
 			With("columns", len(fk.Columns)).
 			With("ref_columns", len(fk.RefColumns))
 	}
+	if err := ValidateFKAction(fk.OnDelete); err != nil {
+		return err
+	}
+	if err := ValidateFKAction(fk.OnUpdate); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -333,6 +413,9 @@ type CheckDef struct {
 func (c *CheckDef) Validate() error {
 	if c.Expression == "" {
 		return alerr.New(alerr.ErrSchemaInvalid, "check constraint requires an expression")
+	}
+	if err := ValidateSQLExpression(c.Expression); err != nil {
+		return err
 	}
 	return nil
 }
@@ -363,6 +446,11 @@ func (r *Reference) Validate() error {
 	if r.Table == "" {
 		return alerr.New(alerr.ErrSchemaInvalid, "reference must specify a table")
 	}
-	// Column defaults to "id" if not specified, so no validation needed
+	if err := ValidateFKAction(r.OnDelete); err != nil {
+		return err
+	}
+	if err := ValidateFKAction(r.OnUpdate); err != nil {
+		return err
+	}
 	return nil
 }

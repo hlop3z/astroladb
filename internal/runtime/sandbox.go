@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -87,6 +88,18 @@ func NewSandbox(reg *registry.ModelRegistry) *Sandbox {
 func disableDangerousGlobals(vm *goja.Runtime) {
 	// Disable eval and Function constructor
 	vm.Set("eval", goja.Undefined())
+
+	// Block Function constructor (equivalent to eval)
+	_, _ = vm.RunString(`(function() {
+		try {
+			var F = Function;
+			Object.defineProperty(Function.prototype, 'constructor', {
+				value: function() { throw new TypeError('Function constructor is disabled'); },
+				writable: false,
+				configurable: false
+			});
+		} catch(e) {}
+	})();`)
 
 	// Freeze prototypes to prevent pollution attacks
 	// This is done safely - errors are ignored if freeze fails
@@ -656,6 +669,10 @@ func (s *Sandbox) Run(code string) error {
 	if err != nil {
 		return s.wrapJSError(err, alerr.ErrJSExecution, "JavaScript execution failed")
 	}
+
+	// Clear any pending interrupt to prevent race condition
+	// where the timer fires between RunString returning and timer.Stop()
+	s.vm.ClearInterrupt()
 	return nil
 }
 
@@ -674,6 +691,9 @@ func (s *Sandbox) RunWithResult(code string) (goja.Value, error) {
 	if err != nil {
 		return nil, s.wrapJSError(err, alerr.ErrJSExecution, "JavaScript execution failed")
 	}
+
+	// Clear any pending interrupt to prevent race condition
+	s.vm.ClearInterrupt()
 	return result, nil
 }
 
@@ -710,11 +730,12 @@ func (s *Sandbox) EvalSchema(code string, namespace string, tableName string) (*
 	s.tables = make([]*ast.TableDef, 0)
 
 	// Strip ES6 export statements (Goja only supports ES5.1)
-	// Replace "export default " with empty string
+	// Only match "export" at statement boundaries to avoid corrupting string literals
 	originalCode := code
 	code = strings.Replace(code, "export default ", "", 1)
-	// Also handle "export " for named exports
-	code = strings.ReplaceAll(code, "export ", "")
+	// Use regex to only strip "export " at line starts (statement boundary)
+	exportRe := regexp.MustCompile(`(?m)^export `)
+	code = exportRe.ReplaceAllString(code, "")
 
 	// Wrap the schema code to capture the result
 	// Handle both old API (returns result directly) and new API (returns chainable object)
@@ -759,7 +780,9 @@ func (s *Sandbox) Registry() *registry.ModelRegistry {
 }
 
 // VM returns the underlying Goja runtime.
-// Use with caution - direct VM access bypasses sandbox protections.
+// Deprecated: Direct VM access bypasses sandbox protections (timeout, Function
+// constructor block, etc.). Only use in tests. Prefer adding scoped methods to
+// Sandbox instead of exposing the raw runtime.
 func (s *Sandbox) VM() *goja.Runtime {
 	return s.vm
 }
@@ -816,7 +839,8 @@ func (s *Sandbox) RunFile(path string) ([]ast.Operation, error) {
 	code := string(codeBytes)
 	originalCode := code // Keep original for error context
 	code = strings.Replace(code, "export default ", "", 1)
-	code = strings.ReplaceAll(code, "export ", "")
+	exportRe := regexp.MustCompile(`(?m)^export `)
+	code = exportRe.ReplaceAllString(code, "")
 
 	// Store original code for error context (before ES6 stripping)
 	s.currentCode = originalCode

@@ -96,7 +96,8 @@ func (c *TypeScriptConverter) ConvertType(col *ast.ColumnDef) string {
 		if len(enumValues) > 0 {
 			var quotedValues []string
 			for _, v := range enumValues {
-				quotedValues = append(quotedValues, fmt.Sprintf("'%s'", v))
+				escaped := strings.ReplaceAll(v, "'", "\\'")
+				quotedValues = append(quotedValues, fmt.Sprintf("'%s'", escaped))
 			}
 			return strings.Join(quotedValues, " | ")
 		}
@@ -109,9 +110,28 @@ func (c *TypeScriptConverter) ConvertType(col *ast.ColumnDef) string {
 	return "unknown"
 }
 
+// tsReservedKeywords contains TypeScript/JavaScript reserved words that cannot be used as identifiers.
+var tsReservedKeywords = map[string]bool{
+	"break": true, "case": true, "catch": true, "class": true, "const": true,
+	"continue": true, "debugger": true, "default": true, "delete": true, "do": true,
+	"else": true, "enum": true, "export": true, "extends": true, "false": true,
+	"finally": true, "for": true, "function": true, "if": true, "import": true,
+	"in": true, "instanceof": true, "new": true, "null": true, "return": true,
+	"super": true, "switch": true, "this": true, "throw": true, "true": true,
+	"try": true, "typeof": true, "var": true, "void": true, "while": true,
+	"with": true, "yield": true, "let": true, "static": true, "implements": true,
+	"interface": true, "package": true, "private": true, "protected": true, "public": true,
+	"type": true, "async": true, "await": true,
+}
+
 // FormatName formats a name to TypeScript conventions (camelCase for fields).
+// Reserved keywords are suffixed with an underscore.
 func (c *TypeScriptConverter) FormatName(name string) string {
-	return strutil.ToCamelCase(name)
+	formatted := strutil.ToCamelCase(name)
+	if tsReservedKeywords[formatted] {
+		return formatted + "_"
+	}
+	return formatted
 }
 
 // GoConverter converts types to Go.
@@ -212,9 +232,26 @@ func (c *PythonConverter) ConvertType(col *ast.ColumnDef) string {
 	return "str"
 }
 
+// pyReservedKeywords contains Python reserved words that cannot be used as identifiers.
+var pyReservedKeywords = map[string]bool{
+	"False": true, "None": true, "True": true, "and": true, "as": true,
+	"assert": true, "async": true, "await": true, "break": true, "class": true,
+	"continue": true, "def": true, "del": true, "elif": true, "else": true,
+	"except": true, "finally": true, "for": true, "from": true, "global": true,
+	"if": true, "import": true, "in": true, "is": true, "lambda": true,
+	"nonlocal": true, "not": true, "or": true, "pass": true, "raise": true,
+	"return": true, "try": true, "while": true, "with": true, "yield": true,
+	"type": true,
+}
+
 // FormatName formats a name to Python conventions (snake_case).
+// Reserved keywords are suffixed with an underscore.
 func (c *PythonConverter) FormatName(name string) string {
-	return strutil.ToSnakeCase(name)
+	formatted := strutil.ToSnakeCase(name)
+	if pyReservedKeywords[formatted] {
+		return formatted + "_"
+	}
+	return formatted
 }
 
 // RustConverter converts types to Rust.
@@ -989,8 +1026,8 @@ func buildIndexes(table *ast.TableDef) []map[string]any {
 			// Check if already covered by unique index
 			alreadyIndexed := false
 			for _, idx := range indexes {
-				cols := idx["columns"].([]string)
-				if len(cols) == 1 && cols[0] == col.Name {
+				cols, ok := idx["columns"].([]string)
+				if ok && len(cols) == 1 && cols[0] == col.Name {
 					alreadyIndexed = true
 					break
 				}
@@ -1464,7 +1501,8 @@ func buildSQLType(col *ast.ColumnDef) map[string]string {
 			if len(enumValues) > 0 {
 				var quotedValues []string
 				for _, v := range enumValues {
-					quotedValues = append(quotedValues, fmt.Sprintf("'%s'", v))
+					escaped := strings.ReplaceAll(v, "'", "''")
+					quotedValues = append(quotedValues, fmt.Sprintf("'%s'", escaped))
 				}
 				valuesStr := strings.Join(quotedValues, ", ")
 				sqlType["postgres"] = fmt.Sprintf("VARCHAR(50) CHECK (%s IN (%s))", col.Name, valuesStr)
@@ -1530,9 +1568,9 @@ func tableToTypeScript(table *ast.TableDef, cfg *exportContext) string {
 	// Add JSDoc comment
 	if table.Docs != "" {
 		sb.WriteString("/**\n")
-		sb.WriteString(fmt.Sprintf(" * %s\n", table.Docs))
+		sb.WriteString(fmt.Sprintf(" * %s\n", escapeJSDoc(table.Docs)))
 		if table.Deprecated != "" {
-			sb.WriteString(fmt.Sprintf(" * @deprecated %s\n", table.Deprecated))
+			sb.WriteString(fmt.Sprintf(" * @deprecated %s\n", escapeJSDoc(table.Deprecated)))
 		}
 		sb.WriteString(" */\n")
 	}
@@ -1542,7 +1580,7 @@ func tableToTypeScript(table *ast.TableDef, cfg *exportContext) string {
 	for _, col := range table.Columns {
 		// Add JSDoc for column
 		if col.Docs != "" {
-			sb.WriteString(fmt.Sprintf("  /** %s */\n", col.Docs))
+			sb.WriteString(fmt.Sprintf("  /** %s */\n", escapeJSDoc(col.Docs)))
 		}
 
 		optional := ""
@@ -1665,7 +1703,10 @@ func exportPython(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 				sb.WriteString(fmt.Sprintf("class %s(str, Enum):\n", enumName))
 				enumValues := getEnumValues(col)
 				for _, v := range enumValues {
-					sb.WriteString(fmt.Sprintf("    %s = \"%s\"\n", strings.ToUpper(v), v))
+					// Sanitize enum member name to valid Python identifier
+					memberName := sanitizeIdentifier(strings.ToUpper(v))
+					escaped := strings.ReplaceAll(v, `"`, `\"`)
+					sb.WriteString(fmt.Sprintf("    %s = \"%s\"\n", memberName, escaped))
 				}
 				sb.WriteString("\n")
 			}
@@ -1698,7 +1739,7 @@ func generatePythonDataclass(sb *strings.Builder, table *ast.TableDef, cfg *expo
 
 	// Add docstring if present
 	if table.Docs != "" {
-		sb.WriteString(fmt.Sprintf("\"\"\"%s\"\"\"\n", table.Docs))
+		sb.WriteString(fmt.Sprintf("\"\"\"%s\"\"\"\n", escapePyDoc(table.Docs)))
 	}
 
 	sb.WriteString("@dataclass\n")
@@ -1741,7 +1782,8 @@ func generatePythonDataclass(sb *strings.Builder, table *ast.TableDef, cfg *expo
 
 // columnToPythonType converts a column type to Python type.
 func columnToPythonType(col *ast.ColumnDef, table *ast.TableDef) string {
-	converter := GetConverter(FormatPython).(*PythonConverter)
+	// Create a fresh converter to avoid mutating the shared global instance
+	converter := NewPythonConverter()
 	converter.TableName = table.FullName()
 	return converter.ConvertType(col)
 }
@@ -1868,8 +1910,8 @@ func isRustKeyword(name string) bool {
 
 // columnToRustType converts a column type to Rust type.
 func columnToRustType(col *ast.ColumnDef, table *ast.TableDef, cfg *exportContext) string {
-	converter := GetConverter(FormatRust).(*RustConverter)
-	converter.UseChrono = cfg.UseChrono
+	// Create a fresh converter to avoid mutating the shared global instance
+	converter := NewRustConverter(cfg.UseChrono)
 	converter.TableName = table.FullName()
 	baseType := converter.ConvertType(col)
 
@@ -1970,6 +2012,40 @@ func exportGraphQL(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	return []byte(sb.String()), nil
 }
 
+// sanitizeIdentifier converts a string to a valid identifier by replacing
+// non-alphanumeric characters with underscores.
+func sanitizeIdentifier(s string) string {
+	var b strings.Builder
+	for i, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || (r >= '0' && r <= '9' && i > 0) {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	result := b.String()
+	if result == "" {
+		return "VALUE"
+	}
+	// Ensure doesn't start with digit
+	if result[0] >= '0' && result[0] <= '9' {
+		result = "_" + result
+	}
+	return result
+}
+
+// escapeJSDoc escapes content for JSDoc comments (TypeScript).
+func escapeJSDoc(s string) string {
+	s = strings.ReplaceAll(s, "*/", "* /")
+	return s
+}
+
+// escapePyDoc escapes content for Python docstrings.
+func escapePyDoc(s string) string {
+	s = strings.ReplaceAll(s, `"""`, `\"\"\"`)
+	return s
+}
+
 // lowerFirst returns the string with the first character lowercased.
 func lowerFirst(s string) string {
 	if s == "" {
@@ -2005,7 +2081,8 @@ func generateGraphQLType(sb *strings.Builder, table *ast.TableDef, cfg *exportCo
 
 // columnToGraphQLType converts a column type to GraphQL type.
 func columnToGraphQLType(col *ast.ColumnDef, table *ast.TableDef, cfg *exportContext) string {
-	converter := GetConverter("graphql").(*GraphQLConverter)
+	// Create a fresh converter to avoid mutating the shared global instance
+	converter := NewGraphQLConverter()
 	converter.TableName = table.FullName()
 	baseType := converter.ConvertType(col)
 

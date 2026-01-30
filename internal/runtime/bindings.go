@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"log/slog"
 	"reflect"
 	"strings"
 
@@ -83,11 +84,19 @@ func (s *Sandbox) createSchemaObject(namespace string) *goja.Object {
 
 			// Register with the registry if available
 			if s.registry != nil {
-				_ = s.registry.Register(namespace, name, tableDef)
+				if err := s.registry.Register(namespace, name, tableDef); err != nil {
+					slog.Warn("failed to register table in registry",
+						"namespace", namespace,
+						"name", name,
+						"error", err)
+				}
 			}
 		}
 
-		return result.(*goja.Object)
+		if obj, ok := result.(*goja.Object); ok {
+			return obj
+		}
+		return s.vm.NewObject()
 	})
 
 	return obj
@@ -565,7 +574,11 @@ func (s *Sandbox) createColumnChainObject(col map[string]any) *goja.Object {
 }
 
 // parseRef parses a table reference into namespace and table name.
+// Input must be non-empty and in "namespace.table" or "table" format.
 func parseRef(ref string) (namespace, table string) {
+	if ref == "" {
+		return "", ""
+	}
 	for i := len(ref) - 1; i >= 0; i-- {
 		if ref[i] == '.' {
 			return ref[:i], ref[i+1:]

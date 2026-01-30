@@ -88,6 +88,10 @@ func (e *Evaluator) EvalCode(code, namespace, tableName string) (*ast.TableDef, 
 //	│   └── <table>.js
 //
 // This function auto-discovers namespaces (directories) and tables (*.js files).
+//
+// Note: On partial failure, both tables and error may be non-nil.
+// The returned tables are the successfully evaluated ones, and the error
+// describes which files failed. Callers should check both.
 func (e *Evaluator) EvalDir(dir string) ([]*ast.TableDef, error) {
 	// Reset metadata for fresh evaluation
 	e.sandbox.ClearMetadata()

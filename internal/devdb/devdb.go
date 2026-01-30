@@ -95,7 +95,10 @@ func (d *DevDatabase) NormalizeSchema(ctx context.Context, schema *engine.Schema
 func (d *DevDatabase) applySchema(ctx context.Context, schema *engine.Schema) error {
 	// Generate CREATE TABLE statements for all tables
 	for _, table := range schema.Tables {
-		ddl := d.generateCreateTable(table)
+		ddl, err := d.generateCreateTable(table)
+		if err != nil {
+			return err
+		}
 
 		// Execute DDL
 		if _, err := d.db.ExecContext(ctx, ddl); err != nil {
@@ -177,7 +180,7 @@ func (d *DevDatabase) formatSQLError(err error, objectType, objectName, ddl stri
 }
 
 // generateCreateTable generates CREATE TABLE DDL for a table definition.
-func (d *DevDatabase) generateCreateTable(table *ast.TableDef) string {
+func (d *DevDatabase) generateCreateTable(table *ast.TableDef) (string, error) {
 	// CRITICAL: Use the SAME SQL generator that migrations use
 	// This ensures dev database normalization produces identical results
 
@@ -195,11 +198,10 @@ func (d *DevDatabase) generateCreateTable(table *ast.TableDef) string {
 
 	sql, err := d.dialect.CreateTableSQL(createOp)
 	if err != nil {
-		// Log error but don't fallback - we want exact same behavior as migrations
-		panic(fmt.Sprintf("Failed to generate CREATE TABLE SQL: %v", err))
+		return "", fmt.Errorf("failed to generate CREATE TABLE SQL for %s: %w", table.QualifiedName(), err)
 	}
 
-	return sql
+	return sql, nil
 }
 
 // generateBasicCreateTable generates a basic CREATE TABLE statement as fallback.
@@ -246,9 +248,11 @@ func (d *DevDatabase) generateColumnDef(col *ast.ColumnDef) string {
 
 	// Default
 	if col.Default != nil {
-		sql += fmt.Sprintf(" DEFAULT %v", col.Default)
+		sql += " DEFAULT " + formatDevDefault(col.Default)
 	} else if col.ServerDefault != "" {
-		sql += " DEFAULT " + col.ServerDefault
+		if err := ast.ValidateSQLExpression(col.ServerDefault); err == nil {
+			sql += " DEFAULT " + col.ServerDefault
+		}
 	}
 
 	// Unique
@@ -257,6 +261,31 @@ func (d *DevDatabase) generateColumnDef(col *ast.ColumnDef) string {
 	}
 
 	return sql
+}
+
+// formatDevDefault formats a default value safely for SQL.
+func formatDevDefault(v any) string {
+	switch val := v.(type) {
+	case string:
+		escaped := strings.ReplaceAll(val, "'", "''")
+		return fmt.Sprintf("'%s'", escaped)
+	case bool:
+		if val {
+			return "1"
+		}
+		return "0"
+	case int:
+		return fmt.Sprintf("%d", val)
+	case int64:
+		return fmt.Sprintf("%d", val)
+	case float64:
+		return fmt.Sprintf("%g", val)
+	case nil:
+		return "NULL"
+	default:
+		escaped := strings.ReplaceAll(fmt.Sprintf("%v", val), "'", "''")
+		return fmt.Sprintf("'%s'", escaped)
+	}
 }
 
 // mapTypeToSQL maps Alab types to SQL types.
