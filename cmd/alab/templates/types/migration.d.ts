@@ -31,6 +31,25 @@ export interface IndexOptions {
  *
  * For semantic types, define schemas in schema files and let Alab generate migrations.
  *
+ * #### Operations
+ *
+ * | Method                           | Purpose                          |
+ * | -------------------------------- | -------------------------------- |
+ * | `create_table(ref, fn)`          | New table (low-level types only) |
+ * | `drop_table(ref)`                | Remove table                     |
+ * | `rename_table(ref, new)`         | Rename table                     |
+ * | `add_column(ref, fn)`            | Add column                       |
+ * | `drop_column(ref, col)`          | Remove column                    |
+ * | `rename_column(ref, old, new)`   | Rename column                    |
+ * | `alter_column(ref, col, fn)`     | Modify type/null/default         |
+ * | `create_index(ref, cols, opts?)` | Add index                        |
+ * | `drop_index(name)`               | Remove index                     |
+ * | `add_foreign_key(...)`           | Add FK constraint                |
+ * | `drop_foreign_key(ref, name)`    | Remove FK                        |
+ * | `add_check(ref, name, expr)`     | Add CHECK                        |
+ * | `drop_check(ref, name)`          | Remove CHECK                     |
+ * | `sql(up, down?)`                 | Raw SQL escape hatch             |
+ *
  * @example
  * // migrations/001_create_users.js - Using low-level types
  * export default migration({
@@ -150,9 +169,7 @@ export interface IndexOptions {
  * })
  */
 export interface MigrationBuilder {
-  // ===========================================================================
-  // TABLE OPERATIONS
-  // ===========================================================================
+  // ── Table Operations ──
 
   /**
    * Creates a new table with columns.
@@ -250,9 +267,7 @@ export interface MigrationBuilder {
    */
   rename_table(oldName: string, newName: string): void;
 
-  // ===========================================================================
-  // COLUMN OPERATIONS
-  // ===========================================================================
+  // ── Column Operations ──
 
   /**
    * Adds a new column to an existing table.
@@ -383,9 +398,7 @@ export interface MigrationBuilder {
     fn: (c: AlterColumnBuilder) => void
   ): void;
 
-  // ===========================================================================
-  // INDEXES
-  // ===========================================================================
+  // ── Indexes ──
 
   /**
    * Creates an index on one or more columns.
@@ -446,9 +459,7 @@ export interface MigrationBuilder {
    */
   drop_index(name: string): void;
 
-  // ===========================================================================
-  // RAW SQL (Use Sparingly)
-  // ===========================================================================
+  // ── Raw SQL ──
 
   /**
    * Executes raw SQL statement.
@@ -485,9 +496,7 @@ export interface MigrationBuilder {
    */
   sql(sql: string): void;
 
-  // ===========================================================================
-  // FOREIGN KEYS (PostgreSQL / CockroachDB only)
-  // ===========================================================================
+  // ── Foreign Keys (PostgreSQL / CockroachDB only) ──
 
   /**
    * Adds a foreign key constraint to an existing table.
@@ -527,9 +536,7 @@ export interface MigrationBuilder {
    */
   drop_foreign_key(table: string, name: string): void;
 
-  // ===========================================================================
-  // CHECK CONSTRAINTS (PostgreSQL / CockroachDB only)
-  // ===========================================================================
+  // ── Check Constraints (PostgreSQL / CockroachDB only) ──
 
   /**
    * Adds a CHECK constraint to a table.
@@ -558,9 +565,7 @@ export interface MigrationBuilder {
   drop_check(table: string, name: string): void;
 }
 
-// ===========================================================================
-// MIGRATION DEFINITION
-// ===========================================================================
+// ── Migration Definition ──
 
 /**
  * Migration definition with up and down functions.

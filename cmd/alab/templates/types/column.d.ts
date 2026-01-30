@@ -14,19 +14,43 @@ export interface FnExpr {
 }
 
 /**
- * Expression builder for computed columns.
+ * Expression builder for computed/virtual columns.
  *
  * All methods return FnExpr which can be passed to .computed().
  * Expressions are dialect-aware — they generate the correct SQL
  * for PostgreSQL, SQLite, etc.
+ *
+ * #### Available Functions
+ *
+ * | Category  | Methods                                                              |
+ * | --------- | -------------------------------------------------------------------- |
+ * | Reference | `col(name)`                                                          |
+ * | String    | `concat()` `upper()` `lower()` `trim()` `length()` `substring()`     |
+ * | Math      | `add()` `sub()` `mul()` `div()` `abs()` `round()` `floor()` `ceil()` |
+ * | Date      | `year()` `month()` `day()` `now()` `years_since()` `days_since()`    |
+ * | Null      | `coalesce()` `nullif()` `if_null()`                                  |
+ * | Logic     | `if_then()` `gt()` `gte()` `lt()` `lte()` `eq()`                     |
+ * | Raw       | `sql({ postgres: "...", sqlite: "..." })`                            |
+ *
+ * @example
+ * // Stored computed column
+ * { full_name: col.text().computed(fn.concat(fn.col("first"), " ", fn.col("last"))) }
+ *
+ * @example
+ * // Virtual (query-time) computed column
+ * { age: col.integer().computed(fn.years_since(fn.col("birth_date"))).virtual() }
+ *
+ * @example
+ * // Conditional expression
+ * { is_adult: col.boolean().computed(fn.gte(fn.col("age"), 18)) }
  */
 export interface FnBuilder {
-  // ---- Column Reference ----
+  // ── Column Reference ──
 
   /** Reference a column by name. */
   col(name: string): FnExpr;
 
-  // ---- String Functions ----
+  // ── String Functions ──
 
   /** Concatenate strings and expressions. */
   concat(...args: (FnExpr | string)[]): FnExpr;
@@ -46,7 +70,7 @@ export interface FnBuilder {
   /** Extract substring. */
   substring(str: FnExpr | string, start: number, length: number): FnExpr;
 
-  // ---- Math Functions ----
+  // ── Math Functions ──
 
   /** Addition: a + b. */
   add(a: FnExpr | number, b: FnExpr | number): FnExpr;
@@ -72,7 +96,7 @@ export interface FnBuilder {
   /** Round up. */
   ceil(arg: FnExpr | number): FnExpr;
 
-  // ---- Date/Time Functions ----
+  // ── Date/Time Functions ──
 
   /** Extract year from date/datetime. */
   year(arg: FnExpr): FnExpr;
@@ -92,7 +116,7 @@ export interface FnBuilder {
   /** Days elapsed since a date column. */
   days_since(date: FnExpr): FnExpr;
 
-  // ---- Null Handling ----
+  // ── Null Handling ──
 
   /** Return first non-null value. */
   coalesce(...args: (FnExpr | any)[]): FnExpr;
@@ -103,12 +127,12 @@ export interface FnBuilder {
   /** Return default if arg is NULL. */
   if_null(arg: FnExpr, defaultValue: FnExpr | any): FnExpr;
 
-  // ---- Conditional ----
+  // ── Conditional ──
 
   /** CASE WHEN condition THEN thenVal ELSE elseVal END. */
   if_then(condition: FnExpr, thenVal: FnExpr | any, elseVal: FnExpr | any): FnExpr;
 
-  // ---- Comparison ----
+  // ── Comparison ──
 
   /** Greater than: a > b. */
   gt(a: FnExpr | number, b: FnExpr | number): FnExpr;
@@ -125,7 +149,7 @@ export interface FnBuilder {
   /** Equal: a = b. */
   eq(a: FnExpr | any, b: FnExpr | any): FnExpr;
 
-  // ---- Raw SQL Escape Hatch ----
+  // ── Raw SQL Escape Hatch ──
 
   /**
    * Raw SQL expression per dialect.
@@ -470,18 +494,14 @@ export interface ColumnBuilder {
  * and let Alab generate migrations automatically.
  */
 export interface MigrationTableBuilder {
-  // ===========================================================================
-  // PRIMARY KEY
-  // ===========================================================================
+  // ── Primary Key ──
 
   /**
    * Adds a UUID primary key column named "id".
    */
   id(): ColumnBuilder;
 
-  // ===========================================================================
-  // LOW-LEVEL TYPES ONLY - No semantic types in migrations
-  // ===========================================================================
+  // ── Low-Level Types ──
 
   /**
    * Variable-length string with maximum length.
@@ -565,9 +585,7 @@ export interface MigrationTableBuilder {
    */
   enum(name: string, values: string[]): ColumnBuilder;
 
-  // ===========================================================================
-  // CONVENIENCE PATTERNS
-  // ===========================================================================
+  // ── Convenience Patterns ──
 
   /**
    * Adds created_at and updated_at timestamp columns.
@@ -584,9 +602,7 @@ export interface MigrationTableBuilder {
    */
   sortable(): void;
 
-  // ===========================================================================
-  // RELATIONSHIPS
-  // ===========================================================================
+  // ── Relationships ──
 
   /**
    * Adds a foreign key column to another table.
@@ -614,9 +630,7 @@ export interface MigrationTableBuilder {
    */
   belongs_to_any(models: string[], opts?: PolymorphicOptions): void;
 
-  // ===========================================================================
-  // INDEXES & CONSTRAINTS
-  // ===========================================================================
+  // ── Indexes & Constraints ──
 
   /**
    * Adds a non-unique index on columns.
@@ -630,9 +644,7 @@ export interface MigrationTableBuilder {
    */
   unique(...columns: string[]): void;
 
-  // ===========================================================================
-  // DOCUMENTATION
-  // ===========================================================================
+  // ── Documentation ──
 
   /**
    * Adds documentation for the table.
@@ -742,9 +754,7 @@ export interface ColumnFactory {
   enum(name: string, values: string[]): ColumnBuilder;
 }
 
-// =============================================================================
-// OBJECT-BASED API - Column factory for table({...}) syntax
-// =============================================================================
+// ── Object-Based API ──
 
 /**
  * Fluent builder for column definitions in object-based API.
@@ -903,8 +913,71 @@ export interface ColRelationshipBuilder {
 }
 
 /**
- * Column factory for the object-based table API.
- * Column names come from the object keys, not method arguments.
+ * Column factory — use `col.*` in table({...}) definitions.
+ *
+ * #### Core Types
+ *
+ * | Method         | SQL Type    | Notes                                   |
+ * | -------------- | ----------- | --------------------------------------- |
+ * | `id()`         | UUID PK     | Required first column                   |
+ * | `string(n)`    | VARCHAR(n)  | Length required                         |
+ * | `text()`       | TEXT        | Unlimited length                        |
+ * | `integer()`    | INTEGER     | 32-bit, JS-safe                         |
+ * | `float()`      | REAL        | Approximate                             |
+ * | `decimal(p,s)` | DECIMAL     | Exact; serialized as string             |
+ * | `boolean()`    | BOOLEAN     | For flags, prefer `flag()`              |
+ * | `date()`       | DATE        | YYYY-MM-DD                              |
+ * | `time()`       | TIME        | HH:MM:SS                                |
+ * | `datetime()`   | TIMESTAMPTZ | Use `.timestamps()` for created/updated |
+ * | `uuid()`       | UUID        | Non-PK; for PK use `id()`               |
+ * | `json()`       | JSONB       | Flexible structured data                |
+ * | `base64()`     | BYTEA/BLOB  | Small binary data                       |
+ * | `enum([...])`  | CHECK       | Fixed set of strings                    |
+ *
+ * #### Semantic Types (shortcuts with built-in validation)
+ *
+ * | Method           | Expands To    | Built-in                     |
+ * | ---------------- | ------------- | ---------------------------- |
+ * | `email()`        | string(255)   | format, RFC 5322 pattern     |
+ * | `username()`     | string(50)    | min(3), alphanumeric pattern |
+ * | `password_hash()`| string(255)   | hidden from API              |
+ * | `phone()`        | string(50)    | E.164 pattern                |
+ * | `name()`         | string(100)   | —                            |
+ * | `title()`        | string(200)   | —                            |
+ * | `slug()`         | string(255)   | unique, slug pattern         |
+ * | `body()`         | text          | —                            |
+ * | `summary()`      | string(500)   | —                            |
+ * | `url()`          | string(2048)  | uri format                   |
+ * | `money()`        | decimal(19,4) | min(0)                       |
+ * | `percentage()`   | decimal(5,2)  | min(0), max(100)             |
+ * | `counter()`      | integer       | default(0)                   |
+ * | `quantity()`     | integer       | min(0)                       |
+ * | `flag(def?)`     | boolean       | default(false)               |
+ * | `token()`        | string(64)    | unique                       |
+ * | `code()`         | string(20)    | uppercase pattern            |
+ * | `country()`      | string(2)     | ISO 3166-1                   |
+ * | `currency()`     | string(3)     | ISO 4217                     |
+ * | `locale()`       | string(10)    | BCP 47                       |
+ * | `timezone()`     | string(50)    | IANA                         |
+ * | `rating()`       | decimal(2,1)  | min(0), max(5)               |
+ * | `duration()`     | integer       | min(0), seconds              |
+ * | `color()`        | string(7)     | #RRGGBB                      |
+ * | `markdown()`     | text          | markdown format              |
+ * | `html()`         | text          | html format                  |
+ * | `ip()`           | string(45)    | IPv4 + IPv6                  |
+ * | `ipv4()`         | string(15)    | dotted-decimal               |
+ * | `ipv6()`         | string(45)    | full IPv6                    |
+ * | `user_agent()`   | string(500)   | —                            |
+ *
+ * #### Relationships
+ *
+ * | Method            | Creates                |
+ * | ----------------- | ---------------------- |
+ * | `belongs_to(ref)` | `{key}_id` FK column   |
+ * | `one_to_one(ref)` | `{key}_id` FK + unique |
+ *
+ * #### Column Modifiers (chainable)
+ * `.optional()` `.unique()` `.default(v)` `.backfill(v)` `.min(n)` `.max(n)` `.pattern(re)` `.format(f)` `.docs(s)` `.deprecated(s)` `.computed(expr)` `.virtual()`
  *
  * @example
  * export default table({
@@ -914,9 +987,7 @@ export interface ColRelationshipBuilder {
  * }).timestamps()
  */
 export interface ColBuilder {
-  // ===========================================================================
-  // PRIMARY KEY
-  // ===========================================================================
+  // ── Primary Key ──
 
   /**
    * UUID primary key column.
@@ -926,9 +997,7 @@ export interface ColBuilder {
    */
   id(): ColColumnBuilder;
 
-  // ===========================================================================
-  // CORE TYPES
-  // ===========================================================================
+  // ── Core Types ──
 
   /**
    * Variable-length string with maximum length.
@@ -993,9 +1062,7 @@ export interface ColBuilder {
    */
   enum(values: string[]): ColColumnBuilder;
 
-  // ===========================================================================
-  // SEMANTIC TYPES
-  // ===========================================================================
+  // ── Semantic Types ──
 
   /**
    * Email address: string(255) + email format + RFC 5322 pattern.
@@ -1134,9 +1201,7 @@ export interface ColBuilder {
    */
   flag(defaultValue?: boolean): ColColumnBuilder;
 
-  // ===========================================================================
-  // IDENTIFIERS & TOKENS
-  // ===========================================================================
+  // ── Identifiers & Tokens ──
 
   /**
    * Secure token: string(64) + unique.
@@ -1154,9 +1219,7 @@ export interface ColBuilder {
    */
   code(): ColColumnBuilder;
 
-  // ===========================================================================
-  // GEOGRAPHIC & I18N
-  // ===========================================================================
+  // ── Geographic & I18N ──
 
   /**
    * ISO 3166-1 alpha-2 country code: string(2).
@@ -1190,9 +1253,7 @@ export interface ColBuilder {
    */
   timezone(): ColColumnBuilder;
 
-  // ===========================================================================
-  // RATINGS & MEASUREMENTS
-  // ===========================================================================
+  // ── Ratings & Measurements ──
 
   /**
    * Star rating: decimal(2,1) + min(0) + max(5).
@@ -1217,9 +1278,7 @@ export interface ColBuilder {
    */
   color(): ColColumnBuilder;
 
-  // ===========================================================================
-  // CONTENT FORMATS
-  // ===========================================================================
+  // ── Content Formats ──
 
   /**
    * Markdown content: text + markdown format hint.
@@ -1236,9 +1295,13 @@ export interface ColBuilder {
    */
   html(): ColColumnBuilder;
 
-  // ===========================================================================
-  // RELATIONSHIPS
-  // ===========================================================================
+  // ── Relationships ──
+  //
+  // belongs_to(ref)  → Many-to-one (post has one author)
+  // one_to_one(ref)  → One-to-one  (user has one profile)
+  //
+  // For many-to-many, use .many_to_many() on TableChain.
+  // For polymorphic, use .belongs_to_any() on TableChain.
 
   /**
    * Foreign key to another table.
