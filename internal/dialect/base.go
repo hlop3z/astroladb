@@ -190,10 +190,16 @@ func buildCreateTableSQL(op *ast.CreateTable, quoteIdent QuoteIdentFunc, columnD
 	b.WriteString(quoteIdent(tableName))
 	b.WriteString(" (\n")
 
-	for i, col := range op.Columns {
-		if i > 0 {
+	first := true
+	for _, col := range op.Columns {
+		// Skip app-only virtual columns (no DB column)
+		if col.Virtual && col.Computed == nil {
+			continue
+		}
+		if !first {
 			b.WriteString(",\n")
 		}
+		first = false
 		b.WriteString("  ")
 		b.WriteString(columnDef(col, tableName))
 	}
@@ -293,6 +299,8 @@ type ColumnDefConfig struct {
 	// EnumCheck is called for SQLite to add CHECK constraint for enums.
 	// Returns empty string if not needed.
 	EnumCheck func(col *ast.ColumnDef, tableName string) string
+	// DialectName is the dialect name ("postgres" or "sqlite") for computed column rendering.
+	DialectName string
 }
 
 // buildColumnDefSQL generates the SQL for a column definition with configurable ordering.
@@ -323,6 +331,24 @@ func buildColumnDefSQL(col *ast.ColumnDef, cfg ColumnDefConfig) string {
 	if cfg.EnumCheck != nil {
 		if check := cfg.EnumCheck(col, cfg.TableName); check != "" {
 			b.WriteString(check)
+		}
+	}
+
+	// App-only virtual columns produce no SQL
+	if col.Virtual && col.Computed == nil {
+		return ""
+	}
+
+	// Computed column (GENERATED ALWAYS AS)
+	if col.Computed != nil {
+		if expr := computedExprSQL(col.Computed, cfg.DialectName, cfg.QuoteIdent); expr != "" {
+			b.WriteString(" GENERATED ALWAYS AS (")
+			b.WriteString(expr)
+			if col.Virtual {
+				b.WriteString(") VIRTUAL")
+			} else {
+				b.WriteString(") STORED")
+			}
 		}
 	}
 
@@ -488,6 +514,207 @@ func buildDropCheckSQL(op *ast.DropCheck, quoteIdent QuoteIdentFunc) (string, er
 	b.WriteString(quoteIdent(op.Name))
 
 	return b.String(), nil
+}
+
+// computedExprSQL renders a computed column expression (map[string]any) to SQL.
+// The expression is the serialized form of FnExpr from the runtime.
+func computedExprSQL(computed any, dialectName string, quoteIdent QuoteIdentFunc) string {
+	m, ok := computed.(map[string]any)
+	if !ok {
+		return ""
+	}
+
+	// Column reference: {"col": "name"}
+	if col, ok := m["col"].(string); ok && col != "" {
+		return quoteIdent(col)
+	}
+
+	fn, _ := m["fn"].(string)
+	if fn == "" {
+		return ""
+	}
+
+	// Raw SQL escape hatch: {"fn": "raw", "sql": {"postgres": "...", "sqlite": "..."}}
+	if fn == "raw" {
+		if sqlMap, ok := m["sql"].(map[string]any); ok {
+			if s, ok := sqlMap[dialectName].(string); ok {
+				return s
+			}
+		}
+		return ""
+	}
+
+	args := exprArgs(m, dialectName, quoteIdent)
+
+	switch fn {
+	// String functions
+	case "concat":
+		// Use || operator for all dialects — CONCAT() is not immutable in PostgreSQL
+		// and cannot be used in GENERATED ALWAYS AS expressions.
+		return joinArgs(args, " || ")
+	case "upper":
+		return "UPPER(" + firstArg(args) + ")"
+	case "lower":
+		return "LOWER(" + firstArg(args) + ")"
+	case "trim":
+		return "TRIM(" + firstArg(args) + ")"
+	case "length":
+		return "LENGTH(" + firstArg(args) + ")"
+	case "substring":
+		if len(args) >= 3 {
+			return "SUBSTRING(" + args[0] + " FROM " + args[1] + " FOR " + args[2] + ")"
+		}
+		return "SUBSTRING(" + strings.Join(args, ", ") + ")"
+
+	// Math functions (binary operators)
+	case "add":
+		return binaryOp(args, "+")
+	case "sub":
+		return binaryOp(args, "-")
+	case "mul":
+		return binaryOp(args, "*")
+	case "div":
+		return binaryOp(args, "/")
+	case "abs":
+		return "ABS(" + firstArg(args) + ")"
+	case "round":
+		return "ROUND(" + firstArg(args) + ")"
+	case "floor":
+		return "FLOOR(" + firstArg(args) + ")"
+	case "ceil":
+		return "CEIL(" + firstArg(args) + ")"
+
+	// Date functions
+	case "year":
+		if dialectName == "sqlite" {
+			return "CAST(STRFTIME('%Y', " + firstArg(args) + ") AS INTEGER)"
+		}
+		return "EXTRACT(YEAR FROM " + firstArg(args) + ")"
+	case "month":
+		if dialectName == "sqlite" {
+			return "CAST(STRFTIME('%m', " + firstArg(args) + ") AS INTEGER)"
+		}
+		return "EXTRACT(MONTH FROM " + firstArg(args) + ")"
+	case "day":
+		if dialectName == "sqlite" {
+			return "CAST(STRFTIME('%d', " + firstArg(args) + ") AS INTEGER)"
+		}
+		return "EXTRACT(DAY FROM " + firstArg(args) + ")"
+	case "now":
+		if dialectName == "sqlite" {
+			return "CURRENT_TIMESTAMP"
+		}
+		return "NOW()"
+	case "years_since":
+		if dialectName == "sqlite" {
+			return "CAST((JULIANDAY('now') - JULIANDAY(" + firstArg(args) + ")) / 365.25 AS INTEGER)"
+		}
+		return "EXTRACT(YEAR FROM AGE(NOW(), " + firstArg(args) + "))"
+	case "days_since":
+		if dialectName == "sqlite" {
+			return "CAST(JULIANDAY('now') - JULIANDAY(" + firstArg(args) + ") AS INTEGER)"
+		}
+		return "EXTRACT(DAY FROM (NOW() - " + firstArg(args) + "))"
+
+	// Conditional functions
+	case "coalesce":
+		return "COALESCE(" + strings.Join(args, ", ") + ")"
+	case "nullif":
+		return "NULLIF(" + strings.Join(args, ", ") + ")"
+	case "if_null":
+		if dialectName == "sqlite" {
+			return "IFNULL(" + strings.Join(args, ", ") + ")"
+		}
+		return "COALESCE(" + strings.Join(args, ", ") + ")"
+	case "if_then":
+		if len(args) >= 3 {
+			return "CASE WHEN " + args[0] + " THEN " + args[1] + " ELSE " + args[2] + " END"
+		}
+		return ""
+
+	// Comparison functions
+	case "gt":
+		return binaryOp(args, ">")
+	case "gte":
+		return binaryOp(args, ">=")
+	case "lt":
+		return binaryOp(args, "<")
+	case "lte":
+		return binaryOp(args, "<=")
+	case "eq":
+		return binaryOp(args, "=")
+
+	default:
+		// Unknown function — render as FUNCTION(args)
+		return strings.ToUpper(fn) + "(" + strings.Join(args, ", ") + ")"
+	}
+}
+
+// exprArgs extracts and renders the "args" array from a computed expression map.
+func exprArgs(m map[string]any, dialectName string, quoteIdent QuoteIdentFunc) []string {
+	rawArgs, ok := m["args"].([]any)
+	if !ok {
+		return nil
+	}
+	result := make([]string, len(rawArgs))
+	for i, arg := range rawArgs {
+		result[i] = renderArg(arg, dialectName, quoteIdent)
+	}
+	return result
+}
+
+// renderArg renders a single argument to SQL.
+func renderArg(arg any, dialectName string, quoteIdent QuoteIdentFunc) string {
+	switch v := arg.(type) {
+	case map[string]any:
+		// Nested expression
+		return computedExprSQL(v, dialectName, quoteIdent)
+	case string:
+		escaped := strings.ReplaceAll(v, "'", "''")
+		return fmt.Sprintf("'%s'", escaped)
+	case float64:
+		if v == float64(int64(v)) {
+			return fmt.Sprintf("%d", int64(v))
+		}
+		return fmt.Sprintf("%g", v)
+	case int:
+		return fmt.Sprintf("%d", v)
+	case int64:
+		return fmt.Sprintf("%d", v)
+	case bool:
+		if v {
+			return "TRUE"
+		}
+		return "FALSE"
+	case nil:
+		return "NULL"
+	default:
+		return fmt.Sprintf("'%v'", v)
+	}
+}
+
+// binaryOp renders two arguments with an operator between them.
+func binaryOp(args []string, op string) string {
+	if len(args) >= 2 {
+		return "(" + args[0] + " " + op + " " + args[1] + ")"
+	}
+	return ""
+}
+
+// joinArgs joins arguments with a separator (for SQLite concat via ||).
+func joinArgs(args []string, sep string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	return "(" + strings.Join(args, sep) + ")"
+}
+
+// firstArg returns the first argument or empty string.
+func firstArg(args []string) string {
+	if len(args) > 0 {
+		return args[0]
+	}
+	return ""
 }
 
 // buildCreateIndexSQL generates CREATE INDEX SQL with dialect-specific options.

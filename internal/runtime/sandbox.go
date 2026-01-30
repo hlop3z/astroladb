@@ -200,6 +200,7 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 				Hidden:     colDef.Hidden,
 				XRef:       colDef.XRef,
 				Computed:   colDef.Computed,
+				Virtual:    colDef.Virtual,
 			}
 
 			// Handle polymorphic relationships specially - they create two columns
@@ -497,6 +498,9 @@ func (s *Sandbox) parseColumnDef(obj any) *ast.ColumnDef {
 	// Parse computed expression
 	if computed, exists := m["computed"]; exists {
 		col.Computed = computed
+	}
+	if v, ok := m["virtual"].(bool); ok {
+		col.Virtual = v
 	}
 
 	return col

@@ -156,7 +156,8 @@ type ColumnDef struct {
 	Deprecated string // Deprecation notice (if column is deprecated)
 
 	// Computed columns (virtual, database-computed)
-	Computed any // fn.* expression or raw SQL map for computed columns
+	Computed any  // fn.* expression or raw SQL map for computed columns
+	Virtual  bool // If true + Computed: VIRTUAL instead of STORED; if true alone: app-only (no DB column)
 }
 
 // Validate checks that the column definition is well-formed.

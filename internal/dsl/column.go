@@ -166,6 +166,21 @@ func (c *ColumnBuilder) Deprecated(reason string) *ColumnBuilder {
 	return c
 }
 
+// Computed sets the computed expression for the column.
+// The column becomes GENERATED ALWAYS AS (expr) STORED (or VIRTUAL if .Virtual() is also called).
+func (c *ColumnBuilder) Computed(expr any) *ColumnBuilder {
+	c.def.Computed = expr
+	return c
+}
+
+// Virtual marks the column as virtual.
+// With .Computed(): generates VIRTUAL instead of STORED.
+// Without .Computed(): app-only field (no DB column, OpenAPI/schema only).
+func (c *ColumnBuilder) Virtual() *ColumnBuilder {
+	c.def.Virtual = true
+	return c
+}
+
 // Common ON DELETE/UPDATE action constants.
 const (
 	Cascade    = "CASCADE"

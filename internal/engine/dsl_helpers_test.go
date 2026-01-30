@@ -57,6 +57,23 @@ func execOps(t *testing.T, db *sql.DB, d dialect.Dialect, ops []ast.Operation) {
 	}
 }
 
+// tryExecOps is like execOps but returns an error instead of failing the test.
+func tryExecOps(t *testing.T, db *sql.DB, d dialect.Dialect, ops []ast.Operation) error {
+	t.Helper()
+	for _, op := range ops {
+		sqls, err := opToSQL(d, op)
+		if err != nil {
+			return err
+		}
+		for _, s := range sqls {
+			if _, err := db.Exec(s); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // opToSQL dispatches an AST operation to the appropriate dialect method.
 // Extends operationToSQL with AddCheck, DropCheck, and multi-statement support.
 func opToSQL(d dialect.Dialect, op ast.Operation) ([]string, error) {

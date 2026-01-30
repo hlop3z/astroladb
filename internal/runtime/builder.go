@@ -34,6 +34,7 @@ type ColumnDef struct {
 	Hidden         bool   // x_hidden for OpenAPI
 	XRef           string // Original reference (e.g., "auth.user")
 	Computed       any    // Computed expression (FnExpr or map)
+	Virtual        bool   // VIRTUAL instead of STORED, or app-only if no Computed
 	IsRelationship bool   // True if this is a relationship column
 }
 
@@ -492,7 +493,7 @@ func (tb *TableBuilder) columnBuilder(col *ColumnDef) *goja.Object {
 // createChainBuilder creates a shared fluent builder for column definitions.
 // This consolidates the common methods between columnBuilder, colDefBuilder, and relDefBuilder.
 // includeRelOpts adds on_delete/on_update methods for relationship columns.
-func createChainBuilder(vm *goja.Runtime, col *ColumnDef, includeRelOpts bool) *goja.Object {
+func createChainBuilder(vm *goja.Runtime, col *ColumnDef, includeRelOpts bool, convertExpr ...func(any) any) *goja.Object {
 	obj := vm.NewObject()
 
 	// optional() - marks column as nullable (allows NULL values)
@@ -573,6 +574,21 @@ func createChainBuilder(vm *goja.Runtime, col *ColumnDef, includeRelOpts bool) *
 	// deprecated(reason)
 	_ = obj.Set("deprecated", func(reason string) *goja.Object {
 		col.Deprecated = reason
+		return obj
+	})
+
+	// computed(expr) - marks column as a computed/virtual column
+	if len(convertExpr) > 0 && convertExpr[0] != nil {
+		converter := convertExpr[0]
+		_ = obj.Set("computed", func(expr any) *goja.Object {
+			col.Computed = converter(expr)
+			return obj
+		})
+	}
+
+	// virtual() - marks column as VIRTUAL (not STORED) or app-only (no DB column)
+	_ = obj.Set("virtual", func() *goja.Object {
+		col.Virtual = true
 		return obj
 	})
 
@@ -746,7 +762,7 @@ func (cb *ColBuilder) createColDef(colType string, opts ...colOpt) *goja.Object 
 
 // colDefBuilder creates a fluent builder object for column definition chaining.
 func (cb *ColBuilder) colDefBuilder(col *ColDef) *goja.Object {
-	obj := createChainBuilder(cb.vm, col, false)
+	obj := createChainBuilder(cb.vm, col, false, cb.convertExpr)
 	// Store the column definition for extraction (required for col.* API)
 	_ = obj.Set("_colDef", col)
 	return obj
@@ -754,7 +770,7 @@ func (cb *ColBuilder) colDefBuilder(col *ColDef) *goja.Object {
 
 // relDefBuilder creates a fluent builder for relationship definitions.
 func (cb *ColBuilder) relDefBuilder(col *ColDef) *goja.Object {
-	obj := createChainBuilder(cb.vm, col, true)
+	obj := createChainBuilder(cb.vm, col, true, cb.convertExpr)
 	// Store the column definition for extraction (required for col.* API)
 	_ = obj.Set("_colDef", col)
 	return obj
@@ -900,20 +916,6 @@ func (cb *ColBuilder) ToObject() *goja.Object {
 			col.TypeArgs[i] = ref
 		}
 		return cb.polyDefBuilder(col)
-	})
-
-	// ===========================================
-	// COMPUTED COLUMNS
-	// ===========================================
-
-	// computed(expr) - Create a computed/virtual column
-	// expr can be a fn.* expression or raw SQL: { postgres: "...", sqlite: "..." }
-	_ = obj.Set("computed", func(expr any) *goja.Object {
-		col := &ColDef{
-			Type:     "computed",
-			Computed: cb.convertExpr(expr),
-		}
-		return cb.colDefBuilder(col)
 	})
 
 	return obj

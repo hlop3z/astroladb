@@ -1292,10 +1292,18 @@ func buildPropertyXDB(col *ast.ColumnDef, table *ast.TableDef, meta *metadata.Me
 		xdb["sql_type"] = sqlType
 	}
 
-	// Computed columns
+	// Computed and virtual columns
 	if col.Computed != nil {
 		xdb["virtual"] = true
 		xdb["computed"] = col.Computed
+		if col.Virtual {
+			xdb["storage"] = "virtual"
+		} else {
+			xdb["storage"] = "stored"
+		}
+	} else if col.Virtual {
+		xdb["virtual"] = true
+		xdb["storage"] = "app_only"
 	}
 
 	// Polymorphic columns (from belongs_to_any)

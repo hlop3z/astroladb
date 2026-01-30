@@ -1,6 +1,7 @@
 package dialect
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
@@ -136,6 +137,12 @@ func (d *sqlite) DropTableSQL(op *ast.DropTable) (string, error) {
 }
 
 func (d *sqlite) AddColumnSQL(op *ast.AddColumn) (string, error) {
+	// SQLite cannot ALTER TABLE ADD COLUMN with STORED generated columns.
+	// Only VIRTUAL columns can be added via ALTER TABLE.
+	// See: https://sqlite.org/gencol.html
+	if op.Column != nil && op.Column.Computed != nil && !op.Column.Virtual {
+		return "", fmt.Errorf("sqlite: cannot add a STORED generated column via ALTER TABLE; use CREATE TABLE instead")
+	}
 	return buildAddColumnSQL(op, d.QuoteIdent, d.columnDefSQL)
 }
 
@@ -227,12 +234,13 @@ func (d *sqlite) RawSQLFor(op *ast.RawSQL) (string, error) {
 // columnDefSQL generates the SQL for a column definition.
 func (d *sqlite) columnDefSQL(col *ast.ColumnDef, tableName string) string {
 	return buildColumnDefSQL(col, ColumnDefConfig{
-		QuoteIdent: d.QuoteIdent,
-		TypeSQL:    d.columnTypeSQL,
-		DefaultSQL: d.defaultValueSQL,
-		Order:      PostgresColumnOrder, // SQLite uses same order as PostgreSQL
-		TableName:  tableName,
-		EnumCheck:  d.enumCheckSQL,
+		QuoteIdent:  d.QuoteIdent,
+		TypeSQL:     d.columnTypeSQL,
+		DefaultSQL:  d.defaultValueSQL,
+		Order:       PostgresColumnOrder, // SQLite uses same order as PostgreSQL
+		TableName:   tableName,
+		EnumCheck:   d.enumCheckSQL,
+		DialectName: "sqlite",
 	})
 }
 

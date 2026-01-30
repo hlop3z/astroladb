@@ -241,11 +241,12 @@ func (d *postgres) RawSQLFor(op *ast.RawSQL) (string, error) {
 // columnDefSQL generates the SQL for a column definition.
 func (d *postgres) columnDefSQL(col *ast.ColumnDef, tableName string) string {
 	return buildColumnDefSQL(col, ColumnDefConfig{
-		QuoteIdent: d.QuoteIdent,
-		TypeSQL:    d.columnTypeSQL,
-		DefaultSQL: d.defaultValueSQL,
-		Order:      PostgresColumnOrder,
-		TableName:  tableName,
+		QuoteIdent:  d.QuoteIdent,
+		TypeSQL:     d.columnTypeSQL,
+		DefaultSQL:  d.defaultValueSQL,
+		Order:       PostgresColumnOrder,
+		TableName:   tableName,
+		DialectName: "postgres",
 	})
 }
 
