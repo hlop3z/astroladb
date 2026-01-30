@@ -27,6 +27,9 @@ var FixedTime = time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 // FixedSeed is the deterministic seed for random number generation.
 const FixedSeed = 12345
 
+// exportRe matches ES6 "export " at the start of a line (statement boundary).
+var exportRe = regexp.MustCompile(`(?m)^export `)
+
 // Sandbox provides a secure JavaScript execution environment for evaluating
 // schema and migration files. It enforces deterministic execution and
 // resource limits to prevent runaway scripts.
@@ -48,6 +51,10 @@ type Sandbox struct {
 
 	// Line offset for wrapped code (to convert error line numbers back to source)
 	lineOffset int
+
+	// tainted is set to true after any interrupt/timeout, indicating the VM
+	// may have leftover state and should be reset before reuse.
+	tainted bool
 }
 
 // NewSandbox creates a new hardened JavaScript sandbox.
@@ -81,6 +88,29 @@ func NewSandbox(reg *registry.ModelRegistry) *Sandbox {
 	s.bindDSL()
 
 	return s
+}
+
+// Reset recreates the VM and re-initializes all bindings.
+// This is called automatically when the sandbox is tainted (e.g., after a timeout interrupt).
+func (s *Sandbox) Reset() {
+	vm := goja.New()
+	vm.SetMaxCallStackSize(500)
+
+	seedRand := rand.New(rand.NewSource(FixedSeed))
+	vm.SetRandSource(func() float64 { return seedRand.Float64() })
+
+	disableDangerousGlobals(vm)
+
+	s.vm = vm
+	s.tainted = false
+	s.tables = make([]*ast.TableDef, 0)
+	s.operations = nil
+	s.meta = metadata.New()
+	s.currentFile = ""
+	s.currentCode = ""
+	s.lineOffset = 0
+
+	s.bindDSL()
 }
 
 // disableDangerousGlobals removes or disables JS features that could
@@ -125,7 +155,7 @@ func (s *Sandbox) bindDSL() {
 	fnBuilder := NewFnBuilder(s.vm)
 	s.vm.Set("fn", fnBuilder.ToObject())
 
-	// table() function - defines a table (supports both callback and object API)
+	// table() function - defines a table using object API: table({ id: col.id() })
 	s.vm.Set("table", s.tableFunc())
 
 	// Export default handler - stores the exported table
@@ -136,32 +166,19 @@ func (s *Sandbox) bindDSL() {
 }
 
 // tableFunc returns the table() DSL function.
-// Supports both callback-based API: table(t => { t.id() })
-// and object-based API: table({ id: col.id() }).timestamps()
+// Uses object-based API: table({ id: col.id() }).timestamps()
 func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 	return func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
-			panic(s.vm.ToValue("table() requires a builder function or column object"))
+			panic(s.vm.ToValue("table() requires a column definitions object"))
 		}
 
 		arg := call.Arguments[0]
 
-		// Check if it's a function (callback-based API)
-		if builderFn, ok := goja.AssertFunction(arg); ok {
-			// Old callback-based API: table(t => { t.id() })
-			tb := NewTableBuilder(s.vm)
-			tbObj := tb.ToObject()
-			_, err := builderFn(goja.Undefined(), tbObj)
-			if err != nil {
-				panic(s.vm.ToValue("error in table builder: " + err.Error()))
-			}
-			return tb.ToResult()
-		}
-
 		// Object-based API: table({ id: col.id() })
 		columnsObj, ok := arg.(*goja.Object)
 		if !ok {
-			panic(s.vm.ToValue("table() argument must be a function or object"))
+			panic(s.vm.ToValue("table() argument must be an object of column definitions"))
 		}
 
 		// Extract column definitions from the object
@@ -667,6 +684,9 @@ func (s *Sandbox) Run(code string) error {
 
 	_, err := s.vm.RunString(code)
 	if err != nil {
+		if _, ok := err.(*goja.InterruptedError); ok {
+			s.tainted = true
+		}
 		return s.wrapJSError(err, alerr.ErrJSExecution, "JavaScript execution failed")
 	}
 
@@ -689,6 +709,9 @@ func (s *Sandbox) RunWithResult(code string) (goja.Value, error) {
 
 	result, err := s.vm.RunString(code)
 	if err != nil {
+		if _, ok := err.(*goja.InterruptedError); ok {
+			s.tainted = true
+		}
 		return nil, s.wrapJSError(err, alerr.ErrJSExecution, "JavaScript execution failed")
 	}
 
@@ -717,10 +740,14 @@ func (s *Sandbox) EvalSchemaFile(path string, namespace string, tableName string
 }
 
 // EvalSchema evaluates a schema file and returns the table definition.
-// The code should define a table using `table(t => {...})` syntax or
-// the new object-based `table({ id: col.id() }).timestamps()` syntax.
+// The code should define a table using `table({ id: col.id() }).timestamps()` syntax.
 // ES6 export statements are stripped since Goja only supports ES5.1.
 func (s *Sandbox) EvalSchema(code string, namespace string, tableName string) (*ast.TableDef, error) {
+	// Reset VM if tainted by a previous interrupt/timeout
+	if s.tainted {
+		s.Reset()
+	}
+
 	// Store original code for error context (if not already set by EvalSchemaFile)
 	if s.currentCode == "" {
 		s.currentCode = code
@@ -734,7 +761,6 @@ func (s *Sandbox) EvalSchema(code string, namespace string, tableName string) (*
 	originalCode := code
 	code = strings.Replace(code, "export default ", "", 1)
 	// Use regex to only strip "export " at line starts (statement boundary)
-	exportRe := regexp.MustCompile(`(?m)^export `)
 	code = exportRe.ReplaceAllString(code, "")
 
 	// Wrap the schema code to capture the result
@@ -805,6 +831,7 @@ func (s *Sandbox) RunWithTimeout(code string, timeout time.Duration) error {
 	if err != nil {
 		// Check if it was a timeout
 		if interruptErr, ok := err.(*goja.InterruptedError); ok {
+			s.tainted = true
 			timeoutErr := alerr.New(alerr.ErrJSTimeout, "script execution timed out").
 				With("timeout", timeout.String()).
 				With("interrupt", interruptErr.String())
@@ -826,6 +853,11 @@ func (s *Sandbox) RunWithTimeout(code string, timeout time.Duration) error {
 // RunFile reads and executes a JavaScript file (migration file).
 // It strips ES6 export statements since Goja only supports ES5.1.
 func (s *Sandbox) RunFile(path string) ([]ast.Operation, error) {
+	// Reset VM if tainted by a previous interrupt/timeout
+	if s.tainted {
+		s.Reset()
+	}
+
 	// Set current file for error context
 	s.currentFile = path
 
@@ -839,7 +871,6 @@ func (s *Sandbox) RunFile(path string) ([]ast.Operation, error) {
 	code := string(codeBytes)
 	originalCode := code // Keep original for error context
 	code = strings.Replace(code, "export default ", "", 1)
-	exportRe := regexp.MustCompile(`(?m)^export `)
 	code = exportRe.ReplaceAllString(code, "")
 
 	// Store original code for error context (before ES6 stripping)

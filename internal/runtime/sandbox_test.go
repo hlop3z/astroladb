@@ -288,39 +288,22 @@ func TestSandbox_SqlHelper(t *testing.T) {
 func TestSandbox_TableFunction(t *testing.T) {
 	sb := NewSandbox(nil)
 
-	code := `
-		var result = table(function(t) {
-			t.id();
-			t.string("name", 100);
-		});
-		result;
-	`
-	result, err := sb.RunWithResult(code)
+	code := `export default table({
+		id: col.id(),
+		name: col.string(100),
+	})`
+
+	tableDef, err := sb.EvalSchema(code, "test", "entity")
 	if err != nil {
-		t.Fatalf("RunWithResult() error = %v", err)
+		t.Fatalf("EvalSchema() error = %v", err)
 	}
 
-	// Should return an object with columns
-	obj, ok := result.Export().(map[string]any)
-	if !ok {
-		t.Fatalf("table() should return an object, got %T", result.Export())
+	if tableDef == nil {
+		t.Fatal("EvalSchema() returned nil table")
 	}
 
-	columns, ok := obj["columns"].([]map[string]any)
-	if !ok {
-		// Try as []any
-		columnsAny, okAny := obj["columns"].([]any)
-		if !okAny {
-			t.Fatalf("table() result should have columns array, got %T", obj["columns"])
-		}
-		if len(columnsAny) != 2 {
-			t.Errorf("Expected 2 columns, got %d", len(columnsAny))
-		}
-		return
-	}
-
-	if len(columns) != 2 {
-		t.Errorf("Expected 2 columns, got %d", len(columns))
+	if len(tableDef.Columns) != 2 {
+		t.Errorf("Expected 2 columns, got %d", len(tableDef.Columns))
 	}
 }
 
@@ -345,12 +328,12 @@ func TestSandbox_TableFunctionWithoutArg(t *testing.T) {
 	}
 }
 
-func TestSandbox_TableFunctionWithNonFunction(t *testing.T) {
+func TestSandbox_TableFunctionWithNonObject(t *testing.T) {
 	sb := NewSandbox(nil)
 
 	code := `
 		try {
-			table("not a function");
+			table("not an object");
 			false;
 		} catch(e) {
 			true;
@@ -362,7 +345,7 @@ func TestSandbox_TableFunctionWithNonFunction(t *testing.T) {
 	}
 
 	if !result.ToBoolean() {
-		t.Error("table() with non-function argument should throw")
+		t.Error("table() with non-object argument should throw")
 	}
 }
 
@@ -371,10 +354,10 @@ func TestSandbox_EvalSchema(t *testing.T) {
 
 	// EvalSchema expects a table() call, optionally with "export default" prefix
 	// (the export default is stripped by EvalSchema)
-	code := `export default table(function(t) {
-			t.id();
-			t.string("email", 255);
-		})`
+	code := `export default table({
+		id: col.id(),
+		email: col.string(255),
+	})`
 
 	tableDef, err := sb.EvalSchema(code, "auth", "users")
 	if err != nil {
@@ -425,9 +408,7 @@ func TestSandbox_GetTables(t *testing.T) {
 	}
 
 	// After evaluating a schema
-	code := `export default table(function(t) {
-			t.id();
-		})`
+	code := `export default table({ id: col.id() })`
 	_, _ = sb.EvalSchema(code, "test", "table1")
 
 	tables := sb.GetTables()
@@ -439,9 +420,7 @@ func TestSandbox_GetTables(t *testing.T) {
 func TestSandbox_ClearTables(t *testing.T) {
 	sb := NewSandbox(nil)
 
-	code := `export default table(function(t) {
-			t.id();
-		})`
+	code := `export default table({ id: col.id() })`
 	_, _ = sb.EvalSchema(code, "test", "table1")
 
 	if len(sb.GetTables()) == 0 {
@@ -646,5 +625,60 @@ func TestGetSourceLine(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("GetSourceLine(code, %d) = %q, want %q", tt.lineNum, got, tt.want)
 		}
+	}
+}
+
+func TestSandboxResetAfterInterrupt(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	// Run an infinite loop that will be interrupted by the timeout
+	sb.SetTimeout(50 * time.Millisecond)
+	err := sb.Run("while(true) {}")
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	if !sb.tainted {
+		t.Fatal("sandbox should be tainted after interrupt")
+	}
+
+	// Now run a normal script — EvalSchema should auto-reset the tainted VM
+	sb.SetTimeout(5 * time.Second)
+	table, err := sb.EvalSchema(`table({ id: col.id() })`, "test", "reset_check")
+	if err != nil {
+		t.Fatalf("EvalSchema after interrupt should succeed, got: %v", err)
+	}
+	if table == nil {
+		t.Fatal("expected non-nil table after reset")
+	}
+	if sb.tainted {
+		t.Error("sandbox should no longer be tainted after reset")
+	}
+}
+
+func TestSandboxResetMethod(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	// Set some state, then manually reset
+	sb.currentFile = "test.js"
+	sb.tainted = true
+	sb.Reset()
+
+	if sb.tainted {
+		t.Error("tainted should be false after Reset")
+	}
+	if sb.currentFile != "" {
+		t.Error("currentFile should be cleared after Reset")
+	}
+	if sb.vm == nil {
+		t.Error("vm should be re-initialized after Reset")
+	}
+
+	// Verify the reset VM works
+	result, err := sb.RunWithResult("1 + 1")
+	if err != nil {
+		t.Fatalf("RunWithResult after Reset failed: %v", err)
+	}
+	if result.ToInteger() != 2 {
+		t.Errorf("expected 2, got %v", result.Export())
 	}
 }
