@@ -29,28 +29,35 @@
 
 ---
 
-Welcome to **AstrolaDB** aka `alab`. A **schema-as-code** orchestration tool with a `one-to-many` **multi-language** code generation.
+**AstrolaDB** is a **schema-as-code** orchestration tool for **one-to-many, multi-language** code generation.
 
-> **No** Node.js **dependency**. **No** runtime **lock-in**.
+> **No Node.js. No runtime lock-in.**
+> A single, portable binary.
 
-Define your schema **once** in **JavaScript**, then generate **SQL** migrations, **Rust** structs, **Go** models, **Python** classes, **TypeScript** types, **GraphQL** schemas, and **OpenAPI** specs.
+Define your schema once in **constrained JavaScript** — a typed, executable "`JSON`" with type safety, **autocomplete**, and **IDE support**.
 
-Schemas are written in **constrained** JavaScript **not for logic**, but for **type safety**, **autocomplete**, IDE support and explicit **configuration**. Think of it as a **fancy** `JSON`.
+From the same schema, **generate**:
+
+**SQL** migrations, **Rust** structs, **Go** models, **Python** classes, **TypeScript** types, **GraphQL** schemas, and **OpenAPI** specs.
 
 ---
 
 ## Key Highlights
 
-- **Lightweight & Portable**
-- Zero-dependency, **single binary (~8 MB)**
-- Fast, portable and **CI/CD-friendly**
-- **No heavy runtimes**: JVM | Node.js | Python
+- **Single ~8 MB static binary**
+- **Zero dependencies**, no external runtimes
+- Fast, portable, and **CI/CD-friendly**
+- Works **without** JVM, Node.js, or Python
 
 ---
 
 ## Download Release
 
-[![Windows](https://img.shields.io/badge/Windows-Download-blue?logo=windows)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-windows-amd64.zip) [![Mac (Intel)](https://img.shields.io/badge/Mac%20Intel-Download-black?logo=apple)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-darwin-amd64.tar.gz) [![Mac (Apple Silicon)](https://img.shields.io/badge/Mac%20ARM-Download-black?logo=apple)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-darwin-arm64.tar.gz) [![Linux (amd64)](https://img.shields.io/badge/Linux%20amd64-Download-green?logo=linux)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-linux-amd64.tar.gz) [![Linux (arm64)](https://img.shields.io/badge/Linux%20ARM-Download-green?logo=linux)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-linux-arm64.tar.gz)
+[![Windows](https://img.shields.io/badge/Windows-Download-blue?logo=windows)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-windows-amd64.zip)
+[![Mac (Intel)](https://img.shields.io/badge/Mac%20Intel-Download-black?logo=apple)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-darwin-amd64.tar.gz)
+[![Mac (Apple Silicon)](https://img.shields.io/badge/Mac%20ARM-Download-black?logo=apple)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-darwin-arm64.tar.gz)
+[![Linux (amd64)](https://img.shields.io/badge/Linux%20amd64-Download-green?logo=linux)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-linux-amd64.tar.gz)
+[![Linux (arm64)](https://img.shields.io/badge/Linux%20ARM-Download-green?logo=linux)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-linux-arm64.tar.gz)
 
 ---
 
@@ -111,20 +118,20 @@ alab export -f all
 
 **Alab** gives you **a lab** to play, explore and design your schemas.
 
-| Feature                     | Technical Capability                                                  |
-| --------------------------- | --------------------------------------------------------------------- |
-| **Unified Source of Truth** | Centralizes schemas in **JavaScript**, preventing database/app drift. |
-| **Multi-Language Export**   | Generates **type-safe** Rust, Go, Python, and TypeScript structures.  |
-| **Live Development**        | Built-in HTTP server (`alab live`) for instant schema previews.       |
-| **Embedded Engine**         | Runs `.js` schemas via Goja in a standalone **Go binary**.            |
-| **Schema Orchestration**    | Manages **SQL migrations** from generation to deployment.             |
-| **OpenAPI Integration**     | Exports `openapi.json` for **25+ languages** via Quicktype.           |
-| **Logical Namespacing**     | Groups tables (`auth.user`) to avoid naming collisions.               |
-| **Runtime Independence**    | Produces **SQL** and **native types**.                                |
+| Feature                     | Description                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------- |
+| **Unified Source of Truth** | Centralized schemas prevent drift between **database** and **application** code. |
+| **Multi-Language Export**   | Generates **type-safe models** for multiple target languages.                    |
+| **Schema Orchestration**    | Manages **SQL migrations** from generation to deployment.                        |
+| **Embedded Engine**         | Executes `.js` schemas via Goja inside a **standalone Go binary**.               |
+| **Live Development**        | Built-in HTTP server (`alab live`) with instant reloads.                         |
+| **OpenAPI Integration**     | Exports `openapi.json` for **25+ languages** via Quicktype.                      |
+| **Logical Namespacing**     | Groups tables (e.g. `auth.user`) to **avoid naming collisions**.                 |
+| **Native Outputs**          | Produces **SQL** and **language-native types**.                                  |
 
 ## Live Server
 
-**The live server provides instant API exploration with automatic hot reloading.**
+Instant API exploration with automatic hot reloading:
 
 ```bash
 alab live
@@ -142,23 +149,27 @@ alab live
 
 ## Experimental Status
 
-**AstrolaDB** is actively under development. Please review the current feature stability:
+AstrolaDB is actively evolving. Current stability:
 
-### 1. Migrations: **Experimental**
+### Migrations — **Experimental**
 
-The migration engine is **not yet battle-tested** in large-scale production. Use `alab migrate` with caution:
+The migration engine is **not yet battle-tested** for large-scale production.
 
-- **Stability:** Migration logic is evolving and hasn't undergone extensive stress testing.
-- **API Changes:** The migration API may change, potentially introducing breaking changes.
+- Migration logic is still evolving
+- APIs may change and introduce breaking updates
 
-### 2. **Code Generation**: Stable
+Use caution when applying migrations directly to production systems.
 
-Schema orchestration and type generation are **safe for development**:
+### Code Generation — **Stable**
 
-- `alab export` produces types for **Rust, Go, Python, and TypeScript** without touching your live database.
-- **Recommended for development workflows**. For production, review generated SQL and verify migrations manually.
+Schema orchestration and type generation are safe for development workflows.
 
-> **Note:** Always validate migrations in a staging environment before applying to production.
+- `alab export` generates types for Rust, Go, Python, and TypeScript
+- Does **not** modify live databases
+
+> **Recommendation:** Always validate generated SQL and test migrations in staging before production use.
+
+---
 
 ## License
 
