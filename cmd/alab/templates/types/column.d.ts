@@ -6,6 +6,137 @@
 import { SQLExpr } from "./globals";
 
 /**
+ * Opaque expression type returned by fn.* methods.
+ * Pass to .computed() to define generated columns.
+ */
+export interface FnExpr {
+  readonly __fn: true;
+}
+
+/**
+ * Expression builder for computed columns.
+ *
+ * All methods return FnExpr which can be passed to .computed().
+ * Expressions are dialect-aware — they generate the correct SQL
+ * for PostgreSQL, SQLite, etc.
+ */
+export interface FnBuilder {
+  // ---- Column Reference ----
+
+  /** Reference a column by name. */
+  col(name: string): FnExpr;
+
+  // ---- String Functions ----
+
+  /** Concatenate strings and expressions. */
+  concat(...args: (FnExpr | string)[]): FnExpr;
+
+  /** Convert to uppercase. */
+  upper(arg: FnExpr | string): FnExpr;
+
+  /** Convert to lowercase. */
+  lower(arg: FnExpr | string): FnExpr;
+
+  /** Remove leading/trailing whitespace. */
+  trim(arg: FnExpr | string): FnExpr;
+
+  /** Get string length. */
+  length(arg: FnExpr | string): FnExpr;
+
+  /** Extract substring. */
+  substring(str: FnExpr | string, start: number, length: number): FnExpr;
+
+  // ---- Math Functions ----
+
+  /** Addition: a + b. */
+  add(a: FnExpr | number, b: FnExpr | number): FnExpr;
+
+  /** Subtraction: a - b. */
+  sub(a: FnExpr | number, b: FnExpr | number): FnExpr;
+
+  /** Multiplication: a * b. */
+  mul(a: FnExpr | number, b: FnExpr | number): FnExpr;
+
+  /** Division: a / b. */
+  div(a: FnExpr | number, b: FnExpr | number): FnExpr;
+
+  /** Absolute value. */
+  abs(arg: FnExpr | number): FnExpr;
+
+  /** Round to nearest integer. */
+  round(arg: FnExpr | number): FnExpr;
+
+  /** Round down. */
+  floor(arg: FnExpr | number): FnExpr;
+
+  /** Round up. */
+  ceil(arg: FnExpr | number): FnExpr;
+
+  // ---- Date/Time Functions ----
+
+  /** Extract year from date/datetime. */
+  year(arg: FnExpr): FnExpr;
+
+  /** Extract month from date/datetime. */
+  month(arg: FnExpr): FnExpr;
+
+  /** Extract day from date/datetime. */
+  day(arg: FnExpr): FnExpr;
+
+  /** Current timestamp (NOW()). */
+  now(): FnExpr;
+
+  /** Years elapsed since a date column. */
+  years_since(date: FnExpr): FnExpr;
+
+  /** Days elapsed since a date column. */
+  days_since(date: FnExpr): FnExpr;
+
+  // ---- Null Handling ----
+
+  /** Return first non-null value. */
+  coalesce(...args: (FnExpr | any)[]): FnExpr;
+
+  /** Return NULL if a equals b. */
+  nullif(a: FnExpr | any, b: FnExpr | any): FnExpr;
+
+  /** Return default if arg is NULL. */
+  if_null(arg: FnExpr, defaultValue: FnExpr | any): FnExpr;
+
+  // ---- Conditional ----
+
+  /** CASE WHEN condition THEN thenVal ELSE elseVal END. */
+  if_then(condition: FnExpr, thenVal: FnExpr | any, elseVal: FnExpr | any): FnExpr;
+
+  // ---- Comparison ----
+
+  /** Greater than: a > b. */
+  gt(a: FnExpr | number, b: FnExpr | number): FnExpr;
+
+  /** Greater than or equal: a >= b. */
+  gte(a: FnExpr | number, b: FnExpr | number): FnExpr;
+
+  /** Less than: a < b. */
+  lt(a: FnExpr | number, b: FnExpr | number): FnExpr;
+
+  /** Less than or equal: a <= b. */
+  lte(a: FnExpr | number, b: FnExpr | number): FnExpr;
+
+  /** Equal: a = b. */
+  eq(a: FnExpr | any, b: FnExpr | any): FnExpr;
+
+  // ---- Raw SQL Escape Hatch ----
+
+  /**
+   * Raw SQL expression per dialect.
+   * @param dialects - Object with dialect-specific SQL strings
+   * @example
+   * fn.sql({ postgres: "AGE(birth_date)", sqlite: "CAST((julianday('now') - julianday(birth_date)) / 365.25 AS INTEGER)" })
+   */
+  sql(dialects: { postgres?: string; sqlite?: string }): FnExpr;
+}
+
+/**
  * Fluent builder for relationship definitions.
  * Returned by belongs_to() and one_to_one() for chaining options.
  */
@@ -297,895 +428,32 @@ export interface ColumnBuilder {
    * @param ref - Reference in format "namespace.table"
    */
   references(ref: string): ColumnBuilder;
-}
-
-/**
- * Fluent builder for table definitions.
- * Use inside table() or migration create_table() callbacks.
- */
-export interface TableBuilder {
-  // ===========================================================================
-  // PRIMARY KEY
-  // ===========================================================================
 
   /**
-   * Adds a UUID primary key column named "id".
+   * Marks this column as a computed/generated column.
    *
-   * This is the ONLY way to define a primary key in Alab. Uses UUID v4 for
-   * globally unique, non-sequential IDs that are safe in JavaScript.
+   * The expression is evaluated by the database (STORED) or at query time (VIRTUAL).
+   * Use fn.* helpers to build expressions.
    *
-   * Every table should start with t.id().
+   * @param expr - An fn.* expression or raw SQL via fn.sql()
    *
    * @example
-   * table(t => {
-   *   t.id()  // Required first line
-   *   t.email("email").unique()
-   *   // ...
-   * })
+   * t.text("full_name").computed(fn.concat(fn.col("first_name"), " ", fn.col("last_name")))
+   * t.boolean("is_adult").computed(fn.gte(fn.col("age"), 18))
    */
-  id(): ColumnBuilder;
-
-  // ===========================================================================
-  // CORE TYPES - Use when semantic types don't fit your needs
-  // ===========================================================================
+  computed(expr: FnExpr): ColumnBuilder;
 
   /**
-   * Variable-length string with maximum length.
+   * Marks this column as VIRTUAL (not stored) or app-only (no DB column).
    *
-   * Maps to VARCHAR(n). Use when you need a specific max length that isn't
-   * covered by semantic types. Length is required to prevent unbounded columns.
-   *
-   * @param name - Column name in snake_case
-   * @param length - Maximum character length
+   * Virtual columns are not physically stored in the database. If combined
+   * with computed(), the value is computed at query time. Without computed(),
+   * the column exists only in the application layer.
    *
    * @example
-   * t.string("country_code", 2)   // ISO country code
-   * t.string("license_plate", 10)
-   * t.string("custom_field", 255)
+   * t.integer("age").computed(fn.years_since(fn.col("birth_date"))).virtual()
    */
-  string(name: string, length: number): ColumnBuilder;
-
-  /**
-   * Unlimited text content.
-   *
-   * Maps to TEXT. Use for user-generated content without length limits.
-   * For bodies/content, prefer t.body() semantic type.
-   *
-   * @param name - Column name in snake_case
-   *
-   * @example
-   * t.text("notes")
-   * t.text("raw_response")
-   */
-  text(name: string): ColumnBuilder;
-
-  /**
-   * 32-bit signed integer (-2B to +2B).
-   *
-   * Safe for JavaScript (no precision loss). Use for counts, quantities,
-   * and numeric IDs from external systems.
-   *
-   * @param name - Column name in snake_case
-   *
-   * @example
-   * t.integer("view_count")
-   * t.integer("external_id")
-   * t.integer("sort_order")
-   */
-  integer(name: string): ColumnBuilder;
-
-  /**
-   * 32-bit floating-point number.
-   *
-   * Use for approximate values where precision isn't critical.
-   * For money/financial data, use t.decimal() or t.money() instead.
-   *
-   * @param name - Column name in snake_case
-   *
-   * @example
-   * t.float("latitude")
-   * t.float("longitude")
-   * t.float("temperature")
-   */
-  float(name: string): ColumnBuilder;
-
-  /**
-   * Exact decimal number with fixed precision.
-   *
-   * Maps to DECIMAL(precision, scale). Use for money, percentages, and
-   * anywhere exact decimal arithmetic matters. Serialized as string in JSON
-   * to preserve precision.
-   *
-   * @param name - Column name in snake_case
-   * @param precision - Total number of digits
-   * @param scale - Digits after decimal point
-   *
-   * @example
-   * t.decimal("price", 10, 2)      // Up to 99,999,999.99
-   * t.decimal("tax_rate", 5, 4)    // e.g., 0.0825 for 8.25%
-   * t.decimal("exchange_rate", 12, 6)
-   */
-  decimal(name: string, precision: number, scale: number): ColumnBuilder;
-
-  /**
-   * True/false boolean value.
-   *
-   * For flags with defaults, prefer t.flag() which includes a default value.
-   *
-   * @param name - Column name in snake_case
-   *
-   * @example
-   * t.boolean("agreed_to_terms")
-   */
-  boolean(name: string): ColumnBuilder;
-
-  /**
-   * Date without time (YYYY-MM-DD).
-   *
-   * Maps to DATE. Use for birthdays, deadlines, and calendar dates.
-   * Serialized as ISO 8601 string.
-   *
-   * @param name - Column name in snake_case
-   *
-   * @example
-   * t.date("birth_date")
-   * t.date("due_date")
-   * t.date("start_date")
-   */
-  date(name: string): ColumnBuilder;
-
-  /**
-   * Time without date (HH:MM:SS).
-   *
-   * Maps to TIME. Use for recurring times, schedules.
-   * Serialized as ISO 8601 string.
-   *
-   * @param name - Column name in snake_case
-   *
-   * @example
-   * t.time("opens_at")
-   * t.time("reminder_time")
-   */
-  time(name: string): ColumnBuilder;
-
-  /**
-   * Timestamp with timezone.
-   *
-   * Maps to TIMESTAMP WITH TIME ZONE. Use for event times, created/updated.
-   * Serialized as ISO 8601 string. For created_at/updated_at, use t.timestamps().
-   *
-   * @param name - Column name in snake_case
-   *
-   * @example
-   * t.datetime("published_at").optional()
-   * t.datetime("expires_at")
-   * t.datetime("last_login").optional()
-   */
-  datetime(name: string): ColumnBuilder;
-
-  /**
-   * UUID column (non-primary key).
-   *
-   * Use for external references, public IDs, or correlation IDs.
-   * For the primary key, use t.id() instead.
-   *
-   * @param name - Column name in snake_case
-   *
-   * @example
-   * t.uuid("correlation_id")
-   * t.uuid("public_token").unique().default(sql("gen_random_uuid()"))
-   */
-  uuid(name: string): ColumnBuilder;
-
-  /**
-   * JSON/JSONB column for structured data.
-   *
-   * Maps to JSONB (PostgreSQL) or JSON (SQLite). Use for flexible
-   * schemas, preferences, metadata. Stored and retrieved as native JS objects.
-   *
-   * @param name - Column name in snake_case
-   *
-   * @example
-   * t.json("preferences").default({})
-   * t.json("metadata").optional()
-   * t.json("address")  // { street, city, zip, ... }
-   */
-  json(name: string): ColumnBuilder;
-
-  /**
-   * Binary data stored as base64.
-   *
-   * Maps to BYTEA/BLOB. Use for small binary data like hashes, thumbnails.
-   * For files, use external storage with a URL reference instead.
-   *
-   * @param name - Column name in snake_case
-   *
-   * @example
-   * t.base64("avatar_thumbnail")
-   * t.base64("checksum")
-   */
-  base64(name: string): ColumnBuilder;
-
-  /**
-   * Enumerated type with fixed allowed values.
-   *
-   * Creates a check constraint ensuring only listed values are allowed.
-   * Use for status fields, types, categories with known values.
-   *
-   * @param name - Column name in snake_case
-   * @param values - Array of allowed string values
-   *
-   * @example
-   * t.enum("status", ["draft", "published", "archived"])
-   * t.enum("priority", ["low", "medium", "high", "urgent"])
-   * t.enum("role", ["admin", "moderator", "member"])
-   */
-  enum(name: string, values: string[]): ColumnBuilder;
-
-  // ===========================================================================
-  // SEMANTIC TYPES - Preferred for common patterns
-  // ===========================================================================
-
-  /**
-   * Email address: string(255) + email format + RFC 5322 pattern.
-   *
-   * Use for user emails, contact emails. Includes validation pattern
-   * and OpenAPI format hint for proper UI rendering.
-   *
-   * @param name - Column name (typically "email")
-   *
-   * @example
-   * t.email("email").unique()
-   * t.email("contact_email").optional()
-   */
-  email(name: string): ColumnBuilder;
-
-  /**
-   * Username: string(50) + alphanumeric pattern + min(3).
-   *
-   * Use for user handles, login names. Enforces reasonable length
-   * and character restrictions.
-   *
-   * @param name - Column name (typically "username")
-   *
-   * @example
-   * t.username("username").unique()
-   * t.username("handle").unique()
-   */
-  username(name: string): ColumnBuilder;
-
-  /**
-   * Password hash: string(255) + hidden from OpenAPI.
-   *
-   * Use for storing bcrypt/argon2 hashes. Excluded from API responses
-   * by default for security.
-   *
-   * @param name - Column name (typically "password" or "password_hash")
-   *
-   * @example
-   * t.password_hash("password")
-   */
-  password_hash(name: string): ColumnBuilder;
-
-  /**
-   * Phone number: string(50) + E.164 pattern.
-   *
-   * Stores phone numbers in international format. Length accommodates
-   * country codes and extensions.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.phone("phone").optional()
-   * t.phone("mobile")
-   */
-  phone(name: string): ColumnBuilder;
-
-  /**
-   * Person/entity name: string(100).
-   *
-   * Use for first name, last name, or full name fields.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.name("first_name")
-   * t.name("last_name")
-   * t.name("display_name")
-   */
-  name(name: string): ColumnBuilder;
-
-  /**
-   * Title/headline: string(200).
-   *
-   * Use for post titles, product names, page headings.
-   *
-   * @param name - Column name (typically "title")
-   *
-   * @example
-   * t.title("title")
-   * t.title("headline")
-   */
-  title(name: string): ColumnBuilder;
-
-  /**
-   * URL slug: string(255) + unique + slug pattern.
-   *
-   * Use for URL-friendly identifiers. Automatically unique.
-   * Pattern allows lowercase letters, numbers, and hyphens.
-   *
-   * @param name - Column name (typically "slug")
-   *
-   * @example
-   * t.slug("slug")  // "my-awesome-post"
-   */
-  slug(name: string): ColumnBuilder;
-
-  /**
-   * Long-form content: text (unlimited).
-   *
-   * Use for article bodies, descriptions, comments. Maps to TEXT
-   * for unlimited length.
-   *
-   * @param name - Column name (typically "content" or "body")
-   *
-   * @example
-   * t.body("content")
-   * t.body("description")
-   */
-  body(name: string): ColumnBuilder;
-
-  /**
-   * Short summary: string(500).
-   *
-   * Use for excerpts, meta descriptions, preview text.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.summary("excerpt").optional()
-   * t.summary("meta_description").optional()
-   */
-  summary(name: string): ColumnBuilder;
-
-  /**
-   * URL/URI: string(2048) + uri format.
-   *
-   * Use for links, images, callbacks. 2048 chars accommodates
-   * long query strings.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.url("website").optional()
-   * t.url("avatar_url").optional()
-   * t.url("callback_url")
-   */
-  url(name: string): ColumnBuilder;
-
-  /**
-   * IP address: string(45) for IPv4/IPv6 with validation.
-   *
-   * Accepts both IPv4 and IPv6 formats.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.ip("ip_address")
-   * t.ip("last_known_ip").optional()
-   */
-  ip(name: string): ColumnBuilder;
-
-  /**
-   * IPv4 address only: string(15) with strict validation.
-   *
-   * Pattern validates standard dotted-decimal notation (e.g., 192.168.1.1).
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.ipv4("client_ip")
-   */
-  ipv4(name: string): ColumnBuilder;
-
-  /**
-   * IPv6 address only: string(45) with strict validation.
-   *
-   * Pattern validates full IPv6 notation (e.g., 2001:0db8:85a3:0000:0000:8a2e:0370:7334).
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.ipv6("client_ip")
-   */
-  ipv6(name: string): ColumnBuilder;
-
-  /**
-   * User agent string: string(500).
-   *
-   * Use for storing browser/client user agents for analytics.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.user_agent("user_agent").optional()
-   */
-  user_agent(name: string): ColumnBuilder;
-
-  /**
-   * Money amount: decimal(19,4) + min(0).
-   *
-   * Use for prices, totals, balances. 4 decimal places handle
-   * currency subdivisions. Serialized as string to preserve precision.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.money("price")
-   * t.money("total")
-   * t.money("balance")
-   */
-  money(name: string): ColumnBuilder;
-
-  /**
-   * Percentage: decimal(5,2) + min(0) + max(100).
-   *
-   * Stores percentages as 0-100 values with 2 decimal precision.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.percentage("discount")
-   * t.percentage("completion")
-   * t.percentage("tax_rate")
-   */
-  percentage(name: string): ColumnBuilder;
-
-  /**
-   * Counter: integer + default(0).
-   *
-   * Use for incrementing counts. Starts at 0.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.counter("view_count")
-   * t.counter("login_count")
-   * t.counter("failed_attempts")
-   */
-  counter(name: string): ColumnBuilder;
-
-  /**
-   * Quantity: integer + min(0).
-   *
-   * Use for stock levels, cart quantities. Cannot be negative.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.quantity("stock")
-   * t.quantity("quantity")
-   */
-  quantity(name: string): ColumnBuilder;
-
-  /**
-   * Boolean flag with default value.
-   *
-   * Use for feature flags, status booleans. Default is false unless specified.
-   *
-   * @param name - Column name (typically "is_*" or "has_*")
-   * @param defaultValue - Default value (defaults to false)
-   *
-   * @example
-   * t.flag("is_active", true)   // Default true
-   * t.flag("is_verified")       // Default false
-   * t.flag("has_accepted_terms")
-   */
-  flag(name: string, defaultValue?: boolean): ColumnBuilder;
-
-  // ===========================================================================
-  // IDENTIFIERS & TOKENS
-  // ===========================================================================
-
-  /**
-   * Secure token: string(64) + unique.
-   *
-   * Use for API keys, session tokens, password reset tokens.
-   * 64 chars fits a 256-bit hex-encoded token.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.token("api_key").unique()
-   * t.token("reset_token").optional()
-   * t.token("session_token")
-   */
-  token(name: string): ColumnBuilder;
-
-  /**
-   * Short code: string(20) + uppercase pattern.
-   *
-   * Use for SKUs, promo codes, reference numbers, vouchers.
-   * Pattern allows uppercase letters, numbers, and hyphens.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.code("sku").unique()
-   * t.code("promo_code")
-   * t.code("reference_number")
-   */
-  code(name: string): ColumnBuilder;
-
-  // ===========================================================================
-  // GEOGRAPHIC & I18N
-  // ===========================================================================
-
-  /**
-   * ISO 3166-1 alpha-2 country code: string(2).
-   *
-   * Two-letter country codes (US, GB, DE, JP, etc.).
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.country("country")
-   * t.country("shipping_country")
-   * t.country("billing_country")
-   */
-  country(name: string): ColumnBuilder;
-
-  /**
-   * ISO 4217 currency code: string(3).
-   *
-   * Three-letter currency codes (USD, EUR, GBP, JPY, etc.).
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.currency("currency")
-   * t.currency("payout_currency")
-   */
-  currency(name: string): ColumnBuilder;
-
-  /**
-   * BCP 47 locale code: string(10).
-   *
-   * Language and region codes (en-US, es-MX, zh-CN, etc.).
-   * Use for user language preferences and i18n.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.locale("locale")
-   * t.locale("preferred_language")
-   */
-  locale(name: string): ColumnBuilder;
-
-  /**
-   * IANA timezone identifier: string(50).
-   *
-   * Timezone names like America/New_York, Europe/London, Asia/Tokyo.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.timezone("timezone")
-   * t.timezone("user_timezone")
-   */
-  timezone(name: string): ColumnBuilder;
-
-  // ===========================================================================
-  // RATINGS & MEASUREMENTS
-  // ===========================================================================
-
-  /**
-   * Star rating: decimal(2,1) + min(0) + max(5).
-   *
-   * Use for review ratings, scores. Allows half-stars (4.5).
-   * Range is 0 to 5.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.rating("rating")
-   * t.rating("average_rating")
-   * t.rating("user_score")
-   */
-  rating(name: string): ColumnBuilder;
-
-  /**
-   * Duration in seconds: integer + min(0).
-   *
-   * Use for video length, session duration, time intervals.
-   * Store in seconds, convert to minutes/hours in app.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.duration("duration")         // Video length
-   * t.duration("session_length")   // Session time
-   * t.duration("cooldown_period")  // Wait time
-   */
-  duration(name: string): ColumnBuilder;
-
-  /**
-   * Hex color code: string(7).
-   *
-   * Stores colors as #RRGGBB format (e.g., #FF5733).
-   * Use for theme colors, user preferences.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.color("primary_color")
-   * t.color("background_color")
-   * t.color("brand_color")
-   */
-  color(name: string): ColumnBuilder;
-
-  // ===========================================================================
-  // CONTENT FORMATS
-  // ===========================================================================
-
-  /**
-   * Markdown content: text + markdown format hint.
-   *
-   * Use for rich text that will be rendered as Markdown.
-   * Maps to TEXT. OpenAPI format indicates markdown rendering.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.markdown("content")
-   * t.markdown("description")
-   * t.markdown("readme")
-   */
-  markdown(name: string): ColumnBuilder;
-
-  /**
-   * HTML content: text + html format hint.
-   *
-   * Use for pre-rendered HTML content.
-   * Maps to TEXT. Be careful with XSS - sanitize on input.
-   *
-   * @param name - Column name
-   *
-   * @example
-   * t.html("rendered_content")
-   * t.html("email_body")
-   */
-  html(name: string): ColumnBuilder;
-
-  // ===========================================================================
-  // CONVENIENCE PATTERNS
-  // ===========================================================================
-
-  /**
-   * Adds created_at and updated_at timestamp columns.
-   *
-   * Both columns default to NOW() and are NOT NULL.
-   * Put near the end of your table definition.
-   *
-   * @example
-   * table(t => {
-   *   t.id()
-   *   t.email("email").unique()
-   *   t.timestamps()  // created_at, updated_at
-   * })
-   */
-  timestamps(): void;
-
-  /**
-   * Adds a deleted_at nullable timestamp for soft deletion.
-   *
-   * NULL means not deleted. Set to NOW() to soft-delete.
-   * Query with WHERE deleted_at IS NULL for active records.
-   *
-   * @example
-   * table(t => {
-   *   t.id()
-   *   t.title("title")
-   *   t.timestamps()
-   *   t.soft_delete()  // deleted_at
-   * })
-   */
-  soft_delete(): void;
-
-  /**
-   * Adds a position integer column for manual ordering.
-   *
-   * Defaults to 0. Use for drag-and-drop reordering.
-   *
-   * @example
-   * table(t => {
-   *   t.id()
-   *   t.title("title")
-   *   t.sortable()  // position column
-   *   t.timestamps()
-   * })
-   */
-  sortable(): void;
-
-  /**
-   * Adds a unique slug column derived from another column.
-   *
-   * Shorthand for t.slug("slug"). The sourceColumn is documentation
-   * only - actual slug generation happens in your application.
-   *
-   * @param sourceColumn - Column that slugs are derived from
-   *
-   * @example
-   * table(t => {
-   *   t.id()
-   *   t.title("title")
-   *   t.slugged("title")  // Creates slug column
-   * })
-   */
-  slugged(sourceColumn: string): void;
-
-  // ===========================================================================
-  // RELATIONSHIPS
-  // ===========================================================================
-
-  /**
-   * Adds a foreign key column to another table.
-   *
-   * Creates a NOT NULL {table}_id column (or {alias}_id with .as()).
-   * Automatically creates an index on the FK. Returns RelationshipBuilder
-   * for chaining options.
-   *
-   * @param model - Reference in format "namespace.table"
-   *
-   * @example
-   * // Simple FK - creates user_id column
-   * t.belongs_to("auth.user")
-   *
-   * @example
-   * // With alias - creates author_id column
-   * t.belongs_to("auth.user").as("author")
-   *
-   * @example
-   * // Optional with cascade delete
-   * t.belongs_to("catalog.category").optional().on_delete("cascade")
-   *
-   * @example
-   * // Self-referential for hierarchies
-   * t.belongs_to("catalog.category").as("parent").optional()
-   */
-  belongs_to(model: string): RelationshipBuilder;
-
-  /**
-   * Adds a unique foreign key (one-to-one relationship).
-   *
-   * Like belongs_to() but with a unique constraint. Use when each
-   * parent has at most one child (e.g., user has one profile).
-   *
-   * @param model - Reference in format "namespace.table"
-   *
-   * @example
-   * // User has one profile
-   * t.one_to_one("auth.user")
-   *
-   * @example
-   * // Optional one-to-one with alias
-   * t.one_to_one("billing.account").as("billing").optional()
-   */
-  one_to_one(model: string): RelationshipBuilder;
-
-  /**
-   * Declares a many-to-many relationship.
-   *
-   * Alab generates a join table with foreign keys to both tables.
-   * The join table is created automatically during migration.
-   *
-   * @param model - Reference to the other table
-   * @param opts - Optional: { through: "custom_table_name" }
-   *
-   * @example
-   * // Post has many tags, Tag has many posts
-   * // Creates post_tag join table
-   * t.many_to_many("blog.tag")
-   *
-   * @example
-   * // User has many roles with custom join table
-   * t.many_to_many("auth.role", { through: "user_roles" })
-   */
-  many_to_many(model: string, opts?: M2MOptions): void;
-
-  /**
-   * Adds a polymorphic reference (type + id columns).
-   *
-   * Use when a row can belong to multiple different table types.
-   * Creates {as}_type (string) and {as}_id (uuid) columns.
-   *
-   * @param models - Array of possible model references
-   * @param opts - Optional: { as: "base_name" } (defaults to "parent")
-   *
-   * @example
-   * // Comment can belong to Post or Video
-   * // Creates commentable_type and commentable_id
-   * t.belongs_to_any(["blog.post", "media.video"], { as: "commentable" })
-   *
-   * @example
-   * // Reaction on posts or comments
-   * t.belongs_to_any(["blog.post", "blog.comment"], { as: "reactable" })
-   */
-  belongs_to_any(models: string[], opts?: PolymorphicOptions): void;
-
-  // ===========================================================================
-  // INDEXES & CONSTRAINTS
-  // ===========================================================================
-
-  /**
-   * Adds a non-unique index on columns.
-   *
-   * Use for columns frequently used in WHERE clauses or JOINs.
-   * Foreign keys are automatically indexed; don't duplicate them.
-   *
-   * @param columns - Column names to index
-   *
-   * @example
-   * t.index("created_at")
-   * t.index("status", "created_at")  // Composite index
-   */
-  index(...columns: string[]): void;
-
-  /**
-   * Adds a composite unique constraint on multiple columns.
-   *
-   * Ensures the combination of values is unique across all rows.
-   * Relationship aliases are automatically expanded to {alias}_id.
-   *
-   * @param columns - Column names or relationship aliases
-   *
-   * @example
-   * // User can only follow someone once
-   * t.belongs_to("auth.user").as("follower")
-   * t.belongs_to("auth.user").as("following")
-   * t.unique("follower", "following")  // Expands to follower_id, following_id
-   *
-   * @example
-   * // Unique slug per author
-   * t.unique("author", "slug")
-   */
-  unique(...columns: string[]): void;
-
-  // ===========================================================================
-  // DOCUMENTATION
-  // ===========================================================================
-
-  /**
-   * Adds documentation for the table.
-   *
-   * Becomes a SQL COMMENT on the table and appears in OpenAPI schemas.
-   *
-   * @param description - Human-readable table description
-   *
-   * @example
-   * table(t => {
-   *   t.docs("User accounts for authentication and profile data")
-   *   t.id()
-   *   // ...
-   * })
-   */
-  docs(description: string): void;
-
-  /**
-   * Marks the table as deprecated.
-   *
-   * Shows deprecation warning in OpenAPI schemas.
-   *
-   * @param reason - Explanation and migration guidance
-   *
-   * @example
-   * table(t => {
-   *   t.deprecated("Use auth.user instead, will be removed in v2")
-   *   t.id()
-   *   // ...
-   * })
-   */
-  deprecated(reason: string): void;
+  virtual(): ColumnBuilder;
 }
 
 /**
@@ -1571,6 +839,22 @@ export interface ColColumnBuilder {
    * { old_status: col.string(20).deprecated("Use status_id instead") }
    */
   deprecated(reason: string): ColColumnBuilder;
+
+  /**
+   * Marks this column as a computed/generated column.
+   * Use fn.* helpers to build expressions.
+   * @param expr - An fn.* expression
+   * @example
+   * { full_name: col.text().computed(fn.concat(fn.col("first_name"), " ", fn.col("last_name"))) }
+   */
+  computed(expr: FnExpr): ColColumnBuilder;
+
+  /**
+   * Marks this column as VIRTUAL (not stored) or app-only.
+   * @example
+   * { age: col.integer().computed(fn.years_since(fn.col("birth_date"))).virtual() }
+   */
+  virtual(): ColColumnBuilder;
 }
 
 /**

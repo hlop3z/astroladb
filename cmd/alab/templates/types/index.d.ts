@@ -15,8 +15,8 @@ export * from "./migration";
 
 // Declare globals for ambient usage in .js files
 import { SQLExpr } from "./globals";
-import { TableBuilder, ColBuilder } from "./column";
-import { SchemaBuilder, TableDefinition, TableChain, ColumnDefinitions } from "./schema";
+import { ColBuilder, FnBuilder } from "./column";
+import { TableChain, ColumnDefinitions } from "./schema";
 import { MigrationBuilder, MigrationDefinition } from "./migration";
 
 declare global {
@@ -36,13 +36,21 @@ declare global {
    */
   const col: ColBuilder;
 
-  /** Defines a schema namespace with multiple tables. */
-  function schema(namespace: string, fn: (s: SchemaBuilder) => void): void;
+  /**
+   * Expression builder for computed/virtual columns.
+   * Use `fn.*` methods to build expressions that reference other columns,
+   * perform calculations, and apply functions.
+   *
+   * @example
+   * export default table({
+   *   first_name: col.string(50),
+   *   last_name: col.string(50),
+   *   full_name: col.text().computed(fn.concat(fn.col("first_name"), " ", fn.col("last_name"))),
+   * })
+   */
+  const fn: FnBuilder;
 
-  /** Defines a single table using a callback (legacy API). */
-  function table(fn: (t: TableBuilder) => void): TableDefinition;
-
-  /** Defines a single table using an object (preferred API). */
+  /** Defines a single table using an object. */
   function table(columns: ColumnDefinitions): TableChain;
 
   /**

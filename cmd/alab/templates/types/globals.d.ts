@@ -3,7 +3,7 @@
  * AUTO-GENERATED - Do not edit. Run 'alab types' to regenerate.
  */
 
-import { ColBuilder } from "./column";
+import { ColBuilder, FnBuilder, FnExpr } from "./column";
 
 /**
  * Represents a raw SQL expression.
@@ -61,4 +61,21 @@ declare function sql(expr: string): SQLExpr;
  */
 declare const col: ColBuilder;
 
-export { sql, col };
+/**
+ * Expression builder for computed/virtual columns.
+ *
+ * Use `fn.*` methods to build expressions that reference other columns,
+ * perform calculations, and apply functions. Expressions are translated
+ * to database-specific SQL by each dialect.
+ *
+ * @example
+ * export default table({
+ *   first_name: col.string(50),
+ *   last_name: col.string(50),
+ *   full_name: col.text().computed(fn.concat(fn.col("first_name"), " ", fn.col("last_name"))),
+ *   age: col.integer().computed(fn.years_since(fn.col("birth_date"))).virtual(),
+ * })
+ */
+declare const fn: FnBuilder;
+
+export { sql, col, fn };

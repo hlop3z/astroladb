@@ -1,9 +1,18 @@
 (function() {
-	try {
-		Object.freeze(Object.prototype);
-		Object.freeze(Array.prototype);
-		Object.freeze(String.prototype);
-		Object.freeze(Number.prototype);
-		Object.freeze(Boolean.prototype);
-	} catch(e) {}
+	var frozen = 0;
+	function safeFr(obj) {
+		try { Object.freeze(obj); frozen++; } catch(e) {}
+	}
+	safeFr(Object.prototype);
+	safeFr(Array.prototype);
+	safeFr(String.prototype);
+	safeFr(Number.prototype);
+	safeFr(Boolean.prototype);
+	safeFr(RegExp.prototype);
+	safeFr(Date.prototype);
+	safeFr(Function.prototype);
+	safeFr(Error.prototype);
+	if (typeof Map !== 'undefined') safeFr(Map.prototype);
+	if (typeof Set !== 'undefined') safeFr(Set.prototype);
+	return frozen;
 })();

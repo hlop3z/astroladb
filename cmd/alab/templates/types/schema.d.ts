@@ -3,16 +3,7 @@
  * AUTO-GENERATED - Do not edit. Run 'alab types' to regenerate.
  */
 
-import { TableBuilder, ColColumnBuilder, ColRelationshipBuilder, PolymorphicOptions } from "./column";
-
-/**
- * Represents a complete table definition.
- * Returned by the table() function.
- */
-export interface TableDefinition {
-  readonly namespace: string;
-  readonly name: string;
-}
+import { ColColumnBuilder, ColRelationshipBuilder, PolymorphicOptions } from "./column";
 
 /**
  * Column definitions object for the object-based table API.
@@ -63,30 +54,10 @@ export interface TableChain {
 }
 
 /**
- * Builder for defining multiple tables within a namespace.
- */
-export interface SchemaBuilder {
-  table(name: string, fn: (t: TableBuilder) => void): void;
-}
-
-/**
- * Defines a schema namespace with multiple tables in one file.
- */
-declare function schema(
-  namespace: string,
-  fn: (s: SchemaBuilder) => void
-): void;
-
-/**
- * Defines a single table using a callback (legacy API).
- */
-declare function table(fn: (t: TableBuilder) => void): TableDefinition;
-
-/**
- * Defines a single table using an object (preferred API).
+ * Defines a single table using an object.
  *
  * @example
- * // schemas/auth/user.js (object API - preferred)
+ * // schemas/auth/user.js (object API)
  * export default table({
  *   id: col.id(),
  *   email: col.email().unique(),
@@ -111,4 +82,4 @@ declare function table(fn: (t: TableBuilder) => void): TableDefinition;
  */
 declare function table(columns: ColumnDefinitions): TableChain;
 
-export { schema, table };
+export { table };

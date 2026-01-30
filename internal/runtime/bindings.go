@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"log/slog"
 	"reflect"
 	"strings"
 
@@ -24,82 +23,6 @@ func NewBindingsContext(vm *goja.Runtime, namespace string) *BindingsContext {
 		namespace: namespace,
 		tables:    make([]*ast.TableDef, 0),
 	}
-}
-
-// BindSchema binds the schema() DSL function for multi-table schema files.
-// Usage: schema("namespace", s => { s.table("name", t => {...}) })
-func (s *Sandbox) BindSchema() {
-	s.vm.Set("schema", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 2 {
-			panic(s.vm.ToValue("schema() requires namespace and builder function"))
-		}
-
-		namespace := call.Arguments[0].String()
-		builderFn, ok := goja.AssertFunction(call.Arguments[1])
-		if !ok {
-			panic(s.vm.ToValue("schema() second argument must be a function"))
-		}
-
-		// Create schema builder object
-		schemaObj := s.createSchemaObject(namespace)
-
-		// Call the builder function
-		_, err := builderFn(goja.Undefined(), schemaObj)
-		if err != nil {
-			panic(s.vm.ToValue("error in schema builder: " + err.Error()))
-		}
-
-		return goja.Undefined()
-	})
-}
-
-// createSchemaObject creates the JavaScript object for the schema builder.
-func (s *Sandbox) createSchemaObject(namespace string) *goja.Object {
-	obj := s.vm.NewObject()
-
-	// table(name, fn) - defines a table in this namespace
-	_ = obj.Set("table", func(name string, fn goja.Value) *goja.Object {
-		builderFn, ok := goja.AssertFunction(fn)
-		if !ok {
-			panic(s.vm.ToValue("table() second argument must be a function"))
-		}
-
-		// Create table builder
-		tb := NewTableBuilder(s.vm)
-
-		// Call the builder function with the table builder
-		tbObj := tb.ToObject()
-		_, err := builderFn(goja.Undefined(), tbObj)
-		if err != nil {
-			panic(s.vm.ToValue("error in table builder: " + err.Error()))
-		}
-
-		// Convert to table definition
-		result := tb.ToResult()
-		defObj := result.Export()
-
-		tableDef := s.parseTableDef(namespace, name, defObj)
-		if tableDef != nil {
-			s.tables = append(s.tables, tableDef)
-
-			// Register with the registry if available
-			if s.registry != nil {
-				if err := s.registry.Register(namespace, name, tableDef); err != nil {
-					slog.Warn("failed to register table in registry",
-						"namespace", namespace,
-						"name", name,
-						"error", err)
-				}
-			}
-		}
-
-		if obj, ok := result.(*goja.Object); ok {
-			return obj
-		}
-		return s.vm.NewObject()
-	})
-
-	return obj
 }
 
 // BindMigration binds the migration() DSL function for migration files.
@@ -157,7 +80,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 			panic(s.vm.ToValue("create_table() second argument must be a function"))
 		}
 
-		ns, table := parseRef(ref)
+		ns, table := mustParseRef(ref, s.vm)
 		tb := NewTableBuilder(s.vm)
 		tbObj := tb.ToMigrationObject()
 
@@ -182,7 +105,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 
 	// drop_table(ref)
 	_ = obj.Set("drop_table", func(ref string) {
-		ns, table := parseRef(ref)
+		ns, table := mustParseRef(ref, s.vm)
 		s.operations = append(s.operations, &ast.DropTable{
 			TableOp: ast.TableOp{Namespace: ns, Name: table},
 		})
@@ -190,7 +113,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 
 	// rename_table(oldRef, newName)
 	_ = obj.Set("rename_table", func(oldRef, newName string) {
-		ns, oldTable := parseRef(oldRef)
+		ns, oldTable := mustParseRef(oldRef, s.vm)
 		s.operations = append(s.operations, &ast.RenameTable{
 			Namespace: ns,
 			OldName:   oldTable,
@@ -205,7 +128,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 			panic(s.vm.ToValue("add_column() second argument must be a function"))
 		}
 
-		ns, table := parseRef(ref)
+		ns, table := mustParseRef(ref, s.vm)
 
 		// Create a column builder wrapper
 		col := make(map[string]any)
@@ -246,7 +169,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 
 	// drop_column(ref, column)
 	_ = obj.Set("drop_column", func(ref, column string) {
-		ns, table := parseRef(ref)
+		ns, table := mustParseRef(ref, s.vm)
 		s.operations = append(s.operations, &ast.DropColumn{
 			TableRef: ast.TableRef{Namespace: ns, Table_: table},
 			Name:     column,
@@ -255,7 +178,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 
 	// rename_column(ref, oldName, newName)
 	_ = obj.Set("rename_column", func(ref, oldName, newName string) {
-		ns, table := parseRef(ref)
+		ns, table := mustParseRef(ref, s.vm)
 		s.operations = append(s.operations, &ast.RenameColumn{
 			TableRef: ast.TableRef{Namespace: ns, Table_: table},
 			OldName:  oldName,
@@ -265,7 +188,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 
 	// create_index(ref, columns, opts?)
 	_ = obj.Set("create_index", func(ref string, columns []string, opts ...map[string]any) {
-		ns, table := parseRef(ref)
+		ns, table := mustParseRef(ref, s.vm)
 		op := &ast.CreateIndex{
 			TableRef: ast.TableRef{Namespace: ns, Table_: table},
 			Columns:  columns,
@@ -313,7 +236,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 			panic(s.vm.ToValue("alter_column() third argument must be a function"))
 		}
 
-		ns, table := parseRef(ref)
+		ns, table := mustParseRef(ref, s.vm)
 
 		// Create alter column builder
 		alterOp := &ast.AlterColumn{
@@ -332,8 +255,8 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 
 	// add_foreign_key(ref, columns, refTable, refColumns, opts?)
 	_ = obj.Set("add_foreign_key", func(ref string, columns []string, refTable string, refColumns []string, opts ...map[string]any) {
-		ns, table := parseRef(ref)
-		refNs, refTbl := parseRef(refTable)
+		ns, table := mustParseRef(ref, s.vm)
+		refNs, refTbl := mustParseRef(refTable, s.vm)
 		sqlRefTable := refTbl
 		if refNs != "" {
 			sqlRefTable = refNs + "_" + refTbl
@@ -363,7 +286,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 
 	// drop_foreign_key(ref, constraintName)
 	_ = obj.Set("drop_foreign_key", func(ref, constraintName string) {
-		ns, table := parseRef(ref)
+		ns, table := mustParseRef(ref, s.vm)
 		s.operations = append(s.operations, &ast.DropForeignKey{
 			TableRef: ast.TableRef{Namespace: ns, Table_: table},
 			Name:     constraintName,
@@ -372,7 +295,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 
 	// add_check(ref, name, expression)
 	_ = obj.Set("add_check", func(ref, name, expression string) {
-		ns, table := parseRef(ref)
+		ns, table := mustParseRef(ref, s.vm)
 		s.operations = append(s.operations, &ast.AddCheck{
 			TableRef:   ast.TableRef{Namespace: ns, Table_: table},
 			Name:       name,
@@ -382,7 +305,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 
 	// drop_check(ref, name)
 	_ = obj.Set("drop_check", func(ref, name string) {
-		ns, table := parseRef(ref)
+		ns, table := mustParseRef(ref, s.vm)
 		s.operations = append(s.operations, &ast.DropCheck{
 			TableRef: ast.TableRef{Namespace: ns, Table_: table},
 			Name:     name,
@@ -585,6 +508,23 @@ func parseRef(ref string) (namespace, table string) {
 		}
 	}
 	return "", ref
+}
+
+// mustParseRef parses a table reference and validates the parts.
+// Panics with a descriptive message if validation fails (for use inside Goja callbacks).
+func mustParseRef(ref string, vm *goja.Runtime) (namespace, table string) {
+	ns, tbl := parseRef(ref)
+	if tbl != "" {
+		if err := ast.ValidateIdentifier(tbl); err != nil {
+			panic(vm.ToValue("invalid table name in reference: " + err.Error()))
+		}
+	}
+	if ns != "" {
+		if err := ast.ValidateIdentifier(ns); err != nil {
+			panic(vm.ToValue("invalid namespace in reference: " + err.Error()))
+		}
+	}
+	return ns, tbl
 }
 
 // BindSQL creates the sql() helper function.

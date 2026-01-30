@@ -267,7 +267,7 @@ type SemanticMethodConfig struct {
 }
 
 // RegisterSemanticMethods registers all semantic type methods on a JS object.
-// This DRY helper is used by both TableBuilder.ToObject() and ColBuilder.ToObject()
+// This DRY helper is used by ColBuilder.ToObject()
 // to avoid duplicate registration loops.
 //
 // For TableBuilder (callback API):

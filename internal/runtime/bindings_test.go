@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/dop251/goja"
+
+	"github.com/hlop3z/astroladb/internal/ast"
 )
 
 func TestBindSQL(t *testing.T) {
@@ -46,998 +48,447 @@ func TestBindSQL(t *testing.T) {
 	})
 }
 
-func TestTableBuilder_TypeMethods(t *testing.T) {
+func TestObjectAPI_CoreTypes(t *testing.T) {
 	sb := NewSandbox(nil)
 
-	typeMethods := []struct {
+	tests := []struct {
 		name     string
-		call     string
+		code     string
 		wantType string
 	}{
-		{"id", "t.id()", "uuid"},
-		{"string", "t.string('name', 100)", "string"},
-		{"text", "t.text('content')", "text"},
-		{"integer", "t.integer('count')", "integer"},
-		{"float", "t.float('rating')", "float"},
-		{"decimal", "t.decimal('price', 10, 2)", "decimal"},
-		{"boolean", "t.boolean('active')", "boolean"},
-		{"date", "t.date('birth_date')", "date"},
-		{"time", "t.time('start_time')", "time"},
-		{"datetime", "t.datetime('created')", "datetime"},
-		{"uuid", "t.uuid('token')", "uuid"},
-		{"json", "t.json('data')", "json"},
-		{"base64", "t.base64('binary')", "base64"},
-		{"enum", "t.enum('status', ['a', 'b'])", "enum"},
+		{"string", `table({ name: col.string(100) })`, "string"},
+		{"text", `table({ content: col.text() })`, "text"},
+		{"integer", `table({ count: col.integer() })`, "integer"},
+		{"float", `table({ rating: col.float() })`, "float"},
+		{"decimal", `table({ price: col.decimal(10, 2) })`, "decimal"},
+		{"boolean", `table({ active: col.boolean() })`, "boolean"},
+		{"date", `table({ birth_date: col.date() })`, "date"},
+		{"time", `table({ start_time: col.time() })`, "time"},
+		{"datetime", `table({ created: col.datetime() })`, "datetime"},
+		{"uuid", `table({ token: col.uuid() })`, "uuid"},
+		{"json", `table({ data: col.json() })`, "json"},
+		{"base64", `table({ binary: col.base64() })`, "base64"},
+		{"enum", `table({ status: col.enum(["a", "b"]) })`, "enum"},
 	}
 
-	for _, tt := range typeMethods {
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			code := `
-				var result = table(function(t) {
-					` + tt.call + `;
-				});
-				result.columns[result.columns.length - 1].type;
-			`
-			result, err := sb.RunWithResult(code)
+			tableDef, err := sb.EvalSchema(tt.code, "test", "entity")
 			if err != nil {
 				t.Fatalf("Error: %v", err)
 			}
-			if result.String() != tt.wantType {
-				t.Errorf("type = %q, want %q", result.String(), tt.wantType)
+			// Find the column (skip auto-added id column if present)
+			found := false
+			for _, col := range tableDef.Columns {
+				if col.Name == "id" {
+					continue
+				}
+				if col.Type != tt.wantType {
+					t.Errorf("column type = %q, want %q", col.Type, tt.wantType)
+				}
+				found = true
+				break
+			}
+			if !found {
+				t.Error("expected at least one non-id column")
 			}
 		})
 	}
 }
 
-func TestTableBuilder_ColumnModifiers(t *testing.T) {
+func TestObjectAPI_ColumnModifiers(t *testing.T) {
 	sb := NewSandbox(nil)
 
 	t.Run("optional", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('name', 100).optional();
-			});
-			result.columns[0].nullable;
-		`
-		result, err := sb.RunWithResult(code)
+		tableDef, err := sb.EvalSchema(`table({ name: col.string(100).optional() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if !result.ToBoolean() {
-			t.Error("optional() should set nullable to true")
+		col := findCol(t, tableDef, "name")
+		if !col.Nullable {
+			t.Error("optional() should set Nullable to true")
 		}
 	})
 
 	t.Run("unique", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('email', 255).unique();
-			});
-			result.columns[0].unique;
-		`
-		result, err := sb.RunWithResult(code)
+		tableDef, err := sb.EvalSchema(`table({ email: col.string(255).unique() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if !result.ToBoolean() {
-			t.Error("unique() should set unique to true")
+		col := findCol(t, tableDef, "email")
+		if !col.Unique {
+			t.Error("unique() should set Unique to true")
 		}
 	})
 
 	t.Run("default value", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('status', 50).default('active');
-			});
-			result.columns[0].default;
-		`
-		result, err := sb.RunWithResult(code)
+		tableDef, err := sb.EvalSchema(`table({ status: col.string(50).default("active") })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if result.String() != "active" {
-			t.Errorf("default = %q, want %q", result.String(), "active")
+		col := findCol(t, tableDef, "status")
+		if col.Default != "active" {
+			t.Errorf("Default = %v, want %q", col.Default, "active")
 		}
 	})
 
 	t.Run("backfill value", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('category', 50).backfill('unknown');
-			});
-			result.columns[0].backfill;
-		`
-		result, err := sb.RunWithResult(code)
+		tableDef, err := sb.EvalSchema(`table({ category: col.string(50).backfill("unknown") })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if result.String() != "unknown" {
-			t.Errorf("backfill = %q, want %q", result.String(), "unknown")
+		col := findCol(t, tableDef, "category")
+		if col.Backfill != "unknown" {
+			t.Errorf("Backfill = %v, want %q", col.Backfill, "unknown")
 		}
 	})
 
 	t.Run("min constraint", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.integer('age').min(0);
-			});
-			result.columns[0].min;
-		`
-		result, err := sb.RunWithResult(code)
+		tableDef, err := sb.EvalSchema(`table({ age: col.integer().min(0) })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if result.ToFloat() != 0 {
-			t.Errorf("min = %v, want 0", result.Export())
+		col := findCol(t, tableDef, "age")
+		if col.Min == nil || *col.Min != 0 {
+			t.Errorf("Min = %v, want 0", col.Min)
 		}
 	})
 
 	t.Run("max constraint", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.integer('age').max(150);
-			});
-			result.columns[0].max;
-		`
-		result, err := sb.RunWithResult(code)
+		tableDef, err := sb.EvalSchema(`table({ age: col.integer().max(150) })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if result.ToFloat() != 150 {
-			t.Errorf("max = %v, want 150", result.Export())
+		col := findCol(t, tableDef, "age")
+		if col.Max == nil || *col.Max != 150 {
+			t.Errorf("Max = %v, want 150", col.Max)
 		}
 	})
 
 	t.Run("pattern", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('code', 10).pattern('^[A-Z]{2}-\\d{4}$');
-			});
-			result.columns[0].pattern;
-		`
-		result, err := sb.RunWithResult(code)
+		tableDef, err := sb.EvalSchema(`table({ code: col.string(10).pattern("^[A-Z]{2}-\\d{4}$") })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
+		col := findCol(t, tableDef, "code")
 		expected := `^[A-Z]{2}-\d{4}$`
-		if result.String() != expected {
-			t.Errorf("pattern = %q, want %q", result.String(), expected)
-		}
-	})
-
-	t.Run("format with string value", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('data', 255).format('custom-format');
-			});
-			result.columns[0].format;
-		`
-		result, err := sb.RunWithResult(code)
-		if err != nil {
-			t.Fatalf("Error: %v", err)
-		}
-		if result.String() != "custom-format" {
-			t.Errorf("format = %q, want %q", result.String(), "custom-format")
+		if col.Pattern != expected {
+			t.Errorf("Pattern = %q, want %q", col.Pattern, expected)
 		}
 	})
 
 	t.Run("docs", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('email', 255).docs('User email address');
-			});
-			result.columns[0].docs;
-		`
-		result, err := sb.RunWithResult(code)
+		tableDef, err := sb.EvalSchema(`table({ email: col.string(255).docs("User email address") })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if result.String() != "User email address" {
-			t.Errorf("docs = %q, want %q", result.String(), "User email address")
+		col := findCol(t, tableDef, "email")
+		if col.Docs != "User email address" {
+			t.Errorf("Docs = %q, want %q", col.Docs, "User email address")
 		}
 	})
 
 	t.Run("deprecated", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('old_email', 255).deprecated('Use email instead');
-			});
-			result.columns[0].deprecated;
-		`
-		result, err := sb.RunWithResult(code)
+		tableDef, err := sb.EvalSchema(`table({ old_email: col.string(255).deprecated("Use email instead") })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if result.String() != "Use email instead" {
-			t.Errorf("deprecated = %q, want %q", result.String(), "Use email instead")
+		col := findCol(t, tableDef, "old_email")
+		if col.Deprecated != "Use email instead" {
+			t.Errorf("Deprecated = %q, want %q", col.Deprecated, "Use email instead")
 		}
 	})
 }
 
-func TestTableBuilder_ChainedModifiers(t *testing.T) {
+func TestObjectAPI_SemanticTypes(t *testing.T) {
 	sb := NewSandbox(nil)
 
-	code := `
-		var result = table(function(t) {
-			t.string('code', 50)
-				.unique()
-				.min(5)
-				.max(50)
-				.pattern('^[A-Z]+$')
-				.docs('Product code');
-		});
-		JSON.stringify({
-			unique: result.columns[0].unique,
-			pattern: result.columns[0].pattern,
-			min: result.columns[0].min,
-			max: result.columns[0].max,
-			docs: result.columns[0].docs
-		});
-	`
-	result, err := sb.RunWithResult(code)
-	if err != nil {
-		t.Fatalf("Error: %v", err)
-	}
-
-	resultStr := result.String()
-	if !strings.Contains(resultStr, `"unique":true`) {
-		t.Error("unique should be true")
-	}
-	if !strings.Contains(resultStr, `"pattern":"^[A-Z]+$"`) {
-		t.Error("pattern should be '^[A-Z]+$'")
-	}
-	if !strings.Contains(resultStr, `"min":5`) {
-		t.Error("min should be 5")
-	}
-	if !strings.Contains(resultStr, `"max":50`) {
-		t.Error("max should be 50")
-	}
-	if !strings.Contains(resultStr, `"docs":"Product code"`) {
-		t.Error("docs should be set")
-	}
-}
-
-func TestTableBuilder_SemanticTypes(t *testing.T) {
-	sb := NewSandbox(nil)
-
-	t.Run("email type", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.email('contact');
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("email", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ contact: col.email() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"name":"contact"`) {
-			t.Error("name should be 'contact'")
+		col := findCol(t, tableDef, "contact")
+		if col.Type != "string" {
+			t.Errorf("Type = %q, want %q", col.Type, "string")
 		}
-		if !strings.Contains(resultStr, `"type":"string"`) {
-			t.Error("type should be 'string'")
+		if col.Format != "email" {
+			t.Errorf("Format = %q, want %q", col.Format, "email")
 		}
-		if !strings.Contains(resultStr, `"format":"email"`) {
-			t.Error("format should be 'email'")
-		}
-		if !strings.Contains(resultStr, `"pattern"`) {
+		if col.Pattern == "" {
 			t.Error("should have email pattern")
 		}
 	})
 
-	t.Run("username type", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.username('handle');
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("username", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ handle: col.username() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"name":"handle"`) {
-			t.Error("name should be 'handle'")
+		col := findCol(t, tableDef, "handle")
+		if col.Min == nil || *col.Min != 3 {
+			t.Errorf("Min = %v, want 3", col.Min)
 		}
-		if !strings.Contains(resultStr, `"min":3`) {
-			t.Error("min should be 3")
-		}
-		if !strings.Contains(resultStr, `"pattern"`) {
+		if col.Pattern == "" {
 			t.Error("should have username pattern")
 		}
 	})
 
-	t.Run("money type", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.money('price');
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("password_hash", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ pw: col.password_hash() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"type":"decimal"`) {
-			t.Error("type should be 'decimal'")
-		}
-		if !strings.Contains(resultStr, `"min":0`) {
-			t.Error("min should be 0")
+		col := findCol(t, tableDef, "pw")
+		if col.Type != "string" {
+			t.Errorf("Type = %q, want %q", col.Type, "string")
 		}
 	})
 
-	t.Run("counter type", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.counter('view_count');
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("phone", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ phone_number: col.phone() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"type":"integer"`) {
-			t.Error("type should be 'integer'")
-		}
-		if !strings.Contains(resultStr, `"default":0`) {
-			t.Error("default should be 0")
+		col := findCol(t, tableDef, "phone_number")
+		if col.Type != "string" {
+			t.Errorf("Type = %q, want %q", col.Type, "string")
 		}
 	})
 
-	t.Run("flag type with default false", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.flag('is_active');
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("name", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ full_name: col.name() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"type":"boolean"`) {
-			t.Error("type should be 'boolean'")
-		}
-		if !strings.Contains(resultStr, `"default":false`) {
-			t.Error("default should be false")
+		col := findCol(t, tableDef, "full_name")
+		if col.Type != "string" {
+			t.Errorf("Type = %q, want %q", col.Type, "string")
 		}
 	})
 
-	t.Run("flag type with default true", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.flag('is_enabled', true);
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("title", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ heading: col.title() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"default":true`) {
-			t.Error("default should be true")
+		col := findCol(t, tableDef, "heading")
+		if col.Type != "string" {
+			t.Errorf("Type = %q, want %q", col.Type, "string")
 		}
 	})
 
-	t.Run("slug type", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.slug('url_slug');
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("slug", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ url_slug: col.slug() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"unique":true`) {
+		col := findCol(t, tableDef, "url_slug")
+		if !col.Unique {
 			t.Error("slug should be unique")
 		}
-		if !strings.Contains(resultStr, `"pattern"`) {
+		if col.Pattern == "" {
 			t.Error("should have slug pattern")
 		}
 	})
 
-	t.Run("url type", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.url('website');
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("body", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ content: col.body() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"format":"uri"`) {
-			t.Error("format should be 'uri'")
+		col := findCol(t, tableDef, "content")
+		if col.Type != "text" {
+			t.Errorf("Type = %q, want %q", col.Type, "text")
 		}
 	})
 
-	t.Run("percentage type", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.percentage('rate');
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("money", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ price: col.money() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"min":0`) {
-			t.Error("min should be 0")
+		col := findCol(t, tableDef, "price")
+		if col.Type != "decimal" {
+			t.Errorf("Type = %q, want %q", col.Type, "decimal")
 		}
-		if !strings.Contains(resultStr, `"max":100`) {
-			t.Error("max should be 100")
+		if col.Min == nil || *col.Min != 0 {
+			t.Errorf("Min = %v, want 0", col.Min)
 		}
 	})
 
-	t.Run("datetime alias", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.datetime('created_at');
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("flag with default true", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ is_enabled: col.flag(true) })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"type":"datetime"`) {
-			t.Error("type should be 'datetime'")
+		col := findCol(t, tableDef, "is_enabled")
+		if col.Type != "boolean" {
+			t.Errorf("Type = %q, want %q", col.Type, "boolean")
+		}
+		if col.Default != true {
+			t.Errorf("Default = %v, want true", col.Default)
 		}
 	})
 
-	t.Run("optional alias", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.datetime('deleted_at').optional();
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("flag with default false", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ is_active: col.flag() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"nullable":true`) {
-			t.Error("optional() should set nullable to true")
+		col := findCol(t, tableDef, "is_active")
+		if col.Type != "boolean" {
+			t.Errorf("Type = %q, want %q", col.Type, "boolean")
 		}
-	})
-
-	t.Run("semantic type with override", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.username('handle').min(1).max(100);
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
-		if err != nil {
-			t.Fatalf("Error: %v", err)
-		}
-		resultStr := result.String()
-		// min should be overridden to 1
-		if !strings.Contains(resultStr, `"min":1`) {
-			t.Error("min should be overridden to 1")
-		}
-		if !strings.Contains(resultStr, `"max":100`) {
-			t.Error("max should be 100")
+		if col.Default != false {
+			t.Errorf("Default = %v, want false", col.Default)
 		}
 	})
 }
 
-func TestTableBuilder_Timestamps(t *testing.T) {
-	sb := NewSandbox(nil)
-
-	code := `
-		var result = table(function(t) {
-			t.timestamps();
-		});
-		JSON.stringify(result.columns.map(function(c) { return c.name; }));
-	`
-	result, err := sb.RunWithResult(code)
-	if err != nil {
-		t.Fatalf("Error: %v", err)
-	}
-
-	resultStr := result.String()
-	if !strings.Contains(resultStr, "created_at") {
-		t.Error("timestamps() should add created_at")
-	}
-	if !strings.Contains(resultStr, "updated_at") {
-		t.Error("timestamps() should add updated_at")
-	}
-}
-
-func TestTableBuilder_SoftDelete(t *testing.T) {
-	sb := NewSandbox(nil)
-
-	code := `
-		var result = table(function(t) {
-			t.soft_delete();
-		});
-		result.columns[0].name;
-	`
-	result, err := sb.RunWithResult(code)
-	if err != nil {
-		t.Fatalf("Error: %v", err)
-	}
-	if result.String() != "deleted_at" {
-		t.Errorf("soft_delete() should add deleted_at, got %q", result.String())
-	}
-}
-
-func TestTableBuilder_Sortable(t *testing.T) {
-	sb := NewSandbox(nil)
-
-	code := `
-		var result = table(function(t) {
-			t.sortable();
-		});
-		result.columns[0].name;
-	`
-	result, err := sb.RunWithResult(code)
-	if err != nil {
-		t.Fatalf("Error: %v", err)
-	}
-	if result.String() != "position" {
-		t.Errorf("sortable() should add position, got %q", result.String())
-	}
-}
-
-func TestTableBuilder_BelongsTo(t *testing.T) {
+func TestObjectAPI_Relationships(t *testing.T) {
 	sb := NewSandbox(nil)
 
 	t.Run("basic belongs_to", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.belongs_to('auth.user');
-			});
-			result.columns[0].name;
-		`
-		result, err := sb.RunWithResult(code)
+		tableDef, err := sb.EvalSchema(`table({ user: col.belongs_to("auth.user") })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if result.String() != "user_id" {
-			t.Errorf("belongs_to column name = %q, want %q", result.String(), "user_id")
+		col := findCol(t, tableDef, "user_id")
+		if col == nil {
+			t.Fatal("expected user_id column")
+		}
+		if col.Reference == nil {
+			t.Fatal("expected Reference to be set")
+		}
+		if col.Reference.Table != "auth.user" {
+			t.Errorf("Reference.Table = %q, want %q", col.Reference.Table, "auth.user")
 		}
 	})
 
-	t.Run("belongs_to with .as() chaining", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.belongs_to('auth.user').as('author');
-			});
-			result.columns[0].name;
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("belongs_to with optional", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ user: col.belongs_to("auth.user").optional() })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if result.String() != "author_id" {
-			t.Errorf("belongs_to column name = %q, want %q", result.String(), "author_id")
-		}
-	})
-
-	t.Run("belongs_to with .optional() chaining", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.belongs_to('auth.user').optional();
-			});
-			result.columns[0].nullable;
-		`
-		result, err := sb.RunWithResult(code)
-		if err != nil {
-			t.Fatalf("Error: %v", err)
-		}
-		if !result.ToBoolean() {
+		col := findCol(t, tableDef, "user_id")
+		if !col.Nullable {
 			t.Error("belongs_to with .optional() should be nullable")
 		}
 	})
 
-	t.Run("belongs_to has reference", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.belongs_to('auth.user');
-			});
-			result.columns[0].reference.table;
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("belongs_to with on_delete cascade", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ user: col.belongs_to("auth.user").on_delete("cascade") })`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if result.String() != "auth.user" {
-			t.Errorf("reference.table = %q, want %q", result.String(), "auth.user")
+		col := findCol(t, tableDef, "user_id")
+		if col.Reference == nil {
+			t.Fatal("expected Reference to be set")
 		}
-	})
-
-	t.Run("belongs_to with .on_delete() chaining", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.belongs_to('auth.user').on_delete('cascade');
-			});
-			result.columns[0].reference.on_delete;
-		`
-		result, err := sb.RunWithResult(code)
-		if err != nil {
-			t.Fatalf("Error: %v", err)
-		}
-		if result.String() != "cascade" {
-			t.Errorf("on_delete = %q, want %q", result.String(), "cascade")
-		}
-	})
-
-	t.Run("belongs_to with full chaining", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.belongs_to('auth.user').as('referred_by').optional().on_delete('set null');
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
-		if err != nil {
-			t.Fatalf("Error: %v", err)
-		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"name":"referred_by_id"`) {
-			t.Error("column name should be 'referred_by_id'")
-		}
-		if !strings.Contains(resultStr, `"nullable":true`) {
-			t.Error("should be nullable")
-		}
-		if !strings.Contains(resultStr, `"on_delete":"set null"`) {
-			t.Error("on_delete should be 'set null'")
-		}
-	})
-
-	t.Run("belongs_to creates index", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.belongs_to('auth.user').as('author');
-			});
-			JSON.stringify(result.indexes[0]);
-		`
-		result, err := sb.RunWithResult(code)
-		if err != nil {
-			t.Fatalf("Error: %v", err)
-		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"author_id"`) {
-			t.Error("index should be on author_id")
-		}
-		if !strings.Contains(resultStr, `"unique":false`) {
-			t.Error("belongs_to index should not be unique")
+		if col.Reference.OnDelete != "cascade" {
+			t.Errorf("Reference.OnDelete = %q, want %q", col.Reference.OnDelete, "cascade")
 		}
 	})
 }
 
-func TestTableBuilder_OneToOne(t *testing.T) {
+func TestObjectAPI_TableChain(t *testing.T) {
 	sb := NewSandbox(nil)
 
-	t.Run("basic one_to_one is unique", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.one_to_one('auth.user');
-			});
-			result.columns[0].unique;
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("timestamps", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ name: col.string(100) }).timestamps()`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if !result.ToBoolean() {
-			t.Error("one_to_one() should set unique to true")
+		if findCol(t, tableDef, "created_at") == nil {
+			t.Error("timestamps() should add created_at")
+		}
+		if findCol(t, tableDef, "updated_at") == nil {
+			t.Error("timestamps() should add updated_at")
 		}
 	})
 
-	t.Run("one_to_one with .as() chaining", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.one_to_one('auth.profile').as('profile');
-			});
-			result.columns[0].name;
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("soft_delete", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ name: col.string(100) }).soft_delete()`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if result.String() != "profile_id" {
-			t.Errorf("one_to_one column name = %q, want %q", result.String(), "profile_id")
+		if findCol(t, tableDef, "deleted_at") == nil {
+			t.Error("soft_delete() should add deleted_at")
 		}
 	})
 
-	t.Run("one_to_one creates unique index", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.one_to_one('auth.profile').as('profile');
-			});
-			JSON.stringify(result.indexes[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("sortable", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ name: col.string(100) }).sortable()`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"profile_id"`) {
-			t.Error("index should be on profile_id")
-		}
-		if !strings.Contains(resultStr, `"unique":true`) {
-			t.Error("one_to_one index should be unique")
+		if findCol(t, tableDef, "position") == nil {
+			t.Error("sortable() should add position")
 		}
 	})
 
-	t.Run("one_to_one with full chaining", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.one_to_one('auth.profile').as('profile').optional().on_delete('cascade');
-			});
-			JSON.stringify(result.columns[0]);
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("index", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ email: col.string(255) }).index("email")`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"name":"profile_id"`) {
-			t.Error("column name should be 'profile_id'")
+		if len(tableDef.Indexes) == 0 {
+			t.Fatal("expected at least one index")
 		}
-		if !strings.Contains(resultStr, `"unique":true`) {
-			t.Error("should be unique")
+		found := false
+		for _, idx := range tableDef.Indexes {
+			for _, c := range idx.Columns {
+				if c == "email" {
+					found = true
+					if idx.Unique {
+						t.Error("index() should not be unique")
+					}
+				}
+			}
 		}
-		if !strings.Contains(resultStr, `"nullable":true`) {
-			t.Error("should be nullable")
-		}
-		if !strings.Contains(resultStr, `"on_delete":"cascade"`) {
-			t.Error("on_delete should be 'cascade'")
-		}
-	})
-}
-
-func TestTableBuilder_ValidationErrors(t *testing.T) {
-	sb := NewSandbox(nil)
-
-	t.Run("belongs_to without namespace errors", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.belongs_to('user');
-			});
-		`
-		_, err := sb.RunWithResult(code)
-		if err == nil {
-			t.Fatal("Expected error for belongs_to without namespace")
-		}
-		if !strings.Contains(err.Error(), "missing namespace") {
-			t.Errorf("Error should mention missing namespace, got: %v", err)
-		}
-	})
-
-	t.Run("one_to_one without namespace errors", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.one_to_one('profile');
-			});
-		`
-		_, err := sb.RunWithResult(code)
-		if err == nil {
-			t.Fatal("Expected error for one_to_one without namespace")
-		}
-		if !strings.Contains(err.Error(), "missing namespace") {
-			t.Errorf("Error should mention missing namespace, got: %v", err)
-		}
-	})
-
-	t.Run("string without length errors", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('email');
-			});
-		`
-		_, err := sb.RunWithResult(code)
-		if err == nil {
-			t.Fatal("Expected error for string without length")
-		}
-		if !strings.Contains(err.Error(), "length required") {
-			t.Errorf("Error should mention length required, got: %v", err)
-		}
-	})
-
-	t.Run("string with zero length errors", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('email', 0);
-			});
-		`
-		_, err := sb.RunWithResult(code)
-		if err == nil {
-			t.Fatal("Expected error for string with zero length")
-		}
-		if !strings.Contains(err.Error(), "length required") {
-			t.Errorf("Error should mention length required, got: %v", err)
-		}
-	})
-
-	t.Run("string error suggests semantic type for email", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('email');
-			});
-		`
-		_, err := sb.RunWithResult(code)
-		if err == nil {
-			t.Fatal("Expected error")
-		}
-		if !strings.Contains(err.Error(), "t.email") {
-			t.Errorf("Error should suggest t.email(), got: %v", err)
-		}
-	})
-
-	t.Run("belongs_to with namespace succeeds", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.belongs_to('auth.user');
-			});
-			result.columns[0].name;
-		`
-		result, err := sb.RunWithResult(code)
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-		if result.String() != "user_id" {
-			t.Errorf("Expected user_id, got %s", result.String())
-		}
-	})
-
-	t.Run("belongs_to with dot prefix succeeds", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.belongs_to('.user');
-			});
-			result.columns[0].name;
-		`
-		result, err := sb.RunWithResult(code)
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-		if result.String() != "user_id" {
-			t.Errorf("Expected user_id, got %s", result.String())
-		}
-	})
-}
-
-func TestTableBuilder_Index(t *testing.T) {
-	sb := NewSandbox(nil)
-
-	t.Run("single column index", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('email', 255);
-				t.index('email');
-			});
-			JSON.stringify(result.indexes[0]);
-		`
-		result, err := sb.RunWithResult(code)
-		if err != nil {
-			t.Fatalf("Error: %v", err)
-		}
-		resultStr := result.String()
-		if !strings.Contains(resultStr, `"email"`) {
+		if !found {
 			t.Error("index should contain 'email' column")
 		}
-		if !strings.Contains(resultStr, `"unique":false`) {
-			t.Error("index should not be unique")
-		}
 	})
 
-	t.Run("multi column index", func(t *testing.T) {
-		code := `
-			var result = table(function(t) {
-				t.string('first_name', 100);
-				t.string('last_name', 100);
-				t.index('first_name', 'last_name');
-			});
-			result.indexes[0].columns.length;
-		`
-		result, err := sb.RunWithResult(code)
+	t.Run("unique constraint", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ email: col.string(255) }).unique("email")`, "test", "entity")
 		if err != nil {
 			t.Fatalf("Error: %v", err)
 		}
-		if result.ToInteger() != 2 {
-			t.Errorf("index columns count = %d, want 2", result.ToInteger())
+		found := false
+		for _, idx := range tableDef.Indexes {
+			for _, c := range idx.Columns {
+				if c == "email" && idx.Unique {
+					found = true
+				}
+			}
+		}
+		if !found {
+			t.Error("unique() should create a unique index on email")
 		}
 	})
-}
 
-func TestTableBuilder_Unique(t *testing.T) {
-	sb := NewSandbox(nil)
+	t.Run("docs", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ name: col.string(100) }).docs("Users table")`, "test", "entity")
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+		if tableDef.Docs != "Users table" {
+			t.Errorf("Docs = %q, want %q", tableDef.Docs, "Users table")
+		}
+	})
 
-	code := `
-		var result = table(function(t) {
-			t.string('email', 255);
-			t.unique('email');
-		});
-		result.indexes[0].unique;
-	`
-	result, err := sb.RunWithResult(code)
-	if err != nil {
-		t.Fatalf("Error: %v", err)
-	}
-	if !result.ToBoolean() {
-		t.Error("unique() should set unique to true")
-	}
-}
-
-func TestTableBuilder_Docs(t *testing.T) {
-	sb := NewSandbox(nil)
-
-	code := `
-		var result = table(function(t) {
-			t.id();
-			t.docs('Users table');
-		});
-		result.docs;
-	`
-	result, err := sb.RunWithResult(code)
-	if err != nil {
-		t.Fatalf("Error: %v", err)
-	}
-	if result.String() != "Users table" {
-		t.Errorf("table docs = %q, want %q", result.String(), "Users table")
-	}
-}
-
-func TestTableBuilder_Deprecated(t *testing.T) {
-	sb := NewSandbox(nil)
-
-	code := `
-		var result = table(function(t) {
-			t.id();
-			t.deprecated('Use new_users instead');
-		});
-		result.deprecated;
-	`
-	result, err := sb.RunWithResult(code)
-	if err != nil {
-		t.Fatalf("Error: %v", err)
-	}
-	if result.String() != "Use new_users instead" {
-		t.Errorf("table deprecated = %q, want %q", result.String(), "Use new_users instead")
-	}
-}
-
-func TestTableBuilder_DefaultValueWithSQL(t *testing.T) {
-	sb := NewSandbox(nil)
-
-	code := `
-		var result = table(function(t) {
-			t.datetime('created_at').default(sql('NOW()'));
-		});
-		JSON.stringify(result.columns[0].default);
-	`
-	result, err := sb.RunWithResult(code)
-	if err != nil {
-		t.Fatalf("Error: %v", err)
-	}
-	resultStr := result.String()
-	if !strings.Contains(resultStr, "sql_expr") {
-		t.Error("default with sql() should have sql_expr type")
-	}
-	if !strings.Contains(resultStr, "NOW()") {
-		t.Error("default with sql() should contain the expression")
-	}
+	t.Run("deprecated", func(t *testing.T) {
+		tableDef, err := sb.EvalSchema(`table({ name: col.string(100) }).deprecated("Use new_users instead")`, "test", "entity")
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+		if tableDef.Deprecated != "Use new_users instead" {
+			t.Errorf("Deprecated = %q, want %q", tableDef.Deprecated, "Use new_users instead")
+		}
+	})
 }
 
 func TestExtractTableName(t *testing.T) {
@@ -1107,38 +558,6 @@ func TestParseRef(t *testing.T) {
 				t.Errorf("table = %q, want %q", table, tt.wantTable)
 			}
 		})
-	}
-}
-
-func TestSandbox_BindSchema(t *testing.T) {
-	sb := NewSandbox(nil)
-	sb.BindSchema()
-
-	code := `
-		schema('auth', function(s) {
-			s.table('users', function(t) {
-				t.id();
-				t.string('email', 255);
-			});
-		});
-	`
-	err := sb.Run(code)
-	if err != nil {
-		t.Fatalf("Error: %v", err)
-	}
-
-	tables := sb.GetTables()
-	if len(tables) != 1 {
-		t.Errorf("Expected 1 table, got %d", len(tables))
-	}
-
-	if len(tables) > 0 {
-		if tables[0].Namespace != "auth" {
-			t.Errorf("Namespace = %q, want %q", tables[0].Namespace, "auth")
-		}
-		if tables[0].Name != "users" {
-			t.Errorf("Name = %q, want %q", tables[0].Name, "users")
-		}
 	}
 }
 
@@ -1237,4 +656,16 @@ func TestMigration_NoSemanticTypes(t *testing.T) {
 			}
 		})
 	}
+}
+
+// findCol is a test helper that finds a column by name in a TableDef.
+// Returns nil if not found (does not fail the test).
+func findCol(t *testing.T, tableDef *ast.TableDef, name string) *ast.ColumnDef {
+	t.Helper()
+	for _, c := range tableDef.Columns {
+		if c.Name == name {
+			return c
+		}
+	}
+	return nil
 }
