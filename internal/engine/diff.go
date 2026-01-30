@@ -222,7 +222,7 @@ func diffColumnDef(table *ast.TableDef, oldCol, newCol *ast.ColumnDef) []ast.Ope
 	}
 
 	// Type changed
-	if oldCol.Type != newCol.Type || !reflect.DeepEqual(oldCol.TypeArgs, newCol.TypeArgs) {
+	if oldCol.Type != newCol.Type || !typeArgsEqual(oldCol.TypeArgs, newCol.TypeArgs) {
 		needsAlter = true
 		alterOp.NewType = newCol.Type
 		alterOp.NewTypeArgs = newCol.TypeArgs
@@ -246,10 +246,57 @@ func diffColumnDef(table *ast.TableDef, oldCol, newCol *ast.ColumnDef) []ast.Ope
 	}
 
 	if needsAlter {
+		// Store old column definition for reversibility in down migrations
+		alterOp.OldColumn = oldCol
 		ops = append(ops, alterOp)
 	}
 
 	return ops
+}
+
+// typeArgsEqual compares two TypeArgs slices with numeric normalization.
+// JSON/Goja may represent numbers as float64 while Go code uses int;
+// this function normalizes before comparing.
+func typeArgsEqual(a, b []any) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !numericEqual(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// numericEqual compares two values, treating int and float64 with the same
+// whole-number value as equal.
+func numericEqual(a, b any) bool {
+	na, aOk := toFloat64(a)
+	nb, bOk := toFloat64(b)
+	if aOk && bOk {
+		return na == nb
+	}
+	return reflect.DeepEqual(a, b)
+}
+
+func toFloat64(v any) (float64, bool) {
+	switch n := v.(type) {
+	case int:
+		return float64(n), true
+	case int32:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case float32:
+		return float64(n), true
+	case float64:
+		return n, true
+	}
+	return 0, false
 }
 
 // defaultsEqual compares two default values for equality.

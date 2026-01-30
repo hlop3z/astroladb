@@ -8,6 +8,35 @@ import (
 	"github.com/hlop3z/astroladb/internal/alerr"
 )
 
+// validIdentifierPattern matches safe SQL identifiers (lowercase snake_case).
+var validIdentifierPattern = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
+
+// ValidateIdentifier checks that a name is a safe SQL identifier (lowercase snake_case).
+func ValidateIdentifier(name string) error {
+	if !validIdentifierPattern.MatchString(name) {
+		return alerr.New(alerr.ErrSchemaInvalid,
+			fmt.Sprintf("invalid identifier %q; must match [a-z_][a-z0-9_]*", name))
+	}
+	return nil
+}
+
+// ValidateQualifiedName checks a "namespace.table" or "table" reference.
+func ValidateQualifiedName(name string) error {
+	parts := strings.Split(name, ".")
+	switch len(parts) {
+	case 1:
+		return ValidateIdentifier(parts[0])
+	case 2:
+		if err := ValidateIdentifier(parts[0]); err != nil {
+			return err
+		}
+		return ValidateIdentifier(parts[1])
+	default:
+		return alerr.New(alerr.ErrSchemaInvalid,
+			fmt.Sprintf("invalid qualified name %q; expected 'table' or 'namespace.table'", name))
+	}
+}
+
 // ValidFKActions is the set of valid ON DELETE / ON UPDATE actions.
 var ValidFKActions = map[string]bool{
 	"":            true, // empty = no action specified (valid)
@@ -45,7 +74,7 @@ func NormalizeFKAction(action string) (string, error) {
 // dangerousSQLPattern matches SQL injection patterns in expressions.
 // Blocks: semicolons, double-dashes (comments), DDL keywords at word boundaries.
 var dangerousSQLPattern = regexp.MustCompile(
-	`(?i)(;\s*|--|\b(DROP|ALTER|CREATE|GRANT|REVOKE|TRUNCATE|INSERT|UPDATE|DELETE|EXEC|EXECUTE)\b)`,
+	`(?i)(;\s*|--|\b(DROP|ALTER|CREATE|GRANT|REVOKE|TRUNCATE|INSERT|UPDATE|DELETE|EXEC|EXECUTE|UNION|INTO|COPY|pg_read_file|lo_import|pg_sleep)\b)`,
 )
 
 // ValidateSQLExpression checks a raw SQL expression for dangerous patterns.
@@ -147,6 +176,14 @@ func (t *TableDef) Validate() error {
 	if t.Name == "" {
 		return alerr.New(alerr.ErrSchemaInvalid, "table name is required")
 	}
+	if err := ValidateIdentifier(t.Name); err != nil {
+		return err
+	}
+	if t.Namespace != "" {
+		if err := ValidateIdentifier(t.Namespace); err != nil {
+			return err
+		}
+	}
 	if len(t.Columns) == 0 {
 		return alerr.New(alerr.ErrSchemaInvalid, "table must have at least one column").
 			WithTable(t.Namespace, t.Name)
@@ -232,6 +269,9 @@ type ColumnDef struct {
 func (c *ColumnDef) Validate() error {
 	if c.Name == "" {
 		return alerr.New(alerr.ErrSchemaInvalid, "column name is required")
+	}
+	if err := ValidateIdentifier(c.Name); err != nil {
+		return err
 	}
 	if c.Type == "" {
 		return alerr.New(alerr.ErrSchemaInvalid, "column type is required").
@@ -352,6 +392,11 @@ func (i *IndexDef) Validate() error {
 	if len(i.Columns) == 0 {
 		return alerr.New(alerr.ErrSchemaInvalid, "index must have at least one column")
 	}
+	for _, col := range i.Columns {
+		if err := ValidateIdentifier(col); err != nil {
+			return err
+		}
+	}
 	if i.Where != "" {
 		if err := ValidateSQLExpression(i.Where); err != nil {
 			return err
@@ -379,11 +424,24 @@ func (fk *ForeignKeyDef) Validate() error {
 	if len(fk.Columns) == 0 {
 		return alerr.New(alerr.ErrSchemaInvalid, "foreign key must have at least one column")
 	}
+	for _, col := range fk.Columns {
+		if err := ValidateIdentifier(col); err != nil {
+			return err
+		}
+	}
 	if fk.RefTable == "" {
 		return alerr.New(alerr.ErrSchemaInvalid, "foreign key must reference a table")
 	}
 	if len(fk.RefColumns) == 0 {
 		return alerr.New(alerr.ErrSchemaInvalid, "foreign key must reference at least one column")
+	}
+	if err := ValidateIdentifier(fk.RefTable); err != nil {
+		return err
+	}
+	for _, col := range fk.RefColumns {
+		if err := ValidateIdentifier(col); err != nil {
+			return err
+		}
 	}
 	if len(fk.Columns) != len(fk.RefColumns) {
 		return alerr.New(alerr.ErrSchemaInvalid, "foreign key column count must match referenced column count").
@@ -411,6 +469,11 @@ type CheckDef struct {
 
 // Validate checks that the check constraint is well-formed.
 func (c *CheckDef) Validate() error {
+	if c.Name != "" {
+		if err := ValidateIdentifier(c.Name); err != nil {
+			return err
+		}
+	}
 	if c.Expression == "" {
 		return alerr.New(alerr.ErrSchemaInvalid, "check constraint requires an expression")
 	}
@@ -445,6 +508,14 @@ func (r *Reference) TargetColumn() string {
 func (r *Reference) Validate() error {
 	if r.Table == "" {
 		return alerr.New(alerr.ErrSchemaInvalid, "reference must specify a table")
+	}
+	// Reference.Table can be "ns.table", ".table", or "table"
+	refTable := r.Table
+	if strings.HasPrefix(refTable, ".") {
+		refTable = refTable[1:]
+	}
+	if err := ValidateQualifiedName(refTable); err != nil {
+		return err
 	}
 	if err := ValidateFKAction(r.OnDelete); err != nil {
 		return err

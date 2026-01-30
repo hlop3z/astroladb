@@ -423,6 +423,9 @@ func refToSQLName(ref, defaultNS string) string {
 // operationToSQL converts an operation to SQL statements.
 // May return multiple statements for complex operations.
 func (r *Runner) operationToSQL(op ast.Operation) ([]string, error) {
+	if err := op.Validate(); err != nil {
+		return nil, err
+	}
 	switch o := op.(type) {
 	case *ast.CreateTable:
 		sql, err := r.dialect.CreateTableSQL(o)
@@ -688,10 +691,26 @@ func (r *Runner) splitStatements(sql string) []string {
 	var statements []string
 	var current strings.Builder
 	inSingleQuote := false
+	inDollarQuote := false
+	dollarTag := "" // the $tag$ delimiter
 
 	for i := 0; i < len(sql); i++ {
 		ch := sql[i]
 
+		// Inside dollar-quoted string
+		if inDollarQuote {
+			current.WriteByte(ch)
+			// Check if we're at the closing dollar tag
+			if ch == '$' && i+len(dollarTag)-1 < len(sql) && sql[i:i+len(dollarTag)] == dollarTag {
+				current.WriteString(dollarTag[1:])
+				i += len(dollarTag) - 1
+				inDollarQuote = false
+				dollarTag = ""
+			}
+			continue
+		}
+
+		// Inside single-quoted string
 		if inSingleQuote {
 			current.WriteByte(ch)
 			if ch == '\'' {
@@ -710,6 +729,30 @@ func (r *Runner) splitStatements(sql string) []string {
 		case '\'':
 			inSingleQuote = true
 			current.WriteByte(ch)
+		case '$':
+			// Try to find a dollar-quote tag: $tag$ or $$
+			end := strings.Index(sql[i+1:], "$")
+			if end >= 0 {
+				tag := sql[i : i+end+2] // e.g. "$$" or "$func$"
+				// Validate tag content (alphanumeric/underscore only)
+				validTag := true
+				for _, r := range tag[1 : len(tag)-1] {
+					if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
+						validTag = false
+						break
+					}
+				}
+				if validTag {
+					inDollarQuote = true
+					dollarTag = tag
+					current.WriteString(tag)
+					i += len(tag) - 1
+				} else {
+					current.WriteByte(ch)
+				}
+			} else {
+				current.WriteByte(ch)
+			}
 		case ';':
 			stmt := strings.TrimSpace(current.String())
 			if stmt != "" {

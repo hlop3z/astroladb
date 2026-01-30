@@ -649,3 +649,88 @@ func TestPlanStatusString(t *testing.T) {
 		})
 	}
 }
+
+// -----------------------------------------------------------------------------
+// GenerateDownOps Reversibility Tests
+// -----------------------------------------------------------------------------
+
+func TestGenerateDownOpsAlterColumnReversible(t *testing.T) {
+	oldNullable := false
+	newNullable := true
+
+	ops := []ast.Operation{
+		&ast.AlterColumn{
+			TableRef: ast.TableRef{Namespace: "public", Table_: "users"},
+			Name:     "email",
+			NewType:  "text",
+			OldColumn: &ast.ColumnDef{
+				Name:     "email",
+				Type:     "string",
+				TypeArgs: []any{255},
+				Nullable: false,
+			},
+			SetNullable: &newNullable,
+		},
+	}
+
+	downOps := GenerateDownOps(ops)
+	if len(downOps) != 1 {
+		t.Fatalf("GenerateDownOps() = %d ops, want 1", len(downOps))
+	}
+
+	alter, ok := downOps[0].(*ast.AlterColumn)
+	if !ok {
+		t.Fatalf("expected *ast.AlterColumn, got %T", downOps[0])
+	}
+	if alter.NewType != "string" {
+		t.Errorf("reverse NewType = %q, want %q", alter.NewType, "string")
+	}
+	if len(alter.NewTypeArgs) != 1 {
+		t.Fatalf("reverse NewTypeArgs len = %d, want 1", len(alter.NewTypeArgs))
+	}
+	if alter.SetNullable == nil || *alter.SetNullable != oldNullable {
+		t.Errorf("reverse SetNullable = %v, want %v", alter.SetNullable, &oldNullable)
+	}
+
+	// With OldColumn present, it should NOT be irreversible
+	if HasIrreversibleOps(ops) {
+		t.Error("AlterColumn with OldColumn should be reversible")
+	}
+}
+
+func TestGenerateDownOpsAlterColumnWithoutOldColumn(t *testing.T) {
+	ops := []ast.Operation{
+		&ast.AlterColumn{
+			TableRef: ast.TableRef{Namespace: "public", Table_: "users"},
+			Name:     "email",
+			NewType:  "text",
+		},
+	}
+
+	downOps := GenerateDownOps(ops)
+	if len(downOps) != 0 {
+		t.Fatalf("GenerateDownOps() without OldColumn should return 0 ops, got %d", len(downOps))
+	}
+
+	if !HasIrreversibleOps(ops) {
+		t.Error("AlterColumn without OldColumn should be irreversible")
+	}
+}
+
+func TestGenerateDownOpsDropColumnIrreversible(t *testing.T) {
+	ops := []ast.Operation{
+		&ast.DropColumn{
+			TableRef: ast.TableRef{Namespace: "public", Table_: "users"},
+			Name:     "old_field",
+		},
+	}
+
+	if !HasIrreversibleOps(ops) {
+		t.Error("DropColumn should be flagged as irreversible")
+	}
+
+	downOps := GenerateDownOps(ops)
+	if len(downOps) != 0 {
+		t.Errorf("DropColumn should generate 0 down ops, got %d", len(downOps))
+	}
+}

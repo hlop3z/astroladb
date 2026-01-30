@@ -393,7 +393,33 @@ func generateDownOp(op ast.Operation) ast.Operation {
 		return nil
 
 	case *ast.AlterColumn:
-		// AlterColumn is complex - cannot auto-reverse
+		// If we have the old column definition, generate a reverse AlterColumn
+		if o.OldColumn != nil {
+			reverse := &ast.AlterColumn{
+				TableRef: o.TableRef,
+				Name:     o.Name,
+			}
+			// Restore old type if it was changed
+			if o.NewType != "" {
+				reverse.NewType = o.OldColumn.Type
+				reverse.NewTypeArgs = o.OldColumn.TypeArgs
+			}
+			// Restore old nullable if it was changed
+			if o.SetNullable != nil {
+				oldNullable := o.OldColumn.Nullable
+				reverse.SetNullable = &oldNullable
+			}
+			// Restore old default if it was changed
+			if o.SetDefault != nil || o.DropDefault {
+				if o.OldColumn.Default != nil {
+					reverse.SetDefault = o.OldColumn.Default
+				} else {
+					reverse.DropDefault = true
+				}
+			}
+			reverse.OldColumn = nil // no further reverse chain needed
+			return reverse
+		}
 		return nil
 
 	case *ast.RawSQL:

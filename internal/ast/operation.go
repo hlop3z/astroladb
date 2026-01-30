@@ -257,6 +257,11 @@ type AlterColumn struct {
 	SetDefault    any    // nil = no change, use DropDefault to remove
 	DropDefault   bool   // true = remove default value
 	ServerDefault string // Raw SQL expression for default
+
+	// OldColumn stores the previous column definition for reversibility.
+	// When populated (e.g., by the diff engine), this allows generating
+	// a reverse AlterColumn for down migrations.
+	OldColumn *ColumnDef
 }
 
 func (op *AlterColumn) Type() OpType { return OpAlterColumn }
@@ -294,6 +299,7 @@ type CreateIndex struct {
 	Columns     []string // Columns to index
 	Unique      bool     // UNIQUE index
 	IfNotExists bool
+	Where       string // Partial index condition (optional)
 }
 
 func (op *CreateIndex) Type() OpType { return OpCreateIndex }
