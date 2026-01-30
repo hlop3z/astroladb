@@ -886,6 +886,96 @@ func TestPascalCase(t *testing.T) {
 	}
 }
 
+// ===========================================================================
+// OpenAPI x-db: Computed/Virtual Storage Tests
+// ===========================================================================
+
+func TestBuildPropertyXDB_ComputedStored(t *testing.T) {
+	table := &ast.TableDef{Name: "items"}
+	col := &ast.ColumnDef{
+		Name: "total",
+		Type: "integer",
+		Computed: map[string]any{
+			"fn":   "add",
+			"args": []any{map[string]any{"col": "a"}, map[string]any{"col": "b"}},
+		},
+	}
+	xdb := buildPropertyXDB(col, table, nil)
+
+	if xdb["virtual"] != true {
+		t.Error("expected virtual=true for computed stored column")
+	}
+	if xdb["storage"] != "stored" {
+		t.Errorf("storage = %v, want \"stored\"", xdb["storage"])
+	}
+	if xdb["computed"] == nil {
+		t.Error("expected computed expression to be present")
+	}
+}
+
+func TestBuildPropertyXDB_ComputedVirtual(t *testing.T) {
+	table := &ast.TableDef{Name: "items"}
+	col := &ast.ColumnDef{
+		Name: "total",
+		Type: "integer",
+		Computed: map[string]any{
+			"fn":   "add",
+			"args": []any{map[string]any{"col": "a"}, map[string]any{"col": "b"}},
+		},
+		Virtual: true,
+	}
+	xdb := buildPropertyXDB(col, table, nil)
+
+	if xdb["virtual"] != true {
+		t.Error("expected virtual=true for computed virtual column")
+	}
+	if xdb["storage"] != "virtual" {
+		t.Errorf("storage = %v, want \"virtual\"", xdb["storage"])
+	}
+	if xdb["computed"] == nil {
+		t.Error("expected computed expression to be present")
+	}
+}
+
+func TestBuildPropertyXDB_AppOnly(t *testing.T) {
+	table := &ast.TableDef{Name: "items"}
+	col := &ast.ColumnDef{
+		Name:    "display_label",
+		Type:    "text",
+		Virtual: true,
+	}
+	xdb := buildPropertyXDB(col, table, nil)
+
+	if xdb["virtual"] != true {
+		t.Error("expected virtual=true for app-only column")
+	}
+	if xdb["storage"] != "app_only" {
+		t.Errorf("storage = %v, want \"app_only\"", xdb["storage"])
+	}
+	if xdb["computed"] != nil {
+		t.Error("expected no computed expression for app-only column")
+	}
+}
+
+func TestBuildPropertyXDB_RegularColumn(t *testing.T) {
+	table := &ast.TableDef{Name: "items"}
+	col := &ast.ColumnDef{
+		Name: "name",
+		Type: "text",
+	}
+	xdb := buildPropertyXDB(col, table, nil)
+
+	if _, ok := xdb["virtual"]; ok {
+		t.Error("regular column should not have virtual key")
+	}
+	if _, ok := xdb["storage"]; ok {
+		t.Error("regular column should not have storage key")
+	}
+	if _, ok := xdb["computed"]; ok {
+		t.Error("regular column should not have computed key")
+	}
+}
+
 func TestCamelCase(t *testing.T) {
 	tests := []struct {
 		input string
