@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --format=iife --target=es2015 --outfile=generators/fastapi.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

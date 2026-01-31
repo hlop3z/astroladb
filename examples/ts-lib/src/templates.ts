@@ -1,0 +1,193 @@
+// templates.ts — Reusable string template builders
+
+import { mapType, formatDefault, pascalCase, buildEnumLines } from "./helpers";
+
+interface Column {
+  name: string;
+  type: string;
+  nullable?: boolean;
+  unique?: boolean;
+  default?: any;
+  enum?: readonly string[];
+}
+
+interface Table {
+  name: string;
+  table: string;
+  primary_key: string;
+  timestamps?: boolean;
+  columns: readonly Column[];
+}
+
+/** Build a Python models.py file for a list of tables. */
+export function buildModels(tables: readonly Table[]): string {
+  const lines: string[] = [
+    "from __future__ import annotations",
+    "",
+    "from datetime import date, time, datetime",
+    "from decimal import Decimal",
+    "from enum import Enum",
+    "from typing import Optional",
+    "from uuid import UUID",
+    "",
+    "from pydantic import BaseModel",
+    "",
+    "",
+  ];
+
+  for (const table of tables) {
+    const className = pascalCase(table.name);
+    const columns = table.columns;
+
+    // Enums
+    lines.push(...buildEnumLines(columns));
+
+    // Base model (for create/update — no id, no timestamps)
+    lines.push("class " + className + "Base(BaseModel):");
+    let baseFieldCount = 0;
+    for (const col of columns) {
+      if (col.name === "id" || col.name === "created_at" || col.name === "updated_at") {
+        continue;
+      }
+      const pt = mapType(col);
+      let line = "    " + col.name + ": ";
+      if (col.nullable) {
+        line += "Optional[" + pt + "] = None";
+      } else {
+        const def = formatDefault(col);
+        if (def !== null) {
+          line += pt + " = " + def;
+        } else {
+          line += pt;
+        }
+      }
+      lines.push(line);
+      baseFieldCount++;
+    }
+    if (baseFieldCount === 0) {
+      lines.push("    pass");
+    }
+    lines.push("");
+    lines.push("");
+
+    // Read model (includes id + timestamps)
+    lines.push("class " + className + "(" + className + "Base):");
+    lines.push("    id: UUID");
+    if (table.timestamps) {
+      lines.push("    created_at: datetime");
+      lines.push("    updated_at: datetime");
+    }
+    lines.push("");
+    lines.push("    class Config:");
+    lines.push("        from_attributes = True");
+    lines.push("");
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+/** Build a Python router.py file for a namespace. */
+export function buildRouter(ns: string, tables: readonly Table[]): string {
+  const lines: string[] = [
+    "from __future__ import annotations",
+    "",
+    "from uuid import UUID",
+    "",
+    "from fastapi import APIRouter, HTTPException",
+    "",
+    "from .models import (",
+  ];
+
+  for (const table of tables) {
+    const className = pascalCase(table.name);
+    lines.push("    " + className + ",");
+    lines.push("    " + className + "Base,");
+  }
+  lines.push(")");
+  lines.push("");
+  lines.push("");
+  lines.push('router = APIRouter(prefix="/' + ns + '", tags=["' + ns + '"])');
+  lines.push("");
+  lines.push("");
+
+  for (const table of tables) {
+    const className = pascalCase(table.name);
+    const slug = table.name.replace(/_/g, "-");
+
+    lines.push('@router.get("/' + slug + '", response_model=list[' + className + "])");
+    lines.push("async def list_" + table.name + "():");
+    lines.push("    # TODO: implement query");
+    lines.push('    raise HTTPException(501, "not implemented")');
+    lines.push("");
+    lines.push("");
+
+    lines.push('@router.get("/' + slug + '/{item_id}", response_model=' + className + ")");
+    lines.push("async def get_" + table.name + "(item_id: UUID):");
+    lines.push("    # TODO: implement query");
+    lines.push('    raise HTTPException(501, "not implemented")');
+    lines.push("");
+    lines.push("");
+
+    lines.push('@router.post("/' + slug + '", response_model=' + className + ", status_code=201)");
+    lines.push("async def create_" + table.name + "(body: " + className + "Base):");
+    lines.push("    # TODO: implement insert");
+    lines.push('    raise HTTPException(501, "not implemented")');
+    lines.push("");
+    lines.push("");
+
+    lines.push('@router.patch("/' + slug + '/{item_id}", response_model=' + className + ")");
+    lines.push("async def update_" + table.name + "(item_id: UUID, body: " + className + "Base):");
+    lines.push("    # TODO: implement update");
+    lines.push('    raise HTTPException(501, "not implemented")');
+    lines.push("");
+    lines.push("");
+
+    lines.push('@router.delete("/' + slug + '/{item_id}", status_code=204)');
+    lines.push("async def delete_" + table.name + "(item_id: UUID):");
+    lines.push("    # TODO: implement delete");
+    lines.push('    raise HTTPException(501, "not implemented")');
+    lines.push("");
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+/** Build the main.py FastAPI app file. */
+export function buildMain(namespaces: string[]): string {
+  const lines: string[] = [
+    '"""',
+    "FastAPI app (generated by alab).",
+    "",
+    "Run:",
+    "    uv run fastapi dev main.py",
+    "",
+    "Then open http://localhost:8000/docs",
+    '"""',
+    "",
+    "from fastapi import FastAPI",
+    "",
+  ];
+
+  for (const ns of namespaces) {
+    lines.push("from " + ns + " import router as " + ns + "_router");
+  }
+
+  lines.push("");
+  lines.push('app = FastAPI(title="Alab Generated API")');
+  lines.push("");
+
+  for (const ns of namespaces) {
+    lines.push("app.include_router(" + ns + "_router)");
+  }
+
+  lines.push("");
+  lines.push("");
+  lines.push('@app.get("/")');
+  lines.push("async def root():");
+  lines.push('    return {"message": "Alab Generated API", "docs": "/docs"}');
+  lines.push("");
+
+  return lines.join("\n");
+}

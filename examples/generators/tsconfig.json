@@ -12,7 +12,8 @@
   "include": [
     "types/**/*.d.ts",
     "schemas/**/*.js",
-    "migrations/**/*.js"
+    "migrations/**/*.js",
+    "generators/**/*.js"
   ],
   "exclude": [
     "node_modules",
