@@ -41,6 +41,7 @@ Note: These files are auto-generated and should not be edited manually.`,
 			list.AddSuccess("types/base.d.ts")
 			list.AddSuccess("types/schema.d.ts")
 			list.AddSuccess("types/migration.d.ts")
+			list.AddSuccess("types/generator.d.ts")
 
 			ui.ShowSuccess(
 				TitleTypesRegenerated,

@@ -13,6 +13,7 @@ const (
 	templateColumnDTS    = "templates/types/column.d.ts"
 	templateSchemaDTS    = "templates/types/schema.d.ts"
 	templateMigrationDTS = "templates/types/migration.d.ts"
+	templateGeneratorDTS = "templates/types/generator.d.ts"
 )
 
 // writeTypeDefinitions creates the TypeScript definition files for IDE autocomplete.
@@ -36,6 +37,7 @@ func writeTypeDefinitions() error {
 		"column.d.ts":    templateColumnDTS,
 		"schema.d.ts":    templateSchemaDTS,
 		"migration.d.ts": templateMigrationDTS,
+		"generator.d.ts": templateGeneratorDTS,
 	}
 
 	for name, templatePath := range files {

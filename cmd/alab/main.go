@@ -99,6 +99,13 @@ func customHelp(cmd *cobra.Command) {
 				{"meta", "Export schema metadata to JSON file"},
 			},
 		},
+		{
+			Title: "Generators",
+			Commands: []CommandInfo{
+				{"gen run", "Run a code generator against the schema"},
+				{"gen add", "Download a shared generator from a URL"},
+			},
+		},
 	}
 
 	flags := []struct{ flag, desc string }{
@@ -158,6 +165,7 @@ func main() {
 		resetCmd(),
 		httpCmd(),
 		lockCmd(),
+		genCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
