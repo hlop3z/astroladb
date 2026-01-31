@@ -120,6 +120,11 @@ class Table:
     def computed_columns(self) -> dict[str, Column]:
         return {k: v for k, v in self.columns.items() if v.is_computed}
 
+    @property
+    def is_join_table(self) -> bool:
+        """True if this table is an auto-generated many-to-many join table."""
+        return self.join_table is not None
+
 
 # --- Parser ---
 

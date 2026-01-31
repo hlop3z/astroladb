@@ -70,6 +70,19 @@ for table in schema:
         if col.default is not None:
             print(f"  {table.table}.{col.name} = {col.default}")
 
+# --- Join tables (many-to-many) ---
+print("\n=== Join Tables ===")
+for table in schema:
+    if table.is_join_table:
+        jt = table.join_table
+        print(f"  {table.table}: {jt['left']['schema']} <-> {jt['right']['schema']}")
+
+# --- User tables (skip join tables) ---
+print("\n=== User-Defined Tables (excluding join tables) ===")
+for table in schema:
+    if not table.is_join_table:
+        print(f"  {table.table}")
+
 # --- Soft-delete tables ---
 print("\n=== Soft-Delete Tables ===")
 for table in schema:
