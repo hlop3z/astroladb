@@ -1,0 +1,410 @@
+{
+  "components": {
+    "schemas": {
+      "AuthUser": {
+        "properties": {
+          "age": {
+            "format": "int32",
+            "nullable": true,
+            "type": "integer",
+            "x-db": {
+              "sql_type": {
+                "postgres": "INTEGER",
+                "sqlite": "INTEGER"
+              }
+            }
+          },
+          "avatar": {
+            "format": "byte",
+            "nullable": true,
+            "type": "string",
+            "x-db": {
+              "sql_type": {
+                "postgres": "BYTEA",
+                "sqlite": "BLOB"
+              }
+            }
+          },
+          "balance": {
+            "format": "decimal",
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string",
+            "x-db": {
+              "default": 0,
+              "sql_type": {
+                "postgres": "NUMERIC(10,2)",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "bio": {
+            "nullable": true,
+            "type": "string",
+            "x-db": {
+              "sql_type": {
+                "postgres": "TEXT",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "birthdate": {
+            "format": "date",
+            "nullable": true,
+            "type": "string",
+            "x-db": {
+              "sql_type": {
+                "postgres": "DATE",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "created_at": {
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string",
+            "x-db": {
+              "auto_managed": false,
+              "default": {
+                "expr": "NOW()"
+              },
+              "semantic": "created_at",
+              "sql_type": {
+                "postgres": "TIMESTAMPTZ",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "external_id": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string",
+            "x-db": {
+              "sql_type": {
+                "postgres": "UUID",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "id": {
+            "format": "uuid",
+            "readOnly": true,
+            "type": "string",
+            "x-db": {
+              "semantic": "id",
+              "sql_type": {
+                "postgres": "UUID",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "is_active": {
+            "type": "boolean",
+            "x-db": {
+              "default": true,
+              "semantic": "flag",
+              "sql_type": {
+                "postgres": "BOOLEAN",
+                "sqlite": "INTEGER"
+              }
+            }
+          },
+          "last_seen": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string",
+            "x-db": {
+              "sql_type": {
+                "postgres": "TIMESTAMPTZ",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "login_time": {
+            "format": "time",
+            "nullable": true,
+            "type": "string",
+            "x-db": {
+              "sql_type": {
+                "postgres": "TIME",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "role": {
+            "enum": [
+              "admin",
+              "editor",
+              "viewer"
+            ],
+            "type": "string",
+            "x-db": {
+              "default": "viewer",
+              "sql_type": {
+                "postgres": "VARCHAR(50) CHECK (role IN ('admin', 'editor', 'viewer'))",
+                "sqlite": "TEXT CHECK (role IN ('admin', 'editor', 'viewer'))"
+              }
+            }
+          },
+          "score": {
+            "format": "float",
+            "nullable": true,
+            "type": "number",
+            "x-db": {
+              "sql_type": {
+                "postgres": "REAL",
+                "sqlite": "REAL"
+              }
+            }
+          },
+          "settings": {
+            "additionalProperties": true,
+            "nullable": true,
+            "type": "object",
+            "x-db": {
+              "sql_type": {
+                "postgres": "JSONB",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "updated_at": {
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string",
+            "x-db": {
+              "auto_managed": false,
+              "default": {
+                "expr": "NOW()"
+              },
+              "semantic": "updated_at",
+              "sql_type": {
+                "postgres": "TIMESTAMPTZ",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "username": {
+            "maxLength": 50,
+            "type": "string",
+            "x-db": {
+              "semantic": "username",
+              "sql_type": {
+                "postgres": "VARCHAR(50)",
+                "sqlite": "TEXT"
+              }
+            }
+          }
+        },
+        "required": [
+          "balance",
+          "id",
+          "is_active",
+          "role",
+          "username",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object",
+        "x-db": {
+          "indexes": [
+            {
+              "columns": [
+                "id"
+              ],
+              "name": "auth_user_pkey",
+              "primary": true,
+              "unique": true
+            },
+            {
+              "columns": [
+                "username"
+              ],
+              "name": "auth_user_username_key",
+              "unique": true
+            }
+          ],
+          "namespace": "auth",
+          "primary_key": [
+            "id"
+          ],
+          "table": "auth_user",
+          "timestamps": true
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "Auto-generated OpenAPI specification from database schema",
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    },
+    "title": "Database Schema",
+    "version": "1.0.0",
+    "x-db": {
+      "generator": "alab",
+      "version": "1.0.0"
+    }
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/schemas": {
+      "get": {
+        "operationId": "getSchemas",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "models": {
+                    "auth": [
+                      {
+                        "columns": [
+                          {
+                            "name": "age",
+                            "nullable": true,
+                            "type": "integer"
+                          },
+                          {
+                            "name": "avatar",
+                            "nullable": true,
+                            "type": "base64"
+                          },
+                          {
+                            "default": 0,
+                            "name": "balance",
+                            "type": "decimal"
+                          },
+                          {
+                            "name": "bio",
+                            "nullable": true,
+                            "type": "text"
+                          },
+                          {
+                            "name": "birthdate",
+                            "nullable": true,
+                            "type": "date"
+                          },
+                          {
+                            "name": "external_id",
+                            "nullable": true,
+                            "type": "uuid"
+                          },
+                          {
+                            "name": "id",
+                            "type": "uuid"
+                          },
+                          {
+                            "default": true,
+                            "name": "is_active",
+                            "type": "boolean"
+                          },
+                          {
+                            "name": "last_seen",
+                            "nullable": true,
+                            "type": "datetime"
+                          },
+                          {
+                            "name": "login_time",
+                            "nullable": true,
+                            "type": "time"
+                          },
+                          {
+                            "default": "viewer",
+                            "enum": [
+                              "admin",
+                              "editor",
+                              "viewer"
+                            ],
+                            "name": "role",
+                            "type": "enum"
+                          },
+                          {
+                            "name": "score",
+                            "nullable": true,
+                            "type": "float"
+                          },
+                          {
+                            "name": "settings",
+                            "nullable": true,
+                            "type": "json"
+                          },
+                          {
+                            "name": "username",
+                            "type": "string",
+                            "unique": true
+                          },
+                          {
+                            "default": {
+                              "expr": "NOW()"
+                            },
+                            "name": "created_at",
+                            "type": "datetime"
+                          },
+                          {
+                            "default": {
+                              "expr": "NOW()"
+                            },
+                            "name": "updated_at",
+                            "type": "datetime"
+                          }
+                        ],
+                        "example": {
+                          "age": 25,
+                          "avatar": "SGVsbG8gV29ybGQh",
+                          "balance": "123.45",
+                          "bio": "Sample text",
+                          "birthdate": "2024-01-15",
+                          "created_at": "2024-01-15T10:30:00Z",
+                          "external_id": "550e8400-e29b-41d4-a716-446655440000",
+                          "id": "550e8400-e29b-41d4-a716-446655440000",
+                          "is_active": true,
+                          "last_seen": "2024-01-15T10:30:00Z",
+                          "login_time": "10:30:00",
+                          "role": "admin",
+                          "score": "4.5",
+                          "settings": {
+                            "key": "value"
+                          },
+                          "updated_at": "2024-01-15T10:30:00Z",
+                          "username": "johndoe"
+                        },
+                        "name": "user",
+                        "primary_key": "id",
+                        "table": "auth_user",
+                        "timestamps": true
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "description": "All models and relationships with examples"
+          }
+        },
+        "summary": "All database schemas",
+        "tags": [
+          "schemas"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "API server",
+      "url": "/api/v1"
+    }
+  ]
+}
