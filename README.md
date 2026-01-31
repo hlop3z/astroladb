@@ -38,7 +38,7 @@ Define your schema once in **constrained JavaScript** — a typed, executable "`
 
 From the same schema, **generate**:
 
-**SQL** migrations, **Rust** structs, **Go** models, **Python** classes, **TypeScript** types, **GraphQL** schemas, and **OpenAPI** specs.
+**SQL** migrations, **Rust** structs, **Go** models, **Python** classes, **TypeScript** types, **GraphQL** schemas and **OpenAPI** specs.
 
 ---
 
@@ -46,8 +46,8 @@ From the same schema, **generate**:
 
 - **Single ~8 MB static binary**
 - **Zero dependencies**, no external runtimes
-- Fast, portable, and **CI/CD-friendly**
-- Works **without** JVM, Node.js, or Python
+- Fast, portable and **CI/CD-friendly**
+- Works **without** JVM, Node.js or Python
 
 ---
 
