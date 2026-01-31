@@ -67,6 +67,9 @@ Thumbs.db
 # ========================================
 
 node_modules/
+__pycache__/
+*.pyc
+.venv/
 dist/
 dist-ssr/
 *.local
