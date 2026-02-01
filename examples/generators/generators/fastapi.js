@@ -5,13 +5,11 @@
 //   alab gen run generators/fastapi -o ./generated
 
 export default gen((schema) => {
-  var api = schema.openapi;
-  var endpoint = api.paths["/schemas"].get.responses["200"].content["application/json"].example;
-  var namespaces = Object.keys(endpoint.models);
-  var files = {};
+  const files = {};
 
-  // --- Type mapping ---
-  var typeMap = {
+  // ─── Helpers ───────────────────────────────────────────────
+
+  const TYPE_MAP = {
     uuid: "UUID",
     string: "str",
     text: "str",
@@ -27,226 +25,206 @@ export default gen((schema) => {
     enum: "str",
   };
 
-  function pyType(col) {
-    var base = typeMap[col.type] || "Any";
-    if (col.type === "enum" && col["enum"]) {
-      return capitalize(col.name) + "Enum";
-    }
-    return base;
-  }
+  const AUTO_FIELDS = new Set(["id", "created_at", "updated_at"]);
 
-  function capitalize(s) {
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  }
+  const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const pascalCase = (s) => s.split("_").map(capitalize).join("");
 
-  function pascalCase(s) {
-    var parts = s.split("_");
-    var result = "";
-    for (var i = 0; i < parts.length; i++) {
-      result += capitalize(parts[i]);
-    }
-    return result;
-  }
+  const pyType = (col) => {
+    if (col.type === "enum" && col.enum) return `${capitalize(col.name)}Enum`;
+    return TYPE_MAP[col.type] || "Any";
+  };
 
-  // --- Generate per namespace ---
-  for (var n = 0; n < namespaces.length; n++) {
-    var ns = namespaces[n];
-    var tables = endpoint.models[ns];
+  // Format a Python default value, or return "" if none.
+  const pyDefault = (col) => {
+    const def = col.default;
+    if (def === undefined) return "";
+    if (typeof def === "object") return ""; // SQL expression
+    const pt = pyType(col);
+    if (col.type === "enum") return ` = ${pt}.${String(def).toUpperCase()}`;
+    if (typeof def === "boolean") return ` = ${def ? "True" : "False"}`;
+    if (typeof def === "string") return ` = "${def}"`;
+    if (col.type === "decimal") return ` = Decimal("${def}")`;
+    return ` = ${def}`;
+  };
 
-    // --- Models file ---
-    var modelLines = [];
-    modelLines.push("from __future__ import annotations");
-    modelLines.push("");
-    modelLines.push("from datetime import date, time, datetime");
-    modelLines.push("from decimal import Decimal");
-    modelLines.push("from enum import Enum");
-    modelLines.push("from typing import Optional");
-    modelLines.push("from uuid import UUID");
-    modelLines.push("");
-    modelLines.push("from pydantic import BaseModel");
-    modelLines.push("");
-    modelLines.push("");
+  // Format a single Pydantic field line.
+  const pyField = (col) => {
+    const pt = pyType(col);
+    if (col.nullable) return `    ${col.name}: Optional[${pt}] = None`;
+    return `    ${col.name}: ${pt}${pyDefault(col)}`;
+  };
 
-    for (var t = 0; t < tables.length; t++) {
-      var table = tables[t];
-      var className = pascalCase(table.name);
-      var columns = table.columns;
+  // ─── Models ────────────────────────────────────────────────
 
-      // Generate enums first
-      for (var c = 0; c < columns.length; c++) {
-        var col = columns[c];
-        if (col.type === "enum" && col["enum"]) {
-          var enumName = capitalize(col.name) + "Enum";
-          modelLines.push("class " + enumName + "(str, Enum):");
-          var vals = col["enum"];
-          for (var v = 0; v < vals.length; v++) {
-            modelLines.push("    " + vals[v].toUpperCase() + ' = "' + vals[v] + '"');
-          }
-          modelLines.push("");
-          modelLines.push("");
+  const MODEL_IMPORTS = [
+    "from __future__ import annotations",
+    "",
+    "from datetime import date, time, datetime",
+    "from decimal import Decimal",
+    "from enum import Enum",
+    "from typing import Optional",
+    "from uuid import UUID",
+    "",
+    "from pydantic import BaseModel",
+    "",
+  ].join("\n");
+
+  function modelFile(tables) {
+    let out = MODEL_IMPORTS + "\n";
+
+    for (const table of tables) {
+      const cls = pascalCase(table.name);
+
+      // Enums
+      for (const col of table.columns) {
+        if (col.type !== "enum" || !col.enum) continue;
+        const enumName = `${capitalize(col.name)}Enum`;
+        out += `\nclass ${enumName}(str, Enum):\n`;
+        for (const val of col.enum) {
+          out += `    ${val.toUpperCase()} = "${val}"\n`;
         }
+        out += "\n";
       }
 
-      // Base model (for create/update — no id, no timestamps)
-      modelLines.push("class " + className + "Base(BaseModel):");
-      var baseFields = [];
-      for (var c = 0; c < columns.length; c++) {
-        var col = columns[c];
-        if (col.name === "id" || col.name === "created_at" || col.name === "updated_at") {
-          continue;
-        }
-        var pt = pyType(col);
-        var line = "    " + col.name + ": ";
-        if (col.nullable) {
-          line += "Optional[" + pt + "] = None";
-        } else if (col["default"] !== undefined) {
-          var def = col["default"];
-          if (typeof def === "object") {
-            // Skip SQL expressions like {expr: "NOW()"}
-            line += pt;
-          } else if (col.type === "enum" && col["enum"]) {
-            // Use enum member as default
-            line += pt + " = " + pt + "." + String(def).toUpperCase();
-          } else if (typeof def === "string") {
-            line += pt + ' = "' + def + '"';
-          } else if (typeof def === "boolean") {
-            line += pt + " = " + (def ? "True" : "False");
-          } else if (col.type === "decimal") {
-            line += pt + ' = Decimal("' + def + '")';
-          } else {
-            line += pt + " = " + def;
-          }
-        } else {
-          line += pt;
-        }
-        modelLines.push(line);
-        baseFields.push(col.name);
+      // Base model (create/update — no id, no timestamps)
+      out += `\nclass ${cls}Base(BaseModel):\n`;
+      const fields = table.columns.filter((c) => !AUTO_FIELDS.has(c.name));
+      if (fields.length === 0) {
+        out += "    pass\n";
+      } else {
+        for (const col of fields) out += `${pyField(col)}\n`;
       }
-      if (baseFields.length === 0) {
-        modelLines.push("    pass");
-      }
-      modelLines.push("");
-      modelLines.push("");
 
-      // Read model (includes id + timestamps)
-      modelLines.push("class " + className + "(" + className + "Base):");
-      modelLines.push("    id: UUID");
+      // Read model (adds id + timestamps)
+      out += `\n\nclass ${cls}(${cls}Base):\n`;
+      out += "    id: UUID\n";
       if (table.timestamps) {
-        modelLines.push("    created_at: datetime");
-        modelLines.push("    updated_at: datetime");
+        out += "    created_at: datetime\n";
+        out += "    updated_at: datetime\n";
       }
-      modelLines.push("");
-      modelLines.push("    class Config:");
-      modelLines.push("        from_attributes = True");
-      modelLines.push("");
-      modelLines.push("");
+      out += "\n    class Config:\n        from_attributes = True\n\n";
     }
 
-    files[ns + "/models.py"] = modelLines.join("\n");
+    return out;
+  }
 
-    // --- Router file ---
-    var routerLines = [];
-    routerLines.push("from __future__ import annotations");
-    routerLines.push("");
-    routerLines.push("from uuid import UUID");
-    routerLines.push("");
-    routerLines.push("from fastapi import APIRouter, HTTPException");
-    routerLines.push("");
-    routerLines.push("from .models import (");
-    for (var t = 0; t < tables.length; t++) {
-      var className = pascalCase(tables[t].name);
-      routerLines.push("    " + className + ",");
-      routerLines.push("    " + className + "Base,");
+  // ─── Router ────────────────────────────────────────────────
+
+  // Each CRUD operation as a data entry — no copy-paste per endpoint.
+  const CRUD = [
+    {
+      method: "get",
+      path: "",
+      fn: "list",
+      args: "",
+      resp: "list[$CLS]",
+      status: "",
+    },
+    {
+      method: "get",
+      path: "/{item_id}",
+      fn: "get",
+      args: "item_id: UUID",
+      resp: "$CLS",
+      status: "",
+    },
+    {
+      method: "post",
+      path: "",
+      fn: "create",
+      args: "body: $CLSBase",
+      resp: "$CLS",
+      status: ", status_code=201",
+    },
+    {
+      method: "patch",
+      path: "/{item_id}",
+      fn: "update",
+      args: "item_id: UUID, body: $CLSBase",
+      resp: "$CLS",
+      status: "",
+    },
+    {
+      method: "delete",
+      path: "/{item_id}",
+      fn: "delete",
+      args: "item_id: UUID",
+      resp: "",
+      status: ", status_code=204",
+    },
+  ];
+
+  function crudBlock(slug, name, cls, op) {
+    const resp = op.resp
+      ? `, response_model=${op.resp.replace(/\$CLS/g, cls)}`
+      : "";
+    const args = op.args.replace(/\$CLS/g, cls);
+    return (
+      `@router.${op.method}("/${slug}${op.path}"${resp}${op.status})\n` +
+      `async def ${op.fn}_${name}(${args}):\n` +
+      `    # TODO: implement\n` +
+      `    raise HTTPException(501, "not implemented")\n\n\n`
+    );
+  }
+
+  function routerFile(ns, tables) {
+    const imports = tables
+      .map((t) => pascalCase(t.name))
+      .map((cls) => `    ${cls},\n    ${cls}Base,`)
+      .join("\n");
+
+    let out =
+      "from __future__ import annotations\n\n" +
+      "from uuid import UUID\n\n" +
+      "from fastapi import APIRouter, HTTPException\n\n" +
+      `from .models import (\n${imports}\n)\n\n\n` +
+      `router = APIRouter(prefix="/${ns}", tags=["${ns}"])\n\n\n`;
+
+    for (const table of tables) {
+      const cls = pascalCase(table.name);
+      const slug = table.name.replace(/_/g, "-");
+      for (const op of CRUD) out += crudBlock(slug, table.name, cls, op);
     }
-    routerLines.push(")");
-    routerLines.push("");
-    routerLines.push("");
-    routerLines.push('router = APIRouter(prefix="/' + ns + '", tags=["' + ns + '"])');
-    routerLines.push("");
-    routerLines.push("");
 
-    for (var t = 0; t < tables.length; t++) {
-      var table = tables[t];
-      var className = pascalCase(table.name);
-      var slug = table.name.replace(/_/g, "-");
-
-      routerLines.push('@router.get("/' + slug + '", response_model=list[' + className + "])");
-      routerLines.push("async def list_" + table.name + "():");
-      routerLines.push("    # TODO: implement query");
-      routerLines.push('    raise HTTPException(501, "not implemented")');
-      routerLines.push("");
-      routerLines.push("");
-
-      routerLines.push('@router.get("/' + slug + '/{item_id}", response_model=' + className + ")");
-      routerLines.push("async def get_" + table.name + "(item_id: UUID):");
-      routerLines.push("    # TODO: implement query");
-      routerLines.push('    raise HTTPException(501, "not implemented")');
-      routerLines.push("");
-      routerLines.push("");
-
-      routerLines.push('@router.post("/' + slug + '", response_model=' + className + ", status_code=201)");
-      routerLines.push("async def create_" + table.name + "(body: " + className + "Base):");
-      routerLines.push("    # TODO: implement insert");
-      routerLines.push('    raise HTTPException(501, "not implemented")');
-      routerLines.push("");
-      routerLines.push("");
-
-      routerLines.push('@router.patch("/' + slug + '/{item_id}", response_model=' + className + ")");
-      routerLines.push("async def update_" + table.name + "(item_id: UUID, body: " + className + "Base):");
-      routerLines.push("    # TODO: implement update");
-      routerLines.push('    raise HTTPException(501, "not implemented")');
-      routerLines.push("");
-      routerLines.push("");
-
-      routerLines.push('@router.delete("/' + slug + '/{item_id}", status_code=204)');
-      routerLines.push("async def delete_" + table.name + "(item_id: UUID):");
-      routerLines.push("    # TODO: implement delete");
-      routerLines.push('    raise HTTPException(501, "not implemented")');
-      routerLines.push("");
-      routerLines.push("");
-    }
-
-    files[ns + "/router.py"] = routerLines.join("\n");
-
-    // --- __init__.py ---
-    files[ns + "/__init__.py"] = 'from .router import router  # noqa: F401\n';
+    return out;
   }
 
-  // --- main.py ---
-  var mainLines = [];
-  mainLines.push('"""');
-  mainLines.push("FastAPI app (generated by alab).");
-  mainLines.push("");
-  mainLines.push("Run:");
-  mainLines.push("    uv run fastapi dev main.py");
-  mainLines.push("");
-  mainLines.push("Then open http://localhost:8000/docs");
-  mainLines.push('"""');
-  mainLines.push("");
-  mainLines.push("from fastapi import FastAPI");
-  mainLines.push("");
+  // ─── Main app ──────────────────────────────────────────────
 
-  // Import all namespace routers
-  for (var n = 0; n < namespaces.length; n++) {
-    mainLines.push("from " + namespaces[n] + " import router as " + namespaces[n] + "_router");
+  function mainFile(namespaces) {
+    const imports = namespaces
+      .map((ns) => `from ${ns} import router as ${ns}_router`)
+      .join("\n");
+    const routers = namespaces
+      .map((ns) => `app.include_router(${ns}_router)`)
+      .join("\n");
+
+    return (
+      '"""\n' +
+      "FastAPI app (generated by alab).\n\n" +
+      "Run:\n    uv run fastapi dev main.py\n\n" +
+      "Then open http://localhost:8000/docs\n" +
+      '"""\n\n' +
+      "from fastapi import FastAPI\n\n" +
+      `${imports}\n\n` +
+      'app = FastAPI(title="Alab Generated API")\n\n' +
+      `${routers}\n\n\n` +
+      '@app.get("/")\n' +
+      "async def root():\n" +
+      '    return {"message": "Alab Generated API", "docs": "/docs"}\n'
+    );
   }
 
-  mainLines.push("");
-  mainLines.push('app = FastAPI(title="Alab Generated API")');
-  mainLines.push("");
+  // ─── Generate ──────────────────────────────────────────────
 
-  for (var n = 0; n < namespaces.length; n++) {
-    mainLines.push("app.include_router(" + namespaces[n] + "_router)");
+  for (const [ns, tables] of Object.entries(schema.models)) {
+    files[`${ns}/models.py`] = modelFile(tables);
+    files[`${ns}/router.py`] = routerFile(ns, tables);
+    files[`${ns}/__init__.py`] = "from .router import router  # noqa: F401\n";
   }
 
-  mainLines.push("");
-  mainLines.push("");
-  mainLines.push('@app.get("/")');
-  mainLines.push("async def root():");
-  mainLines.push('    return {"message": "Alab Generated API", "docs": "/docs"}');
-  mainLines.push("");
-
-  files["main.py"] = mainLines.join("\n");
+  files["main.py"] = mainFile(Object.keys(schema.models));
 
   return render(files);
 });

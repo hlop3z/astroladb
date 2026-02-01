@@ -33,5 +33,5 @@ uv run mypy auth/
 ## Run App
 
 ```sh
-uv run mypy auth/
+uv run fastapi dev main.py
 ```
