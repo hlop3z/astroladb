@@ -18,6 +18,16 @@
   --sl-color-accent-low: #c7d2fe;
   --sl-color-accent: #4f46e5;
   --sl-color-accent-high: #1e1b4b;
+  /* Invert the gray scale for light mode */
+  --sl-color-white: #17181c;
+  --sl-color-gray-1: #353841;
+  --sl-color-gray-2: #545861;
+  --sl-color-gray-3: #888b96;
+  --sl-color-gray-4: #c0c2c7;
+  --sl-color-gray-5: #e0e2e7;
+  --sl-color-gray-6: #eceef2;
+  --sl-color-gray-7: #f5f6f8;
+  --sl-color-black: #ffffff;
 }
 
 /* Code block styling */
@@ -85,25 +95,6 @@
 
 .external_openapi:hover {
   border-color: var(--sl-color-accent);
-}
-
-
-/* Light mode text fixes */
-:root[data-theme="light"] .starlight-aside,
-:root[data-theme="light"] nav.sidebar,
-:root[data-theme="light"] header,
-:root[data-theme="light"] .breadcrumbs,
-:root[data-theme="light"] starlight-theme-select {
-  color: var(--sl-color-black);
-}
-
-:root[data-theme="light"] starlight-theme-select select,
-:root[data-theme="light"] starlight-theme-select select option {
-  color: var(--sl-color-black);
-}
-
-:root[data-theme="light"] starlight-theme-select svg {
-  color: var(--sl-color-black);
 }
 
 /* Wider content area */
