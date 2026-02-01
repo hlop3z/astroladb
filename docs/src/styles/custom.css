@@ -88,8 +88,21 @@
 }
 
 
-/* Aside text color in light mode */
-:root[data-theme="light"] .starlight-aside {
+/* Light mode text fixes */
+:root[data-theme="light"] .starlight-aside,
+:root[data-theme="light"] nav.sidebar,
+:root[data-theme="light"] header,
+:root[data-theme="light"] .breadcrumbs,
+:root[data-theme="light"] starlight-theme-select {
+  color: var(--sl-color-black);
+}
+
+:root[data-theme="light"] starlight-theme-select select,
+:root[data-theme="light"] starlight-theme-select select option {
+  color: var(--sl-color-black);
+}
+
+:root[data-theme="light"] starlight-theme-select svg {
   color: var(--sl-color-black);
 }
 
