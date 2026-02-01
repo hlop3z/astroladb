@@ -88,6 +88,11 @@
 }
 
 
+/* Aside text color in light mode */
+:root[data-theme="light"] .starlight-aside {
+  color: var(--sl-color-black);
+}
+
 /* Wider content area */
 :root {
   --sl-content-width: 60rem; /* default is ~40rem */
