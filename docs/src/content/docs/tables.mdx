@@ -28,8 +28,8 @@ export default table({
 ```
 
 Every key becomes a column. The value is a column builder — either a
-[low-level type](/cols/low-level/) like `col.string()` or a
-[semantic type](/cols/semantics/) like `col.title()`.
+[low-level type](../cols/low-level/) like `col.string()` or a
+[semantic type](../cols/semantics/) like `col.title()`.
 
 ## Column Modifiers
 
@@ -55,7 +55,7 @@ export default table({
 <Aside type="note">
   Semantic types like `col.slug()` and `col.flag()` come with built-in defaults
   and constraints — you don't need to chain `.unique()` on a slug or
-  `.default(false)` on a flag. See [Semantic Types](/cols/semantics/) for
+  `.default(false)` on a flag. See [Semantic Types](../cols/semantics/) for
   details.
 </Aside>
 

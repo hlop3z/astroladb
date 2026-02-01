@@ -129,6 +129,17 @@ alab export -f all
 | **Logical Namespacing**     | Groups tables (e.g. `auth.user`) to **avoid naming collisions**.                 |
 | **Native Outputs**          | Produces **SQL** and **language-native types**.                                  |
 
+## Who Is This Tool For?
+
+- **Meta Programmer**
+- **Polyglot developers**
+- **Polyglot teams**
+
+It allows you to define schemas once and export **strongly-typed
+representations** to multiple languages, reducing duplication and drift. You can
+start prototyping in Python, then move to Rust or Go or vice versa. However,
+**the schema remains the constant**.
+
 ## Live Server
 
 Instant API exploration with automatic hot reloading:
