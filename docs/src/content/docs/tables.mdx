@@ -2,47 +2,134 @@
 title: Tables
 ---
 
+import { Aside } from "@astrojs/starlight/components";
+
+Scaffold a new table file with:
+
 ```sh
 alab table blog post
 ```
 
-## Basic Table Syntax
+This creates `schemas/blog/post.js` where `blog` is the namespace and `post` is
+the table name. The resulting database table is `blog_post`.
+
+## Basic Syntax
 
 Define tables using the `table({...})` function:
 
 ```js
 export default table({
   id: col.id(),
-  title: col.string(),
+  title: col.title(),
   body: col.text(),
-  published: col.boolean().default(false),
+  published: col.flag(),
   author: col.belongs_to("auth.user"),
 });
 ```
 
+Every key becomes a column. The value is a column builder — either a
+[low-level type](/cols/low-level/) like `col.string()` or a
+[semantic type](/cols/semantics/) like `col.title()`.
+
+## Column Modifiers
+
+Columns support chained modifiers to add constraints:
+
+```js
+export default table({
+  id: col.id(),
+  email: col.email().unique(),
+  username: col.username(),
+  bio: col.text().nullable(),
+  role: col.enum(["admin", "editor", "viewer"]).default("viewer"),
+});
+```
+
+| Modifier          | What it does             |
+| ----------------- | ------------------------ |
+| `.nullable()`     | Allows `NULL` values     |
+| `.unique()`       | Adds a unique constraint |
+| `.default(value)` | Sets a default value     |
+| `.primary()`      | Marks as primary key     |
+
+<Aside type="note">
+  Semantic types like `col.slug()` and `col.flag()` come with built-in defaults
+  and constraints — you don't need to chain `.unique()` on a slug or
+  `.default(false)` on a flag. See [Semantic Types](/cols/semantics/) for
+  details.
+</Aside>
+
 ## Table Modifiers
 
-Chain modifiers to add common functionality:
+Chain modifiers on the table itself to add common functionality:
 
 ```js
 // schemas/blog/article.js
-export default table({})
+export default table({
+  id: col.id(),
+  title: col.title(),
+  body: col.body(),
+})
   .timestamps()
   .soft_delete()
-  .searchable(["title", "content"]);
+  .searchable(["title", "body"]);
 ```
 
-### Available Modifiers
+### What each modifier produces
 
-| Modifier                       | What it does                                                |
-| ------------------------------ | ----------------------------------------------------------- |
-| `.timestamps()`                | Adds `created_at` and `updated_at` columns (auto-managed)   |
-| `.auditable()`                 | Adds `created_by` and `updated_by` UUID columns             |
-| `.soft_delete()`               | Adds nullable `deleted_at` column for soft deletes          |
-| `.sortable()`                  | Adds `position` integer column for manual ordering          |
-| `.sort_by([...])`              | Specifies default ORDER BY columns for queries              |
-| `.searchable([...])`           | Marks columns for full-text search indexing                 |
-| `.filterable([...])`           | Specifies which columns can be filtered in queries          |
-| `.unique("col1", "col2")`      | Creates composite unique constraint                         |
-| `.index("col1", "col2")`       | Creates composite index                                     |
-| `.many_to_many("other.table")` | Defines many-to-many relationship (auto-creates join table) |
+| Modifier         | What it adds                                                  |
+| ---------------- | ------------------------------------------------------------- |
+| `.timestamps()`  | `created_at` and `updated_at` datetime columns (auto-managed) |
+| `.auditable()`   | `created_by` and `updated_by` UUID columns                    |
+| `.soft_delete()` | Nullable `deleted_at` datetime column                         |
+| `.sortable()`    | `position` integer column for manual ordering                 |
+
+### Metadata modifiers
+
+These don't add columns — they annotate the table in the OpenAPI `x-db`
+extension for downstream consumers (generators, custom tooling).
+
+| Modifier                     | What it does                                   |
+| ---------------------------- | ---------------------------------------------- |
+| `.sort_by(["col1", "col2"])` | Default `ORDER BY` columns for queries         |
+| `.searchable(["col1"])`      | Marks columns for full-text search indexing    |
+| `.filterable(["col1"])`      | Marks which columns can be filtered in queries |
+
+### Constraint modifiers
+
+| Modifier                       | What it does                                          |
+| ------------------------------ | ----------------------------------------------------- |
+| `.unique("col1", "col2")`      | Composite unique constraint across columns            |
+| `.index("col1", "col2")`       | Composite index across columns                        |
+| `.many_to_many("other.table")` | Many-to-many relationship (auto-creates a join table) |
+
+## Putting It Together
+
+A realistic table definition combining columns, modifiers, and relationships:
+
+```js
+// schemas/blog/post.js
+export default table({
+  id: col.id(),
+  title: col.title(),
+  slug: col.slug(),
+  body: col.body(),
+  published: col.flag(),
+  author: col.belongs_to("auth.user"),
+})
+  .timestamps()
+  .soft_delete()
+  .searchable(["title", "body"])
+  .index("author", "published");
+```
+
+This produces:
+
+- A `blog_post` table with the defined columns
+- `created_at`, `updated_at` (from `.timestamps()`)
+- `deleted_at` (from `.soft_delete()`)
+- A foreign key to `auth_user` (from `col.belongs_to()`)
+- A composite index on `(author, published)`
+- The slug column is automatically unique with validation (from `col.slug()`)
+- `published` defaults to `false` (from `col.flag()`)
+- Searchable and soft-delete metadata in the OpenAPI `x-db` extension

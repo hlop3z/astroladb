@@ -2,7 +2,42 @@
 title: Semantic Types
 ---
 
-Reusable, high-level types that add constraints to low-level primitives.
+import { Aside } from "@astrojs/starlight/components";
+
+Semantic types are pre-configured combinations of a base type with validation,
+constraints, and metadata baked in. They exist so you don't have to manually
+chain `.unique()`, `.default()`, format hints, and regex patterns on every
+column.
+
+## What they add over low-level types
+
+| Feature             | Low-level type      | Semantic type                    |
+| ------------------- | ------------------- | -------------------------------- |
+| SQL type + size     | You specify         | Pre-configured                   |
+| OpenAPI `format`    | None                | Added (e.g. `"email"`)           |
+| Validation pattern  | Manual `.pattern()` | Built-in                         |
+| Min/max constraints | Manual `.min()`     | Built-in where relevant          |
+| Unique constraint   | Manual `.unique()`  | Automatic (e.g. slug)            |
+| Default value       | Manual `.default()` | Automatic (e.g. flag)            |
+| Hidden from API     | Never               | Conditional (e.g. password_hash) |
+
+**Example:** `col.email()` vs `col.string(255)`
+
+- `col.string(255)` produces a `VARCHAR(255)` with no other metadata.
+- `col.email()` produces a `VARCHAR(255)` **plus** an OpenAPI `format: "email"`
+  hint, a regex validation pattern, and the semantic type name in `x-db` for
+  downstream tooling.
+
+Both map to the same SQL column type. The difference is in the constraints and
+metadata that get carried into the OpenAPI schema and generated code.
+
+<Aside type="note">
+  Semantic types are only available in schema definitions (`col.*`), not in
+  migration files. Migrations use low-level types exclusively — this keeps them
+  stable even if semantic definitions change in the future.
+</Aside>
+
+## Reference
 
 ## Identity & Authentication
 
