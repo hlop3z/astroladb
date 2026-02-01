@@ -131,7 +131,7 @@ alab export -f all
 
 ## Who Is This Tool For?
 
-- **Meta Programmer**
+- **Meta Programmers**
 - **Polyglot developers**
 - **Polyglot teams**
 
