@@ -1,0 +1,106 @@
+---
+title: Working with Parsed Data
+---
+
+Examples using the `Schema` class from the `openapi_to_code` module.
+
+<a
+  class="external_openapi"
+  href="https://github.com/hlop3z/astroladb/blob/main/examples/parsing_openapi/openapi_to_code.py"
+  target="_blank"
+  rel="noopener"
+>
+  openapi_to_code.py ↗
+</a>
+
+```python
+schema = Schema("openapi.json")
+```
+
+## List tables
+
+```python
+for table in schema:
+    prefix = f"{table.namespace}." if table.namespace else ""
+    print(f"{prefix}{table.table}")
+# auth.auth_user
+# blog.blog_post
+```
+
+## Foreign keys
+
+```python
+post = schema["BlogPost"]
+for name, col in post.fk_columns.items():
+    print(f"{name} -> {col.ref} ({col.fk})")
+# author_id -> auth.user (auth.user.id)
+```
+
+## Relationships
+
+```python
+# author: has_many -> blog_post
+# role: many_to_many via auth_role_auth_user
+user = schema["AuthUser"]
+for rel in user.relationships.values():
+    if rel.type == "many_to_many":
+        print(f"{rel.name}: M2M via {rel.through['table']}")
+    else:
+        print(f"{rel.name}: {rel.type} -> {rel.target_table}")
+```
+
+## Constraints
+
+```python
+user = schema["AuthUser"]
+
+user.unique_columns          # ["email", "username"]
+
+# Write-only (hidden from reads)
+[c.name for c in user.columns.values() if c.write_only]  # ["password"]
+
+# Defaults
+{c.name: c.default for c in user.columns.values() if c.default is not None}
+# {"is_active": True, "created_at": {"expr": "NOW()"}}
+```
+
+## Computed columns
+
+```python
+for name, col in table.computed_columns.items():
+    print(f"{name}: storage={col.storage}, expr={col.computed}")
+# full_name: storage=stored, expr={'fn': 'concat', 'args': [{'col': 'first_name'}, ' ', {'col': 'last_name'}]}
+# age: storage=virtual, expr={'fn': 'years_since', 'args': [{'col': 'birth_date'}]}
+```
+
+## Generate DDL
+
+A minimal example showing how parsed data feeds code generation:
+
+```python
+def generate_create_table(table: Table, dialect: str = "postgres") -> str:
+    lines = []
+    for col in table.columns.values():
+        if col.is_app_only:
+            continue
+        sql_type = col.sql_type.get(dialect, "TEXT")
+        parts = [f"  {col.name} {sql_type}"]
+        if not col.nullable and col.name not in table.pk:
+            parts.append("NOT NULL")
+        lines.append(" ".join(parts))
+
+    pk = ", ".join(table.pk)
+    lines.append(f"  PRIMARY KEY ({pk})")
+    body = ",\n".join(lines)
+    return f"CREATE TABLE {table.table} (\n{body}\n);"
+```
+
+```sql
+CREATE TABLE auth_role (
+  created_at TIMESTAMPTZ NOT NULL,
+  id UUID,
+  name VARCHAR(100) NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (id)
+);
+```

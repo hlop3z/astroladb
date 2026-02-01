@@ -1,0 +1,103 @@
+---
+title: x-db Field Reference
+---
+
+Quick lookup for every `x-db` field and where it maps in the parser.
+
+## Property-level fields
+
+| JSON path      | Dataclass field       | Type      |
+| -------------- | --------------------- | --------- |
+| `sql_type`     | `Column.sql_type`     | `object`  |
+| `semantic`     | `Column.semantic`     | `string`  |
+| `default`      | `Column.default`      | `any`     |
+| `generated`    | `Column.generated`    | `boolean` |
+| `auto_managed` | `Column.auto_managed` | `boolean` |
+| `fk`           | `Column.fk`           | `string`  |
+| `ref`          | `Column.ref`          | `string`  |
+| `relation`     | `Column.relation`     | `string`  |
+| `on_delete`    | `Column.on_delete`    | `string`  |
+| `on_update`    | `Column.on_update`    | `string`  |
+| `inverse_of`   | `Column.inverse_of`   | `string`  |
+| `virtual`      | `Column.virtual`      | `boolean` |
+| `storage`      | `Column.storage`      | `string`  |
+| `computed`     | `Column.computed`     | `object`  |
+| `polymorphic`  | _(not parsed)_        | `object`  |
+
+## Schema-level fields
+
+| JSON path       | Dataclass field       | Type       |
+| --------------- | --------------------- | ---------- |
+| `table`         | `Table.table`         | `string`   |
+| `namespace`     | `Table.namespace`     | `string`   |
+| `primary_key`   | `Table.primary_key`   | `string[]` |
+| `timestamps`    | `Table.timestamps`    | `boolean`  |
+| `soft_delete`   | `Table.soft_delete`   | `boolean`  |
+| `searchable`    | `Table.searchable`    | `string[]` |
+| `filterable`    | _(not parsed)_        | `string[]` |
+| `sort_by`       | _(not parsed)_        | `string[]` |
+| `auditable`     | _(not parsed)_        | `boolean`  |
+| `indexes`       | `Table.indexes`       | `object[]` |
+| `relationships` | `Table.relationships` | `object`   |
+| `join_table`    | `Table.join_table`    | `object`   |
+
+## Computed expression tree
+
+The `computed` field contains a recursive expression tree:
+
+```json
+{
+  "fn": "concat",
+  "args": [{ "col": "first_name" }, " ", { "col": "last_name" }]
+}
+```
+
+Each node is one of:
+
+- **`{"fn": "name", "args": [...]}`** — function call (see `fn.*` methods)
+- **`{"col": "name"}`** — column reference
+- **literal** — string or number passed through directly
+
+## Storage modes
+
+| `storage` value | Meaning                                                  |
+| --------------- | -------------------------------------------------------- |
+| `"stored"`      | `GENERATED ALWAYS AS (expr) STORED` — on disk, indexable |
+| `"virtual"`     | `GENERATED ALWAYS AS (expr) VIRTUAL` — computed on read  |
+| `"app_only"`    | No DB column — application layer only                    |
+
+## Relationship shape
+
+```json
+{
+  "type": "has_many",
+  "target": "blog.post",
+  "target_table": "blog_post",
+  "foreign_key": "author_id",
+  "local_key": "id",
+  "backref": "author"
+}
+```
+
+For `many_to_many`, a `through` object is added:
+
+```json
+{
+  "through": {
+    "table": "user_role",
+    "local_key": "user_id",
+    "foreign_key": "role_id"
+  }
+}
+```
+
+## Index shape
+
+```json
+{
+  "name": "auth_user_email_key",
+  "columns": ["email"],
+  "unique": true,
+  "primary": false
+}
+```

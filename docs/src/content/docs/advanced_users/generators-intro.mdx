@@ -1,0 +1,64 @@
+---
+title: "Why & When: Generators vs. OpenAPI"
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+`alab gen` is included as a convenience. It is the fastest way to go from a
+schema definition to working, runnable code — one command, no external tooling
+required.
+
+This page explains what generators actually produce, when they are the right
+choice, and when you should consume the OpenAPI schema directly instead.
+
+## The OpenAPI schema is the real product
+
+Every `alab` project exports an `openapi.json` file that includes standard
+OpenAPI definitions plus `x-db` extensions carrying column-level metadata
+(types, relationships, constraints, defaults). This file is the canonical,
+machine-readable description of your data model.
+
+Generators are **one consumer** of that schema. Any tool that reads OpenAPI — or
+any script you write yourself — is an equally valid consumer.
+
+## When to use `alab gen`
+
+- **Prototyping and scaffolding** — get a working API layer or typed client in
+  seconds.
+- **Small-to-medium projects** — the built-in generators may cover everything
+  you need out of the box.
+- **Getting started** — generators let you explore what the schema contains
+  without reading the JSON directly.
+
+<Aside type="tip">
+  Generators are a good way to bootstrap a project. If you later outgrow the
+  built-in templates, you can switch to a custom codegen pipeline without
+  changing your schema at all.
+</Aside>
+
+## When to use the OpenAPI schema directly
+
+- **Production codegen pipelines** — plug `openapi.json` into your existing
+  CI/CD tooling (e.g. `openapi-generator`, QuickType, Orval).
+- **Custom tooling** — write your own transformer that reads exactly the fields
+  and extensions you care about.
+- **Established infrastructure** — if your team already has a codegen workflow,
+  consuming the schema directly avoids an unnecessary abstraction layer.
+
+<Aside type="note">
+  For teams with established codegen workflows, consuming `openapi.json`
+  directly gives you full control over output format, directory structure, and
+  post-processing — things an opinionated generator intentionally decides for
+  you.
+</Aside>
+
+## They are not mutually exclusive
+
+You can use `alab gen` for some outputs (quick prototypes, internal tooling) and
+a custom pipeline for others (production services, typed clients). Both read
+from the same `openapi.json` source of truth, so they stay in sync
+automatically.
+
+---
+
+For additional details, refer to **Code Generators**.
