@@ -4,45 +4,7 @@
  */
 
 /**
- * OpenAPI x-db column metadata.
- */
-export interface XDBColumn {
-  readonly sql_type?: { readonly postgres?: string; readonly sqlite?: string };
-  readonly semantic?: string;
-  readonly default?: any;
-  readonly auto_managed?: boolean;
-  readonly generated?: boolean;
-  readonly ref?: string;
-  readonly fk?: string;
-  readonly on_delete?: string;
-  readonly on_update?: string;
-  readonly relation?: string;
-  readonly inverse_of?: string;
-  readonly virtual?: boolean;
-  readonly computed?: any;
-  readonly polymorphic?: any;
-}
-
-/**
- * OpenAPI x-db table metadata.
- */
-export interface XDBTable {
-  readonly table: string;
-  readonly namespace: string;
-  readonly primary_key: readonly string[];
-  readonly timestamps?: boolean;
-  readonly soft_delete?: boolean;
-  readonly auditable?: boolean;
-  readonly sort_by?: readonly string[];
-  readonly searchable?: readonly string[];
-  readonly filterable?: readonly string[];
-  readonly indexes?: readonly any[];
-  readonly relationships?: any;
-  readonly join_table?: any;
-}
-
-/**
- * A column definition from the /schemas endpoint example.
+ * A column definition.
  */
 export interface SchemaColumn {
   readonly name: string;
@@ -54,7 +16,7 @@ export interface SchemaColumn {
 }
 
 /**
- * A table definition from the /schemas endpoint example.
+ * A table definition.
  */
 export interface SchemaTable {
   readonly name: string;
@@ -66,67 +28,16 @@ export interface SchemaTable {
 }
 
 /**
- * The /schemas endpoint example payload.
- */
-export interface SchemaEndpoint {
-  readonly models: { readonly [namespace: string]: readonly SchemaTable[] };
-}
-
-/**
- * OpenAPI 3.0 schema property.
- */
-export interface OpenAPIProperty {
-  readonly type?: string;
-  readonly format?: string;
-  readonly nullable?: boolean;
-  readonly readOnly?: boolean;
-  readonly enum?: readonly string[];
-  readonly maxLength?: number;
-  readonly pattern?: string;
-  readonly additionalProperties?: boolean;
-  readonly "x-db"?: XDBColumn;
-}
-
-/**
- * OpenAPI 3.0 component schema (a table).
- */
-export interface OpenAPISchema {
-  readonly type: string;
-  readonly required?: readonly string[];
-  readonly properties: { readonly [column: string]: OpenAPIProperty };
-  readonly "x-db"?: XDBTable;
-}
-
-/**
  * The schema object passed to generators.
  *
- * `schema.openapi` is a full OpenAPI 3.0 spec with `x-db` extensions.
- * `schema.graphql` is the GraphQL SDL string (optional).
+ * `schema.models` maps namespace names to their table arrays.
+ * `schema.tables` is a flat array of all tables across namespaces.
  */
 export interface GeneratorSchema {
-  readonly openapi: {
-    readonly openapi: string;
-    readonly info: any;
-    readonly paths: {
-      readonly "/schemas": {
-        readonly get: {
-          readonly responses: {
-            readonly "200": {
-              readonly content: {
-                readonly "application/json": {
-                  readonly example: SchemaEndpoint;
-                };
-              };
-            };
-          };
-        };
-      };
-    };
-    readonly components: {
-      readonly schemas: { readonly [name: string]: OpenAPISchema };
-    };
-  };
-  readonly graphql?: string;
+  /** Tables grouped by namespace. */
+  readonly models: { readonly [namespace: string]: readonly SchemaTable[] };
+  /** Flat array of all tables. */
+  readonly tables: readonly SchemaTable[];
 }
 
 /**
@@ -154,7 +65,7 @@ declare function render(files: RenderOutput): RenderOutput;
 /**
  * Entry point for a code generator.
  *
- * Receives a callback that gets the frozen schema object.
+ * Receives a callback that gets the schema object.
  * The callback must call `render({...})` to produce output files.
  *
  * @param fn - Generator callback receiving the schema
@@ -162,16 +73,16 @@ declare function render(files: RenderOutput): RenderOutput;
  *
  * @example
  * export default gen((schema) => {
- *   var api = schema.openapi;
- *   var endpoint = api.paths["/schemas"].get.responses["200"]
- *     .content["application/json"].example;
- *   var namespaces = Object.keys(endpoint.models);
- *   var files = {};
- *   // ... build files ...
+ *   const files = {};
+ *   for (const [ns, tables] of Object.entries(schema.models)) {
+ *     files[`${ns}/models.py`] = buildModels(tables);
+ *   }
  *   return render(files);
  * });
  */
-declare function gen(fn: (schema: GeneratorSchema) => RenderOutput): RenderOutput;
+declare function gen(
+  fn: (schema: GeneratorSchema) => RenderOutput,
+): RenderOutput;
 
 /**
  * Iterates over schema.tables and merges results into a single render output.
@@ -181,30 +92,30 @@ declare function gen(fn: (schema: GeneratorSchema) => RenderOutput): RenderOutpu
  * @returns Merged render output from all tables
  *
  * @example
- * var files = perTable(schema, function(table) {
- *   return { [table.name + ".txt"]: "Table: " + table.name };
+ * const files = perTable(schema, (table) => {
+ *   return { [`${table.name}.txt`]: `Table: ${table.name}` };
  * });
  */
 declare function perTable(
   schema: GeneratorSchema,
-  fn: (table: any) => RenderOutput,
+  fn: (table: SchemaTable) => RenderOutput,
 ): RenderOutput;
 
 /**
- * Iterates over schema.namespaces and merges results into a single render output.
+ * Iterates over schema.models and merges results into a single render output.
  *
  * @param schema - The schema object
  * @param fn - Callback receiving namespace name and tables, returns partial render output
  * @returns Merged render output from all namespaces
  *
  * @example
- * var files = perNamespace(schema, function(ns, tables) {
- *   return { [ns + "/index.py"]: "# Namespace: " + ns };
+ * const files = perNamespace(schema, (ns, tables) => {
+ *   return { [`${ns}/index.py`]: `# Namespace: ${ns}` };
  * });
  */
 declare function perNamespace(
   schema: GeneratorSchema,
-  fn: (namespace: string, tables: any) => RenderOutput,
+  fn: (namespace: string, tables: readonly SchemaTable[]) => RenderOutput,
 ): RenderOutput;
 
 /**

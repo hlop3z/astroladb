@@ -216,7 +216,7 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 			panic(vm.ToValue("perNamespace() first argument must be an object"))
 		}
 
-		nsVal := schemaObj.Get("namespaces")
+		nsVal := schemaObj.Get("models")
 		if nsVal == nil || goja.IsUndefined(nsVal) {
 			return vm.ToValue(map[string]string{})
 		}

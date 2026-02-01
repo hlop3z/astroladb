@@ -230,8 +230,8 @@ func genAddCmd() *cobra.Command {
 }
 
 // loadGeneratorSchema loads the schema data for generators.
-// The OpenAPI export is the primary data source — it contains all tables,
-// columns, types, relations, and metadata in a standard format.
+// Extracts the models map from the OpenAPI export so generators receive
+// a clean { models: { namespace: tables[] }, tables: table[] } object.
 func loadGeneratorSchema() (map[string]any, error) {
 	client, err := newSchemaOnlyClient()
 	if err != nil {
@@ -239,23 +239,49 @@ func loadGeneratorSchema() (map[string]any, error) {
 	}
 	defer client.Close()
 
-	schema := make(map[string]any)
-
-	// OpenAPI — primary schema data source
 	data, err := client.SchemaExport("openapi")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load schema: %w", err)
 	}
-	var openapi any
+	var openapi map[string]any
 	if err := json.Unmarshal(data, &openapi); err != nil {
 		return nil, fmt.Errorf("failed to parse OpenAPI schema: %w", err)
 	}
-	schema["openapi"] = openapi
 
-	// GraphQL — optional, don't fail if unavailable
-	if data, err := client.SchemaExport("graphql"); err == nil {
-		schema["graphql"] = string(data)
+	// Extract models from: openapi.paths["/schemas"].get.responses["200"].content["application/json"].example.models
+	models, err := extractModels(openapi)
+	if err != nil {
+		return nil, err
 	}
 
-	return schema, nil
+	// Build flat tables array from the models map
+	var tables []any
+	modelsMap, _ := models.(map[string]any)
+	for _, nsTables := range modelsMap {
+		if arr, ok := nsTables.([]any); ok {
+			tables = append(tables, arr...)
+		}
+	}
+
+	return map[string]any{
+		"models": models,
+		"tables": tables,
+	}, nil
+}
+
+// extractModels navigates the OpenAPI structure to get the models map.
+func extractModels(openapi map[string]any) (any, error) {
+	paths, _ := openapi["paths"].(map[string]any)
+	schemas, _ := paths["/schemas"].(map[string]any)
+	get, _ := schemas["get"].(map[string]any)
+	responses, _ := get["responses"].(map[string]any)
+	resp200, _ := responses["200"].(map[string]any)
+	content, _ := resp200["content"].(map[string]any)
+	appJSON, _ := content["application/json"].(map[string]any)
+	example, _ := appJSON["example"].(map[string]any)
+	models, ok := example["models"]
+	if !ok {
+		return nil, fmt.Errorf("could not extract models from OpenAPI schema")
+	}
+	return models, nil
 }

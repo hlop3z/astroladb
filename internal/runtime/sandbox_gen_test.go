@@ -264,7 +264,7 @@ func TestPerNamespaceHelper(t *testing.T) {
 		render(files);
 	})`
 	schema := map[string]any{
-		"namespaces": map[string]any{
+		"models": map[string]any{
 			"auth": []any{
 				map[string]any{"namespace": "auth", "name": "users"},
 			},

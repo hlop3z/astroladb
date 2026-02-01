@@ -19,7 +19,7 @@ import { SQLExpr } from "./globals";
 import { ColBuilder, FnBuilder } from "./column";
 import { TableChain, ColumnDefinitions } from "./schema";
 import { MigrationBuilder, MigrationDefinition } from "./migration";
-import { GeneratorSchema, RenderOutput } from "./generator";
+import { GeneratorSchema, SchemaTable, RenderOutput } from "./generator";
 
 declare global {
   /** Wraps a string as a raw SQL expression. */
@@ -84,13 +84,16 @@ declare global {
 
   /**
    * Entry point for a code generator.
-   * Receives a callback with the frozen schema object.
+   * Receives a callback with the schema object.
    * The callback must call render() to produce output files.
    *
    * @example
    * export default gen((schema) => {
-   *   var api = schema.openapi;
-   *   return render({ "output.txt": "hello" });
+   *   const files = {};
+   *   for (const [ns, tables] of Object.entries(schema.models)) {
+   *     files[`${ns}/output.txt`] = "hello";
+   *   }
+   *   return render(files);
    * });
    */
   function gen(fn: (schema: GeneratorSchema) => RenderOutput): RenderOutput;
@@ -99,10 +102,10 @@ declare global {
   function render(files: RenderOutput): RenderOutput;
 
   /** Iterates schema.tables, merges results into render output. */
-  function perTable(schema: GeneratorSchema, fn: (table: any) => RenderOutput): RenderOutput;
+  function perTable(schema: GeneratorSchema, fn: (table: SchemaTable) => RenderOutput): RenderOutput;
 
-  /** Iterates schema.namespaces, merges results into render output. */
-  function perNamespace(schema: GeneratorSchema, fn: (namespace: string, tables: any) => RenderOutput): RenderOutput;
+  /** Iterates schema.models by namespace, merges results into render output. */
+  function perNamespace(schema: GeneratorSchema, fn: (namespace: string, tables: readonly SchemaTable[]) => RenderOutput): RenderOutput;
 
   /** Converts a value to JSON string. */
   function json(value: any, indent?: string): string;
