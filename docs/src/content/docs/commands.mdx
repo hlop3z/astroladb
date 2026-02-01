@@ -2,37 +2,176 @@
 title: CLI Commands
 ---
 
-Complete reference for all Astroladb (`alab`) CLI commands
+Complete reference for all Astroladb (`alab`) CLI commands.
 
 ---
 
 ## Development Commands
 
-| Command  | Description                                                                |
-| -------- | -------------------------------------------------------------------------- |
-| `init`   | Initialize project structure (`schemas/`, `migrations/`, `types/`)         |
-| `table`  | Create a new table schema file                                             |
-| `live`   | Start local server for live API documentation                              |
-| `export` | Export schema (`openapi`, `graphql`, `typescript`, `go`, `python`, `rust`) |
+### `alab init`
+
+Initialize a new project. Creates `schemas/`, `migrations/`, and `types/`
+directories along with an `alab.yaml` config file.
+
+```bash
+alab init
+```
+
+Use `--demo` to scaffold a sample schema:
+
+```bash
+alab init --demo
+```
+
+### `alab table`
+
+Create a new table schema file. Takes a namespace and table name.
+
+```bash
+alab table auth user
+```
+
+This creates `schemas/auth/user.js`.
+
+### `alab live`
+
+Start a local server for live API documentation. Useful for browsing your schema
+interactively.
+
+```bash
+alab live
+```
+
+### `alab export`
+
+Export the schema in a given format.
+
+```bash
+alab export -f openapi
+alab export -f graphql
+alab export -f typescript
+alab export -f python
+alab export -f go
+alab export -f rust
+```
+
+| Flag | Description                                                                      |
+| ---- | -------------------------------------------------------------------------------- |
+| `-f` | **Required.** Format: `openapi`, `graphql`, `typescript`, `go`, `python`, `rust` |
 
 ---
 
 ## Migration Commands
 
-| Command    | Description                                              |
-| ---------- | -------------------------------------------------------- |
-| `new`      | Create a migration (auto-generated from schema changes)  |
-| `migrate`  | Apply pending migrations                                 |
-| `rollback` | Roll back migrations (default: 1 step)                   |
-| `reset`    | Drop all tables and re-run migrations (development only) |
+### `alab new`
+
+Generate a migration from the current schema diff. The argument is a descriptive
+name for the migration.
+
+```bash
+alab new create_users
+```
+
+### `alab migrate`
+
+Apply all pending migrations.
+
+```bash
+alab migrate
+```
+
+Preview the SQL without applying:
+
+```bash
+alab migrate --dry
+```
+
+Apply and auto-commit to git:
+
+```bash
+alab migrate --commit
+```
+
+### `alab rollback`
+
+Roll back the most recent migration. Pass a number to roll back multiple steps.
+
+```bash
+alab rollback
+alab rollback 3
+```
+
+### `alab reset`
+
+Drop all tables and re-run every migration from scratch. Development only.
+
+```bash
+alab reset
+```
 
 ---
 
 ## Toolkit Commands
 
-| Command  | Description                                         |
-| -------- | --------------------------------------------------- |
-| `schema` | Show schema at a specific migration revision        |
-| `status` | Show schema, history, verification, and drift (TUI) |
-| `types`  | Regenerate TypeScript definitions for IDE support   |
-| `meta`   | Export schema metadata to a JSON file               |
+### `alab schema`
+
+Show the schema at a specific migration revision.
+
+```bash
+alab schema
+```
+
+### `alab status`
+
+Show schema state, migration history, verification, and drift detection in a
+TUI.
+
+```bash
+alab status
+```
+
+### `alab types`
+
+Regenerate TypeScript definitions used for IDE autocompletion inside schema
+files.
+
+```bash
+alab types
+```
+
+### `alab meta`
+
+Export schema metadata to a JSON file.
+
+```bash
+alab meta
+```
+
+---
+
+## Generator Commands
+
+### `alab gen run`
+
+Run a generator file and write the output to a directory.
+
+```bash
+alab gen run generators/fastapi -o ./generated
+```
+
+The `.js` extension is optional.
+
+| Flag           | Description                     |
+| -------------- | ------------------------------- |
+| `-o, --output` | **Required.** Output directory. |
+
+### `alab gen add`
+
+Download a shared generator from a URL into `generators/`.
+
+```bash
+alab gen add https://raw.githubusercontent.com/hlop3z/astroladb/main/examples/generators/generators/fastapi.js
+```
+
+See [Code Generators](../advanced_users/generators/) for the full generator API
+and sandbox reference.

@@ -2,7 +2,7 @@
 title: Export
 ---
 
-import { Tabs, TabItem } from "@astrojs/starlight/components";
+import { Tabs, TabItem, Aside } from "@astrojs/starlight/components";
 
 The `alab export` command generates native, type-safe structures from your
 schema.
@@ -144,7 +144,7 @@ export interface AuthUser {
 </Tabs>
 
 
-💡 **Why are Decimals strings?** 
-
+<Aside type="note" title="Why are Decimals strings?">
 Balances are exported as strings in all languages to preserve financial precision.
 By exporting a string, alab lets you choose your favorite precision library (like `decimal.Decimal` in Python, or `rust_decimal` in Rust) to handle the math.
+</Aside>

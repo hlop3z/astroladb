@@ -2,6 +2,8 @@
 title: AstrolaDB vs. The Giants
 ---
 
+import { Aside } from "@astrojs/starlight/components";
+
 AstrolaDB focuses on schema definition, migration generation, and type export.
 It intentionally does not manage query execution, runtime validation, or
 database access patterns. These responsibilities remain with application
@@ -17,8 +19,10 @@ frameworks and libraries best suited to each language.
 | **Runtime**        | Node.js + Rust | Node.js    | Go Binary      | JVM (Java)  | **Single Go Binary**                       |
 | **The Result**     | App Client     | TS Types   | DB State       | SQL Scripts | **Zero-Drift Polyglot Stack**              |
 
+<Aside type="note">
 If you want an all-in-one ORM with runtime guarantees, AstrolaDB is probably not
 what you're looking for.
+</Aside>
 
 ## What AstrolaDB is NOT
 
