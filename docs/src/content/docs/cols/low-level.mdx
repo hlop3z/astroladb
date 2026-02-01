@@ -2,6 +2,8 @@
 title: Low-Level Types
 ---
 
+import { Aside } from "@astrojs/starlight/components";
+
 Low-level types give you direct control over SQL column types when semantic
 types don't fit your needs.
 
@@ -43,8 +45,8 @@ export default table({
   created_at: col.datetime(), // TIMESTAMP
 
   // JSON and UUID
-  id: col.uuid(), // UUID (use col.id() for primary key)
   preferences: col.json(), // JSONB
+  id: col.uuid(), // UUID (use col.id() for primary key)
 
   // Enums
   priority: col.enum(["low", "normal", "high"]).default("normal"),
@@ -53,8 +55,10 @@ export default table({
 
 ## Prefer Semantic Types
 
-For most cases, use semantic types instead - they include `patterns` and
-sensible `defaults`:
+<Aside type="tip">
+For most cases, use semantic types instead — they include `patterns` and
+sensible `defaults`.
+</Aside>
 
 | Instead of...       | Use...           |
 | ------------------- | ---------------- |

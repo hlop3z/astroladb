@@ -2,6 +2,8 @@
 title: Computed & Virtual Columns
 ---
 
+import { Aside } from "@astrojs/starlight/components";
+
 Computed columns are fields whose values are derived from other columns or
 expressions. Chain `.computed(expr)` on any column type:
 
@@ -159,18 +161,21 @@ is_adult: col.boolean().computed(fn.gte(fn.col("age"), 18)),
 
 ## Limitations
 
-- **Immutable expressions only** — PostgreSQL and CockroachDB require immutable
-  functions. AstrolaDB uses `||` instead of `CONCAT()` because `CONCAT()` is not
-  immutable in PostgreSQL.
+<Aside type="caution" title="Immutable expressions only">
+PostgreSQL and CockroachDB require immutable functions. AstrolaDB uses `||` instead of `CONCAT()` because `CONCAT()` is not immutable in PostgreSQL.
+</Aside>
 
-- **SQLite: no STORED via ALTER TABLE** — SQLite cannot add a STORED generated
-  column via `ALTER TABLE`. Use `.virtual()` instead (VIRTUAL columns are
-  allowed). AstrolaDB returns an error for STORED additions.
+<Aside type="caution" title="SQLite: no STORED via ALTER TABLE">
+SQLite cannot add a STORED generated column via `ALTER TABLE`. Use `.virtual()` instead (VIRTUAL columns are allowed). AstrolaDB returns an error for STORED additions.
+</Aside>
 
-- **No self-referencing** — a computed column cannot reference itself or other
-  computed columns.
+<Aside type="caution" title="No self-referencing">
+A computed column cannot reference itself or other computed columns.
+</Aside>
 
-- **No default values** — computed columns cannot have a `DEFAULT`.
+<Aside type="caution" title="No default values">
+Computed columns cannot have a `DEFAULT`.
+</Aside>
 
 ---
 

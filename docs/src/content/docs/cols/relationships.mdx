@@ -2,6 +2,8 @@
 title: Relationships
 ---
 
+import { Aside } from "@astrojs/starlight/components";
+
 Relationships connect tables together using foreign keys.
 
 ## belongs_to (Foreign Keys)
@@ -138,8 +140,9 @@ category: col.belongs_to("catalog.category").on_delete("restrict"),
 
 ### on_update
 
-Control behavior when the referenced column is updated (rarely needed with
-UUIDs):
+<Aside type="note">
+`on_update` is rarely needed when using UUIDs as primary keys, since UUIDs don't change.
+</Aside>
 
 ```js
 parent: col.belongs_to("catalog.category").on_update("cascade"),
