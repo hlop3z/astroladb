@@ -97,6 +97,7 @@ func customHelp(cmd *cobra.Command) {
 				{"status", "Show schema, history, verify, and drift (TUI)"},
 				{"types", "Regenerate TypeScript definitions for IDE"},
 				{"meta", "Export schema metadata to JSON file"},
+				{"check", "Validate schemas or lint migrations"},
 			},
 		},
 		{
@@ -166,6 +167,7 @@ func main() {
 		httpCmd(),
 		lockCmd(),
 		genCmd(),
+		checkCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
