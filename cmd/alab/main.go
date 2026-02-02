@@ -168,6 +168,7 @@ func main() {
 		lockCmd(),
 		genCmd(),
 		checkCmd(),
+		squashCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

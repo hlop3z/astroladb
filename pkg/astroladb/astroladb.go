@@ -189,6 +189,28 @@ func (c *Client) ParseMigrationFile(path string) ([]ast.Operation, error) {
 	return c.sandbox.RunFile(path)
 }
 
+// GenerateBaselineOps loads the current schema and generates baseline create operations.
+// Returns operations ordered by FK dependency.
+func (c *Client) GenerateBaselineOps() ([]ast.Operation, error) {
+	tables, err := c.loadTables()
+	if err != nil {
+		return nil, err
+	}
+	return engine.GenerateBaseline(tables), nil
+}
+
+// GenerateBaselineContent generates the JavaScript content for a baseline migration.
+func (c *Client) GenerateBaselineContent(squashedThrough string, count int) (string, error) {
+	ops, err := c.GenerateBaselineOps()
+	if err != nil {
+		return "", err
+	}
+	content := c.generateMigrationContent("baseline", ops)
+	// Prepend baseline header comment
+	header := fmt.Sprintf("// Baseline: squashed from %d migrations (through revision %s)\n", count, squashedThrough)
+	return header + content, nil
+}
+
 // log logs a message if a logger is configured.
 func (c *Client) log(format string, v ...any) {
 	if c.config.Logger != nil {

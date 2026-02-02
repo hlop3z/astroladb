@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -732,5 +733,89 @@ func TestGenerateDownOpsDropColumnIrreversible(t *testing.T) {
 	downOps := GenerateDownOps(ops)
 	if len(downOps) != 0 {
 		t.Errorf("DropColumn should generate 0 down ops, got %d", len(downOps))
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Baseline Skip Tests
+// -----------------------------------------------------------------------------
+
+func TestPlanUp_SkipsBaselineWhenMigrationsApplied(t *testing.T) {
+	all := []Migration{
+		{Revision: "001", Name: "baseline", IsBaseline: true, SquashedThrough: "003"},
+		{Revision: "004", Name: "add_column"},
+	}
+	applied := []AppliedMigration{
+		{Revision: "001", AppliedAt: time.Now(), Checksum: "abc"},
+		{Revision: "002", AppliedAt: time.Now(), Checksum: "def"},
+		{Revision: "003", AppliedAt: time.Now(), Checksum: "ghi"},
+	}
+
+	plan, err := PlanMigrations(all, applied, "", Up)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Should skip baseline (already has applied migrations) and include 004
+	if len(plan.Migrations) != 1 {
+		t.Fatalf("expected 1 pending migration, got %d", len(plan.Migrations))
+	}
+	if plan.Migrations[0].Revision != "004" {
+		t.Errorf("expected revision '004', got %q", plan.Migrations[0].Revision)
+	}
+}
+
+func TestPlanUp_RejectsModifiedChecksum(t *testing.T) {
+	all := []Migration{
+		{Revision: "001", Name: "create_users", Checksum: "changed_checksum"},
+		{Revision: "002", Name: "add_column", Checksum: "aaa"},
+	}
+	applied := []AppliedMigration{
+		{Revision: "001", AppliedAt: time.Now(), Checksum: "original_checksum"},
+	}
+
+	_, err := PlanMigrations(all, applied, "", Up)
+	if err == nil {
+		t.Fatal("expected error for checksum mismatch, got nil")
+	}
+	if !strings.Contains(err.Error(), "modified") {
+		t.Errorf("expected 'modified' in error, got: %s", err.Error())
+	}
+}
+
+func TestPlanUp_AllowsEmptyChecksums(t *testing.T) {
+	all := []Migration{
+		{Revision: "001", Name: "create_users", Checksum: "abc"},
+		{Revision: "002", Name: "add_column", Checksum: "def"},
+	}
+	applied := []AppliedMigration{
+		{Revision: "001", AppliedAt: time.Now(), Checksum: ""}, // old migration, no checksum recorded
+	}
+
+	plan, err := PlanMigrations(all, applied, "", Up)
+	if err != nil {
+		t.Fatalf("empty checksums should not cause error: %v", err)
+	}
+	if len(plan.Migrations) != 1 || plan.Migrations[0].Revision != "002" {
+		t.Errorf("expected 002 pending, got %v", plan.Migrations)
+	}
+}
+
+func TestPlanUp_AppliesBaselineOnFreshDB(t *testing.T) {
+	all := []Migration{
+		{Revision: "001", Name: "baseline", IsBaseline: true, SquashedThrough: "003"},
+		{Revision: "004", Name: "add_column"},
+	}
+	var applied []AppliedMigration // fresh DB
+
+	plan, err := PlanMigrations(all, applied, "", Up)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Should apply both baseline and 004
+	if len(plan.Migrations) != 2 {
+		t.Fatalf("expected 2 pending migrations, got %d", len(plan.Migrations))
+	}
+	if plan.Migrations[0].Revision != "001" {
+		t.Errorf("expected first revision '001', got %q", plan.Migrations[0].Revision)
 	}
 }

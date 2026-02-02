@@ -14,10 +14,14 @@ import (
 
 // Version tracking table schema:
 // CREATE TABLE alab_migrations (
-//     revision     VARCHAR(20) PRIMARY KEY,
-//     applied_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-//     checksum     VARCHAR(64),
-//     exec_time_ms INTEGER
+//     revision          VARCHAR(20) PRIMARY KEY,
+//     applied_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+//     checksum          VARCHAR(64),
+//     exec_time_ms      INTEGER,
+//     description       TEXT,
+//     sql_checksum      VARCHAR(64),
+//     squashed_through  VARCHAR(20),
+//     applied_order     INTEGER
 // )
 
 const (
@@ -37,10 +41,14 @@ const (
 
 // AppliedMigration represents a migration that has been applied to the database.
 type AppliedMigration struct {
-	Revision   string
-	AppliedAt  time.Time
-	Checksum   string
-	ExecTimeMs int
+	Revision        string
+	AppliedAt       time.Time
+	Checksum        string
+	ExecTimeMs      int
+	Description     string
+	SQLChecksum     string
+	SquashedThrough string
+	AppliedOrder    int
 }
 
 // VersionManager handles version tracking for migrations.
@@ -59,6 +67,7 @@ func NewVersionManager(db *sql.DB, d dialect.Dialect) *VersionManager {
 }
 
 // EnsureTable creates the migration tracking table if it doesn't exist.
+// Also adds new columns to existing tables for backward compatibility.
 func (v *VersionManager) EnsureTable(ctx context.Context) error {
 	sql := v.createTableSQL()
 	_, err := v.db.ExecContext(ctx, sql)
@@ -66,7 +75,35 @@ func (v *VersionManager) EnsureTable(ctx context.Context) error {
 		return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to create migrations table").
 			WithSQL(sql)
 	}
+
+	// Add new columns if they don't exist (safe for existing installations)
+	for _, col := range v.newColumns() {
+		// Ignore errors — column may already exist
+		_, _ = v.db.ExecContext(ctx, col)
+	}
+
 	return nil
+}
+
+// newColumns returns ALTER TABLE statements to add columns introduced after the initial schema.
+func (v *VersionManager) newColumns() []string {
+	qt := v.dialect.QuoteIdent(MigrationTableName)
+	switch v.dialect.Name() {
+	case "sqlite":
+		return []string{
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN description TEXT", qt),
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN sql_checksum TEXT", qt),
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN squashed_through TEXT", qt),
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN applied_order INTEGER", qt),
+		}
+	default:
+		return []string{
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS description TEXT", qt),
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS sql_checksum VARCHAR(64)", qt),
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS squashed_through VARCHAR(20)", qt),
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS applied_order INTEGER", qt),
+		}
+	}
 }
 
 // createTableSQL returns the CREATE TABLE statement for the migrations table.
@@ -76,27 +113,38 @@ func (v *VersionManager) createTableSQL() string {
 	switch v.dialect.Name() {
 	case "postgres":
 		return fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
-    revision     VARCHAR(20) PRIMARY KEY,
-    applied_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    checksum     VARCHAR(64),
-    exec_time_ms INTEGER
+    revision          VARCHAR(20) PRIMARY KEY,
+    applied_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    checksum          VARCHAR(64),
+    exec_time_ms      INTEGER,
+    description       TEXT,
+    sql_checksum      VARCHAR(64),
+    squashed_through  VARCHAR(20),
+    applied_order     INTEGER
 )`, quotedTable)
 
 	case "sqlite":
 		return fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
-    revision     TEXT PRIMARY KEY,
-    applied_at   TEXT NOT NULL DEFAULT (datetime('now')),
-    checksum     TEXT,
-    exec_time_ms INTEGER
+    revision          TEXT PRIMARY KEY,
+    applied_at        TEXT NOT NULL DEFAULT (datetime('now')),
+    checksum          TEXT,
+    exec_time_ms      INTEGER,
+    description       TEXT,
+    sql_checksum      TEXT,
+    squashed_through  TEXT,
+    applied_order     INTEGER
 )`, quotedTable)
 
 	default:
-		// Fallback to PostgreSQL syntax
 		return fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
-    revision     VARCHAR(20) PRIMARY KEY,
-    applied_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    checksum     VARCHAR(64),
-    exec_time_ms INTEGER
+    revision          VARCHAR(20) PRIMARY KEY,
+    applied_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    checksum          VARCHAR(64),
+    exec_time_ms      INTEGER,
+    description       TEXT,
+    sql_checksum      VARCHAR(64),
+    squashed_through  VARCHAR(20),
+    applied_order     INTEGER
 )`, quotedTable)
 	}
 }
@@ -105,7 +153,7 @@ func (v *VersionManager) createTableSQL() string {
 func (v *VersionManager) GetApplied(ctx context.Context) ([]AppliedMigration, error) {
 	quotedTable := v.dialect.QuoteIdent(MigrationTableName)
 	query := fmt.Sprintf(
-		"SELECT revision, applied_at, checksum, exec_time_ms FROM %s ORDER BY revision ASC",
+		"SELECT revision, applied_at, checksum, exec_time_ms, description, sql_checksum, squashed_through, applied_order FROM %s ORDER BY revision ASC",
 		quotedTable,
 	)
 
@@ -119,16 +167,15 @@ func (v *VersionManager) GetApplied(ctx context.Context) ([]AppliedMigration, er
 	var migrations []AppliedMigration
 	for rows.Next() {
 		var m AppliedMigration
-		var checksum sql.NullString
-		var execTime sql.NullInt64
+		var checksum, description, sqlChecksum, squashedThrough sql.NullString
+		var execTime, appliedOrder sql.NullInt64
 		var appliedAt interface{}
 
-		err := rows.Scan(&m.Revision, &appliedAt, &checksum, &execTime)
+		err := rows.Scan(&m.Revision, &appliedAt, &checksum, &execTime, &description, &sqlChecksum, &squashedThrough, &appliedOrder)
 		if err != nil {
 			return nil, alerr.Wrap(alerr.ErrSQLExecution, err, "failed to scan migration row")
 		}
 
-		// Handle applied_at based on dialect
 		m.AppliedAt = v.parseAppliedAt(appliedAt)
 
 		if checksum.Valid {
@@ -136,6 +183,18 @@ func (v *VersionManager) GetApplied(ctx context.Context) ([]AppliedMigration, er
 		}
 		if execTime.Valid {
 			m.ExecTimeMs = int(execTime.Int64)
+		}
+		if description.Valid {
+			m.Description = description.String
+		}
+		if sqlChecksum.Valid {
+			m.SQLChecksum = sqlChecksum.String
+		}
+		if squashedThrough.Valid {
+			m.SquashedThrough = squashedThrough.String
+		}
+		if appliedOrder.Valid {
+			m.AppliedOrder = int(appliedOrder.Int64)
 		}
 
 		migrations = append(migrations, m)
@@ -176,10 +235,27 @@ func (v *VersionManager) parseAppliedAt(val interface{}) time.Time {
 	}
 }
 
+// ApplyRecord holds the fields to record when a migration is applied.
+type ApplyRecord struct {
+	Revision        string
+	Checksum        string
+	ExecTime        time.Duration
+	Description     string
+	SQLChecksum     string
+	SquashedThrough string
+}
+
 // RecordApplied records that a migration has been applied.
-func (v *VersionManager) RecordApplied(ctx context.Context, revision, checksum string, execTime time.Duration) error {
+// applied_order is auto-assigned as MAX(applied_order)+1.
+func (v *VersionManager) RecordApplied(ctx context.Context, rec ApplyRecord) error {
 	quotedTable := v.dialect.QuoteIdent(MigrationTableName)
-	execTimeMs := int(execTime.Milliseconds())
+	execTimeMs := int(rec.ExecTime.Milliseconds())
+
+	// Compute next applied_order
+	nextOrder, err := v.nextAppliedOrder(ctx)
+	if err != nil {
+		return err
+	}
 
 	var query string
 	var args []interface{}
@@ -187,34 +263,56 @@ func (v *VersionManager) RecordApplied(ctx context.Context, revision, checksum s
 	switch v.dialect.Name() {
 	case "postgres":
 		query = fmt.Sprintf(
-			"INSERT INTO %s (revision, checksum, exec_time_ms) VALUES ($1, $2, $3)",
+			"INSERT INTO %s (revision, checksum, exec_time_ms, description, sql_checksum, squashed_through, applied_order) VALUES ($1, $2, $3, $4, $5, $6, $7)",
 			quotedTable,
 		)
-		args = []interface{}{revision, checksum, execTimeMs}
+		args = []interface{}{rec.Revision, rec.Checksum, execTimeMs, nullIfEmpty(rec.Description), nullIfEmpty(rec.SQLChecksum), nullIfEmpty(rec.SquashedThrough), nextOrder}
 
 	case "sqlite":
 		query = fmt.Sprintf(
-			"INSERT INTO %s (revision, checksum, exec_time_ms) VALUES (?, ?, ?)",
+			"INSERT INTO %s (revision, checksum, exec_time_ms, description, sql_checksum, squashed_through, applied_order) VALUES (?, ?, ?, ?, ?, ?, ?)",
 			quotedTable,
 		)
-		args = []interface{}{revision, checksum, execTimeMs}
+		args = []interface{}{rec.Revision, rec.Checksum, execTimeMs, nullIfEmpty(rec.Description), nullIfEmpty(rec.SQLChecksum), nullIfEmpty(rec.SquashedThrough), nextOrder}
 
 	default:
 		query = fmt.Sprintf(
-			"INSERT INTO %s (revision, checksum, exec_time_ms) VALUES ($1, $2, $3)",
+			"INSERT INTO %s (revision, checksum, exec_time_ms, description, sql_checksum, squashed_through, applied_order) VALUES ($1, $2, $3, $4, $5, $6, $7)",
 			quotedTable,
 		)
-		args = []interface{}{revision, checksum, execTimeMs}
+		args = []interface{}{rec.Revision, rec.Checksum, execTimeMs, nullIfEmpty(rec.Description), nullIfEmpty(rec.SQLChecksum), nullIfEmpty(rec.SquashedThrough), nextOrder}
 	}
 
-	_, err := v.db.ExecContext(ctx, query, args...)
+	_, err = v.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to record applied migration").
-			With("revision", revision).
+			With("revision", rec.Revision).
 			WithSQL(query)
 	}
 
 	return nil
+}
+
+// nextAppliedOrder returns the next applied_order value (MAX+1, starting at 1).
+func (v *VersionManager) nextAppliedOrder(ctx context.Context) (int, error) {
+	quotedTable := v.dialect.QuoteIdent(MigrationTableName)
+	query := fmt.Sprintf("SELECT COALESCE(MAX(applied_order), 0) FROM %s", quotedTable)
+
+	var maxOrder int
+	err := v.db.QueryRowContext(ctx, query).Scan(&maxOrder)
+	if err != nil {
+		return 0, alerr.Wrap(alerr.ErrSQLExecution, err, "failed to get max applied_order").
+			WithSQL(query)
+	}
+	return maxOrder + 1, nil
+}
+
+// nullIfEmpty returns nil if the string is empty, otherwise the string pointer.
+func nullIfEmpty(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // RecordRollback removes a migration record (used during rollback).
