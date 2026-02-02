@@ -57,6 +57,21 @@ type Migration struct {
 
 	// AfterHooks are SQL statements to execute after DDL operations.
 	AfterHooks []string
+
+	// DownBeforeHooks are SQL statements to execute before DDL operations during rollback.
+	DownBeforeHooks []string
+
+	// DownAfterHooks are SQL statements to execute after DDL operations during rollback.
+	DownAfterHooks []string
+
+	// Description is a human-readable summary of what this migration does.
+	Description string
+
+	// IsBaseline marks this as a squashed baseline migration.
+	IsBaseline bool
+
+	// SquashedThrough is the last revision that was squashed into this baseline.
+	SquashedThrough string
 }
 
 // Plan represents a set of migrations to execute in a specific direction.
@@ -91,18 +106,46 @@ func (p *Plan) IsEmpty() bool {
 func PlanMigrations(all []Migration, applied []AppliedMigration, target string, dir Direction) (*Plan, error) {
 	// Create a set of applied revisions for quick lookup
 	appliedSet := make(map[string]bool, len(applied))
+	appliedChecksums := make(map[string]string, len(applied))
 	for _, a := range applied {
 		appliedSet[a.Revision] = true
+		appliedChecksums[a.Revision] = a.Checksum
 	}
 
 	switch dir {
 	case Up:
+		// Verify checksums of applied migrations against current files
+		if err := verifyChecksums(all, appliedChecksums); err != nil {
+			return nil, err
+		}
 		return planUp(all, appliedSet, target)
 	case Down:
 		return planDown(all, applied, target)
 	default:
 		return &Plan{Direction: dir}, nil
 	}
+}
+
+// verifyChecksums checks that all applied migrations still match their recorded checksums.
+// Returns an error if any migration file has been modified after being applied.
+func verifyChecksums(all []Migration, appliedChecksums map[string]string) error {
+	for _, m := range all {
+		recorded, ok := appliedChecksums[m.Revision]
+		if !ok {
+			continue // not applied yet
+		}
+		if recorded == "" || m.Checksum == "" {
+			continue // no checksum to compare
+		}
+		if recorded != m.Checksum {
+			return alerr.New(alerr.ErrMigrationChecksum, "migration file was modified after being applied").
+				With("revision", m.Revision).
+				With("name", m.Name).
+				With("expected", recorded).
+				With("actual", m.Checksum)
+		}
+	}
+	return nil
 }
 
 // planUp creates a plan for applying migrations.
@@ -119,10 +162,17 @@ func planUp(all []Migration, appliedSet map[string]bool, target string) (*Plan, 
 		return sorted[i].Revision < sorted[j].Revision
 	})
 
+	hasApplied := len(appliedSet) > 0
+
 	// Find pending migrations
 	for _, m := range sorted {
 		if appliedSet[m.Revision] {
 			continue // Already applied
+		}
+
+		// Skip baseline for already-migrated environments
+		if m.IsBaseline && hasApplied {
+			continue
 		}
 
 		plan.Migrations = append(plan.Migrations, m)

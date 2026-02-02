@@ -2,7 +2,9 @@ package engine
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -101,9 +103,13 @@ func (r *Runner) RunDryRun(ctx context.Context, plan *Plan) ([]string, error) {
 
 	for _, m := range plan.Migrations {
 		// Include before hooks
-		if plan.Direction == Up && len(m.BeforeHooks) > 0 {
+		beforeHooks := m.BeforeHooks
+		if plan.Direction == Down {
+			beforeHooks = m.DownBeforeHooks
+		}
+		if len(beforeHooks) > 0 {
 			allSQL = append(allSQL, "-- Before hooks")
-			allSQL = append(allSQL, m.BeforeHooks...)
+			allSQL = append(allSQL, beforeHooks...)
 		}
 
 		ops := r.getOperations(m, plan.Direction)
@@ -116,9 +122,13 @@ func (r *Runner) RunDryRun(ctx context.Context, plan *Plan) ([]string, error) {
 		}
 
 		// Include after hooks
-		if plan.Direction == Up && len(m.AfterHooks) > 0 {
+		afterHooks := m.AfterHooks
+		if plan.Direction == Down {
+			afterHooks = m.DownAfterHooks
+		}
+		if len(afterHooks) > 0 {
 			allSQL = append(allSQL, "-- After hooks")
-			allSQL = append(allSQL, m.AfterHooks...)
+			allSQL = append(allSQL, afterHooks...)
 		}
 	}
 
@@ -129,7 +139,12 @@ func (r *Runner) RunDryRun(ctx context.Context, plan *Plan) ([]string, error) {
 func (r *Runner) runOne(ctx context.Context, m Migration, dir Direction) error {
 	start := time.Now()
 
-	var err error
+	// Collect all SQL statements for checksum computation
+	allSQL, err := r.collectSQL(m, dir)
+	if err != nil {
+		return err
+	}
+
 	if r.dialect.SupportsTransactionalDDL() {
 		err = r.runInTransaction(ctx, m, dir)
 	} else {
@@ -142,15 +157,62 @@ func (r *Runner) runOne(ctx context.Context, m Migration, dir Direction) error {
 
 	execTime := time.Since(start)
 
-	// Update version tracking
 	switch dir {
 	case Up:
-		return r.versions.RecordApplied(ctx, m.Revision, m.Checksum, execTime)
+		return r.versions.RecordApplied(ctx, ApplyRecord{
+			Revision:        m.Revision,
+			Checksum:        m.Checksum,
+			ExecTime:        execTime,
+			Description:     m.Description,
+			SQLChecksum:     ComputeSQLChecksum(allSQL),
+			SquashedThrough: m.SquashedThrough,
+		})
 	case Down:
 		return r.versions.RecordRollback(ctx, m.Revision)
 	default:
 		return nil
 	}
+}
+
+// collectSQL generates all SQL statements for a migration without executing them.
+func (r *Runner) collectSQL(m Migration, dir Direction) ([]string, error) {
+	var allSQL []string
+
+	if dir == Up {
+		allSQL = append(allSQL, m.BeforeHooks...)
+	} else {
+		allSQL = append(allSQL, m.DownBeforeHooks...)
+	}
+
+	ops := r.getOperations(m, dir)
+	for _, op := range ops {
+		sqls, err := r.operationToSQL(op)
+		if err != nil {
+			return nil, err
+		}
+		allSQL = append(allSQL, sqls...)
+	}
+
+	if dir == Up {
+		allSQL = append(allSQL, m.AfterHooks...)
+	} else {
+		allSQL = append(allSQL, m.DownAfterHooks...)
+	}
+
+	return allSQL, nil
+}
+
+// ComputeSQLChecksum computes a SHA-256 hash of the concatenated SQL statements.
+func ComputeSQLChecksum(statements []string) string {
+	if len(statements) == 0 {
+		return ""
+	}
+	h := sha256.New()
+	for _, s := range statements {
+		h.Write([]byte(s))
+		h.Write([]byte("\n"))
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // runInTransaction executes a migration within a transaction.
@@ -171,12 +233,14 @@ func (r *Runner) runInTransaction(ctx context.Context, m Migration, dir Directio
 	}()
 
 	// Execute before hooks
-	if dir == Up {
-		for _, hook := range m.BeforeHooks {
-			if _, err := tx.ExecContext(ctx, hook); err != nil {
-				return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute before hook").
-					WithSQL(hook)
-			}
+	beforeHooks := m.BeforeHooks
+	if dir == Down {
+		beforeHooks = m.DownBeforeHooks
+	}
+	for _, hook := range beforeHooks {
+		if _, err := tx.ExecContext(ctx, hook); err != nil {
+			return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute before hook").
+				WithSQL(hook)
 		}
 	}
 
@@ -196,12 +260,14 @@ func (r *Runner) runInTransaction(ctx context.Context, m Migration, dir Directio
 	}
 
 	// Execute after hooks
-	if dir == Up {
-		for _, hook := range m.AfterHooks {
-			if _, err := tx.ExecContext(ctx, hook); err != nil {
-				return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute after hook").
-					WithSQL(hook)
-			}
+	afterHooks := m.AfterHooks
+	if dir == Down {
+		afterHooks = m.DownAfterHooks
+	}
+	for _, hook := range afterHooks {
+		if _, err := tx.ExecContext(ctx, hook); err != nil {
+			return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute after hook").
+				WithSQL(hook)
 		}
 	}
 
@@ -217,12 +283,14 @@ func (r *Runner) runInTransaction(ctx context.Context, m Migration, dir Directio
 // Used for databases that don't support transactional DDL.
 func (r *Runner) runWithoutTransaction(ctx context.Context, m Migration, dir Direction) error {
 	// Execute before hooks
-	if dir == Up {
-		for _, hook := range m.BeforeHooks {
-			if _, err := r.db.ExecContext(ctx, hook); err != nil {
-				return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute before hook").
-					WithSQL(hook)
-			}
+	beforeHooks := m.BeforeHooks
+	if dir == Down {
+		beforeHooks = m.DownBeforeHooks
+	}
+	for _, hook := range beforeHooks {
+		if _, err := r.db.ExecContext(ctx, hook); err != nil {
+			return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute before hook").
+				WithSQL(hook)
 		}
 	}
 
@@ -242,12 +310,14 @@ func (r *Runner) runWithoutTransaction(ctx context.Context, m Migration, dir Dir
 	}
 
 	// Execute after hooks
-	if dir == Up {
-		for _, hook := range m.AfterHooks {
-			if _, err := r.db.ExecContext(ctx, hook); err != nil {
-				return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute after hook").
-					WithSQL(hook)
-			}
+	afterHooks := m.AfterHooks
+	if dir == Down {
+		afterHooks = m.DownAfterHooks
+	}
+	for _, hook := range afterHooks {
+		if _, err := r.db.ExecContext(ctx, hook); err != nil {
+			return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute after hook").
+				WithSQL(hook)
 		}
 	}
 

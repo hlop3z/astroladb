@@ -28,8 +28,18 @@ func NewBindingsContext(vm *goja.Runtime, namespace string) *BindingsContext {
 
 // MigrationHooks stores before/after SQL hooks parsed from migration DSL.
 type MigrationHooks struct {
-	Before []string
-	After  []string
+	Before     []string
+	After      []string
+	DownBefore []string
+	DownAfter  []string
+}
+
+// MigrationMeta stores metadata parsed from the migration DSL definition.
+type MigrationMeta struct {
+	Description string
+	// Renames maps qualified old names to new names for explicit rename hints.
+	// Keys use "namespace.table.column" format. Values are the new column name.
+	Renames map[string]string
 }
 
 // BindMigration binds the migration() DSL function for migration files.
@@ -44,6 +54,33 @@ func (s *Sandbox) BindMigration() {
 		defObj, ok := call.Arguments[0].(*goja.Object)
 		if !ok {
 			panic(s.vm.ToValue("migration() argument must be an object with up() and down() methods"))
+		}
+
+		// Parse optional description
+		descVal := defObj.Get("description")
+		if descVal != nil && !goja.IsUndefined(descVal) && !goja.IsNull(descVal) {
+			s.migrationMeta.Description = descVal.String()
+		}
+
+		// Parse optional renames hints
+		renamesVal := defObj.Get("renames")
+		if renamesVal != nil && !goja.IsUndefined(renamesVal) && !goja.IsNull(renamesVal) {
+			if renamesObj, ok := renamesVal.(*goja.Object); ok {
+				// Look for columns sub-object
+				colsVal := renamesObj.Get("columns")
+				if colsVal != nil && !goja.IsUndefined(colsVal) && !goja.IsNull(colsVal) {
+					if colsObj, ok := colsVal.(*goja.Object); ok {
+						renames := make(map[string]string)
+						for _, key := range colsObj.Keys() {
+							val := colsObj.Get(key)
+							if val != nil && !goja.IsUndefined(val) && !goja.IsNull(val) {
+								renames[key] = val.String()
+							}
+						}
+						s.migrationMeta.Renames = renames
+					}
+				}
+			}
 		}
 
 		// Get the up() function
@@ -78,7 +115,17 @@ func (s *Sandbox) BindMigration() {
 			}
 		}
 
-		// Note: down() and down_hook() are not executed here - they're only called during rollback
+		// Process down_hook if present
+		downHookVal := defObj.Get("down_hook")
+		if downHookVal != nil && !goja.IsUndefined(downHookVal) && !goja.IsNull(downHookVal) {
+			if hookFn, ok := goja.AssertFunction(downHookVal); ok {
+				hookBuilder := s.createDownHookBuilderObject()
+				_, err := hookFn(goja.Undefined(), hookBuilder)
+				if err != nil {
+					panic(s.vm.ToValue("error in migration down_hook() function: " + err.Error()))
+				}
+			}
+		}
 
 		return goja.Undefined()
 	})
@@ -87,6 +134,11 @@ func (s *Sandbox) BindMigration() {
 // GetHooks returns the collected migration hooks from the last evaluation.
 func (s *Sandbox) GetHooks() MigrationHooks {
 	return s.hooks
+}
+
+// GetMigrationMeta returns the metadata parsed from the last migration evaluation.
+func (s *Sandbox) GetMigrationMeta() MigrationMeta {
+	return s.migrationMeta
 }
 
 // createHookBuilderObject creates the JS object for hook before/after definitions.
@@ -121,6 +173,21 @@ func (s *Sandbox) createHookBuilderObject() *goja.Object {
 		}
 		sql += " WHERE " + column + " IS NULL"
 		s.hooks.Before = append(s.hooks.Before, sql)
+	})
+
+	return obj
+}
+
+// createDownHookBuilderObject creates the JS object for down_hook before/after definitions.
+func (s *Sandbox) createDownHookBuilderObject() *goja.Object {
+	obj := s.vm.NewObject()
+
+	_ = obj.Set("before", func(sqlStr string) {
+		s.hooks.DownBefore = append(s.hooks.DownBefore, sqlStr)
+	})
+
+	_ = obj.Set("after", func(sqlStr string) {
+		s.hooks.DownAfter = append(s.hooks.DownAfter, sqlStr)
 	})
 
 	return obj

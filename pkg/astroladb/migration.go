@@ -54,6 +54,15 @@ type MigrationHistoryEntry struct {
 
 	// ExecTimeMs is the execution time in milliseconds (0 if not recorded).
 	ExecTimeMs int
+
+	// Description is a human-readable summary of the migration.
+	Description string
+
+	// SQLChecksum is the SHA256 hash of the generated SQL statements.
+	SQLChecksum string
+
+	// AppliedOrder is the sequential execution order (1-based).
+	AppliedOrder int
 }
 
 // MigrationRun applies all pending migrations to the database.
@@ -382,11 +391,14 @@ func (c *Client) MigrationHistory() ([]MigrationHistoryEntry, error) {
 		}
 
 		result[i] = MigrationHistoryEntry{
-			Revision:   a.Revision,
-			Name:       name,
-			AppliedAt:  a.AppliedAt,
-			Checksum:   a.Checksum,
-			ExecTimeMs: a.ExecTimeMs,
+			Revision:     a.Revision,
+			Name:         name,
+			AppliedAt:    a.AppliedAt,
+			Checksum:     a.Checksum,
+			ExecTimeMs:   a.ExecTimeMs,
+			Description:  a.Description,
+			SQLChecksum:  a.SQLChecksum,
+			AppliedOrder: a.AppliedOrder,
 		}
 	}
 
@@ -435,6 +447,79 @@ func (c *Client) VerifyChain() (*chain.VerificationResult, error) {
 	}
 
 	return migrationChain.Verify(appliedChain), nil
+}
+
+// SQLDeterminismResult holds the result of a SQL determinism check for one migration.
+type SQLDeterminismResult struct {
+	Revision        string
+	Name            string
+	StoredChecksum  string
+	CurrentChecksum string
+	Match           bool
+}
+
+// VerifySQLDeterminism re-parses each applied migration file, regenerates SQL,
+// and compares the SQL checksum against the stored value. Returns mismatches.
+func (c *Client) VerifySQLDeterminism() ([]SQLDeterminismResult, error) {
+	ctx, cancel := c.context()
+	defer cancel()
+
+	// Get applied migrations with stored SQL checksums
+	if err := c.runner.VersionManager().EnsureTable(ctx); err != nil {
+		return nil, &MigrationError{Operation: "ensure migration table", Cause: err}
+	}
+	applied, err := c.runner.VersionManager().GetApplied(ctx)
+	if err != nil {
+		return nil, &MigrationError{Operation: "get applied migrations", Cause: err}
+	}
+
+	// Build map of applied sql checksums
+	appliedMap := make(map[string]engine.AppliedMigration)
+	for _, a := range applied {
+		if a.SQLChecksum != "" {
+			appliedMap[a.Revision] = a
+		}
+	}
+
+	if len(appliedMap) == 0 {
+		return nil, nil
+	}
+
+	// Load migration files
+	migrations, err := c.loadMigrationFiles()
+	if err != nil {
+		return nil, err
+	}
+
+	// For each migration that has a stored SQL checksum, regenerate SQL and compare
+	var results []SQLDeterminismResult
+	for _, m := range migrations {
+		stored, ok := appliedMap[m.Revision]
+		if !ok {
+			continue
+		}
+
+		// Create a plan with just this migration to generate SQL
+		plan := &engine.Plan{
+			Migrations: []engine.Migration{m},
+			Direction:  engine.Up,
+		}
+		sqls, err := c.runner.RunDryRun(ctx, plan)
+		if err != nil {
+			continue
+		}
+		currentChecksum := engine.ComputeSQLChecksum(sqls)
+
+		results = append(results, SQLDeterminismResult{
+			Revision:        m.Revision,
+			Name:            m.Name,
+			StoredChecksum:  stored.SQLChecksum,
+			CurrentChecksum: currentChecksum,
+			Match:           stored.SQLChecksum == currentChecksum,
+		})
+	}
+
+	return results, nil
 }
 
 // GetChain returns the computed migration chain from files.
@@ -785,21 +870,60 @@ func (c *Client) loadMigrationFilesWithChain(migrationChain *chain.Chain) ([]eng
 				Revision: link.Revision,
 				Name:     link.Name,
 				Path:     path,
-				Checksum: link.Checksum, // Use chain checksum!
+				Checksum: link.Checksum,
 			})
 			continue
 		}
 
-		migrations = append(migrations, engine.Migration{
-			Revision:   link.Revision,
-			Name:       link.Name,
-			Path:       path,
-			Checksum:   link.Checksum, // Use chain checksum!
-			Operations: ops,
-		})
+		hooks := c.sandbox.GetHooks()
+		meta := c.sandbox.GetMigrationMeta()
+
+		m := engine.Migration{
+			Revision:        link.Revision,
+			Name:            link.Name,
+			Path:            path,
+			Checksum:        link.Checksum,
+			Operations:      ops,
+			BeforeHooks:     hooks.Before,
+			AfterHooks:      hooks.After,
+			DownBeforeHooks: hooks.DownBefore,
+			DownAfterHooks:  hooks.DownAfter,
+			Description:     meta.Description,
+		}
+
+		// Detect baseline migrations by name and parse squashed_through from file
+		if link.Name == "baseline" {
+			m.IsBaseline = true
+			m.SquashedThrough = parseSquashedThrough(path)
+		}
+
+		migrations = append(migrations, m)
 	}
 
 	return migrations, nil
+}
+
+// parseSquashedThrough reads the first line of a baseline migration file
+// and extracts the squashed_through revision from the header comment.
+// Expected format: // Baseline: squashed from N migrations (through revision XXX)
+func parseSquashedThrough(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	firstLine := strings.SplitN(string(data), "\n", 2)[0]
+	// Look for "(through revision XXX)"
+	const marker = "(through revision "
+	idx := strings.Index(firstLine, marker)
+	if idx < 0 {
+		return ""
+	}
+	rest := firstLine[idx+len(marker):]
+	end := strings.Index(rest, ")")
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
 }
 
 // nextRevision determines the next migration revision number.
