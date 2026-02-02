@@ -14,7 +14,7 @@ import (
 
 // migrateCmd applies pending migrations.
 func migrateCmd() *cobra.Command {
-	var dryRun, force, confirmDestroy, commit, skipLock bool
+	var dryRun, force, confirmDestroy, commit, skipLock, verifySQL bool
 	var lockTimeout time.Duration
 
 	cmd := &cobra.Command{
@@ -44,7 +44,10 @@ Use --commit to auto-commit after successful migration.`,
   alab migrate --skip-lock
 
   # Set custom lock timeout
-  alab migrate --lock-timeout 60s`,
+  alab migrate --lock-timeout 60s
+
+  # Verify SQL checksums before applying
+  alab migrate --verify-sql`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
@@ -144,6 +147,20 @@ Use --commit to auto-commit after successful migration.`,
 					os.Exit(1)
 				}
 
+				// Verify SQL determinism if requested
+				if verifySQL {
+					results, err := client.VerifySQLDeterminism()
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "%s: %v\n", ui.Warning("Warning: SQL verification failed"), err)
+					} else {
+						for _, r := range results {
+							if !r.Match {
+								fmt.Fprintf(os.Stderr, "  %s SQL mismatch: %s %s\n", ui.Warning("WARN"), r.Revision, r.Name)
+							}
+						}
+					}
+				}
+
 				// Ask for confirmation (unless dry run or force)
 				if !force {
 					if !ui.Confirm(
@@ -210,6 +227,7 @@ Use --commit to auto-commit after successful migration.`,
 	cmd.Flags().BoolVar(&commit, "commit", false, "Auto-commit migration files to git")
 	cmd.Flags().BoolVar(&skipLock, "skip-lock", false, "Skip distributed locking (use in CI)")
 	cmd.Flags().DurationVar(&lockTimeout, "lock-timeout", 0, "Lock acquisition timeout (default 30s)")
+	cmd.Flags().BoolVar(&verifySQL, "verify-sql", false, "Verify SQL checksums before applying")
 
 	setupCommandHelp(cmd)
 	return cmd

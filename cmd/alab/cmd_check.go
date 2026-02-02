@@ -15,7 +15,7 @@ import (
 
 // checkCmd validates schema files or lints migration files.
 func checkCmd() *cobra.Command {
-	var migrations bool
+	var migrations, determinism bool
 
 	cmd := &cobra.Command{
 		Use:   "check",
@@ -30,13 +30,24 @@ Default mode validates schema files:
 With --migrations, lints migration files:
   - Checks for destructive operations (DROP TABLE, DROP COLUMN)
   - Detects NOT NULL columns without defaults
-  - Flags reserved SQL word usage in identifiers`,
+  - Flags reserved SQL word usage in identifiers
+
+With --determinism, verifies SQL output reproducibility:
+  - Re-parses each applied migration file
+  - Regenerates SQL and compares against stored SQL checksum
+  - Reports non-deterministic migrations`,
 		Example: `  # Validate all schema files
   alab check
 
   # Lint migration files for safety issues
-  alab check --migrations`,
+  alab check --migrations
+
+  # Verify SQL determinism for applied migrations
+  alab check --determinism`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if determinism {
+				return checkDeterminism()
+			}
 			if migrations {
 				return checkMigrations()
 			}
@@ -45,6 +56,7 @@ With --migrations, lints migration files:
 	}
 
 	cmd.Flags().BoolVar(&migrations, "migrations", false, "Lint migration files instead of validating schemas")
+	cmd.Flags().BoolVar(&determinism, "determinism", false, "Verify SQL checksum determinism for applied migrations")
 
 	setupCommandHelp(cmd)
 	return cmd
@@ -69,6 +81,50 @@ func checkSchemas() error {
 	}
 
 	fmt.Println(ui.Success("All schemas valid"))
+	return nil
+}
+
+// checkDeterminism verifies that applied migrations produce the same SQL checksum.
+func checkDeterminism() error {
+	client, err := newClient()
+	if err != nil {
+		if handleClientError(err) {
+			os.Exit(1)
+		}
+		return err
+	}
+	defer client.Close()
+
+	results, err := client.VerifySQLDeterminism()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, ui.Error("error")+": "+err.Error())
+		os.Exit(1)
+	}
+
+	if len(results) == 0 {
+		fmt.Println(ui.Success("No applied migrations with SQL checksums to verify"))
+		return nil
+	}
+
+	mismatches := 0
+	for _, r := range results {
+		if r.Match {
+			fmt.Printf("  %s %s %s\n", ui.Success("✓"), r.Revision, r.Name)
+		} else {
+			mismatches++
+			fmt.Fprintf(os.Stderr, "  %s %s %s\n", ui.Error("✗"), r.Revision, r.Name)
+			fmt.Fprintf(os.Stderr, "    stored:  %s\n", r.StoredChecksum)
+			fmt.Fprintf(os.Stderr, "    current: %s\n", r.CurrentChecksum)
+		}
+	}
+
+	if mismatches > 0 {
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, ui.Error(fmt.Sprintf("%d non-deterministic migration(s) detected", mismatches)))
+		os.Exit(1)
+	}
+
+	fmt.Println(ui.Success(fmt.Sprintf("All %d migration(s) produce deterministic SQL", len(results))))
 	return nil
 }
 
