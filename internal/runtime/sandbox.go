@@ -58,6 +58,9 @@ type Sandbox struct {
 
 	// hooks stores before/after SQL hooks from migration DSL.
 	hooks MigrationHooks
+
+	// migrationMeta stores metadata parsed from migration DSL.
+	migrationMeta MigrationMeta
 }
 
 // NewSandbox creates a new hardened JavaScript sandbox.
@@ -109,6 +112,7 @@ func (s *Sandbox) Reset() {
 	s.tables = make([]*ast.TableDef, 0)
 	s.operations = nil
 	s.hooks = MigrationHooks{}
+	s.migrationMeta = MigrationMeta{}
 	s.meta = metadata.New()
 	s.currentFile = ""
 	s.currentCode = ""
@@ -148,6 +152,24 @@ func (s *Sandbox) bindDSL() {
 		return map[string]any{
 			"_type": "sql_expr",
 			"expr":  expr,
+		}
+	})
+
+	// postgres() helper - marks a string as PostgreSQL-specific SQL expression
+	s.vm.Set("postgres", func(expr string) map[string]any {
+		return map[string]any{
+			"_type":   "sql_expr",
+			"expr":    expr,
+			"dialect": "postgres",
+		}
+	})
+
+	// sqlite() helper - marks a string as SQLite-specific SQL expression
+	s.vm.Set("sqlite", func(expr string) map[string]any {
+		return map[string]any{
+			"_type":   "sql_expr",
+			"expr":    expr,
+			"dialect": "sqlite",
 		}
 	})
 
