@@ -412,6 +412,11 @@ func (c *Client) SchemaExport(format string, opts ...ExportOption) ([]byte, erro
 		tables = filtered
 	}
 
+	// Sort columns for deterministic export output
+	for _, t := range tables {
+		t.Columns = ast.SortColumnsForExport(t.Columns)
+	}
+
 	switch strings.ToLower(format) {
 	case "openapi":
 		return exportOpenAPI(tables, ctx)

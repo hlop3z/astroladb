@@ -3,6 +3,7 @@ package ast
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
@@ -218,6 +219,35 @@ func (t *TableDef) Validate() error {
 		}
 	}
 	return nil
+}
+
+// SortColumnsForExport returns a new slice with columns sorted for deterministic
+// export output: primary key first, then required fields alphabetically, then
+// optional fields (nullable or has default) alphabetically.
+func SortColumnsForExport(cols []*ColumnDef) []*ColumnDef {
+	sorted := make([]*ColumnDef, len(cols))
+	copy(sorted, cols)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		ci, cj := sorted[i], sorted[j]
+		gi, gj := colSortGroup(ci), colSortGroup(cj)
+		if gi != gj {
+			return gi < gj
+		}
+		return ci.Name < cj.Name
+	})
+	return sorted
+}
+
+// colSortGroup returns the sort group for a column:
+// 0 = primary key, 1 = required, 2 = optional.
+func colSortGroup(c *ColumnDef) int {
+	if c.PrimaryKey {
+		return 0
+	}
+	if c.Nullable || c.HasDefault() {
+		return 2
+	}
+	return 1
 }
 
 // -----------------------------------------------------------------------------
