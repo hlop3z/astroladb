@@ -2,6 +2,10 @@
 // Generated at: {{.Timestamp}}
 
 export default migration({
+  description: "Describe what this migration does",
+  up_revision: "{{.UpRevision}}",
+  down_revision: {{if .DownRevision}}"{{.DownRevision}}"{{else}}null{{end}},
+
   up(m) {
     // Add your migration code here
     // NOTE: Migrations use LOW-LEVEL TYPES only (no semantic types like email, money, flag)

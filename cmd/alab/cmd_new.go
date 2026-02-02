@@ -161,13 +161,20 @@ func createEmptyMigration(name string) error {
 		return fmt.Errorf("failed to parse migration template: %w", err)
 	}
 
+	// Find previous revision for down_revision linkage
+	prevRevision := previousRevision(cfg.MigrationsDir)
+
 	var buf bytes.Buffer
 	data := struct {
-		Name      string
-		Timestamp string
+		Name         string
+		Timestamp    string
+		UpRevision   string
+		DownRevision string
 	}{
-		Name:      name,
-		Timestamp: time.Now().UTC().Format(TimeJSON),
+		Name:         name,
+		Timestamp:    time.Now().UTC().Format(TimeJSON),
+		UpRevision:   revision,
+		DownRevision: prevRevision,
 	}
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return fmt.Errorf("failed to execute migration template: %w", err)
@@ -216,6 +223,46 @@ func nextRevision(migrationsDir string) (string, error) {
 	}
 
 	return fmt.Sprintf("%03d_%s", maxNum+1, time.Now().UTC().Format("20060102_150405")), nil
+}
+
+// previousRevision returns the revision string of the latest existing migration,
+// or an empty string if there are no migrations yet.
+func previousRevision(migrationsDir string) string {
+	entries, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		return ""
+	}
+
+	var latest string
+	maxNum := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".js") {
+			continue
+		}
+		// Extract the full revision (everything before the last underscore-separated name)
+		base := strings.TrimSuffix(entry.Name(), ".js")
+		parts := strings.SplitN(base, "_", 2)
+		if num, err := strconv.Atoi(parts[0]); err == nil && num > maxNum {
+			maxNum = num
+			// Revision is the prefix up to the migration name
+			// e.g. "003_20260201_143022_add_users.js" → revision is "003_20260201_143022"
+			// Find the revision by stripping the name suffix
+			if idx := strings.LastIndex(base, "_"); idx > 0 {
+				candidate := base[:idx]
+				// If candidate still has underscore-separated parts ending in a name, keep trimming
+				// The revision format is NNN_YYYYMMDD_HHMMSS
+				// Simple approach: take first 3 underscore-separated segments
+				segs := strings.SplitN(base, "_", 4)
+				if len(segs) >= 3 {
+					latest = segs[0] + "_" + segs[1] + "_" + segs[2]
+				} else {
+					latest = candidate
+				}
+			}
+		}
+	}
+
+	return latest
 }
 
 // promptForRenames prompts the user to confirm rename candidates.
