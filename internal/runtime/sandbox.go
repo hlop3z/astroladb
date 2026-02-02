@@ -55,6 +55,9 @@ type Sandbox struct {
 	// tainted is set to true after any interrupt/timeout, indicating the VM
 	// may have leftover state and should be reset before reuse.
 	tainted bool
+
+	// hooks stores before/after SQL hooks from migration DSL.
+	hooks MigrationHooks
 }
 
 // NewSandbox creates a new hardened JavaScript sandbox.
@@ -105,6 +108,7 @@ func (s *Sandbox) Reset() {
 	s.tainted = false
 	s.tables = make([]*ast.TableDef, 0)
 	s.operations = nil
+	s.hooks = MigrationHooks{}
 	s.meta = metadata.New()
 	s.currentFile = ""
 	s.currentCode = ""

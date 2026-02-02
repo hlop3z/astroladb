@@ -658,6 +658,158 @@ func TestMigration_NoSemanticTypes(t *testing.T) {
 	}
 }
 
+func TestMigration_UpHook_Before(t *testing.T) {
+	sb := NewSandbox(nil)
+	sb.BindMigration()
+
+	code := `
+		migration({
+			up: function(m) {
+				m.add_column('auth.user', function(t) {
+					t.string(50, 'status').optional();
+				});
+			},
+			up_hook: function(h) {
+				h.before("UPDATE auth_user SET status = 'active' WHERE status IS NULL");
+			}
+		});
+	`
+	if err := sb.Run(code); err != nil {
+		t.Fatalf("Error: %v", err)
+	}
+
+	hooks := sb.GetHooks()
+	if len(hooks.Before) != 1 {
+		t.Fatalf("expected 1 before hook, got %d", len(hooks.Before))
+	}
+	if hooks.Before[0] != "UPDATE auth_user SET status = 'active' WHERE status IS NULL" {
+		t.Errorf("unexpected before hook: %q", hooks.Before[0])
+	}
+}
+
+func TestMigration_UpHook_After(t *testing.T) {
+	sb := NewSandbox(nil)
+	sb.BindMigration()
+
+	code := `
+		migration({
+			up: function(m) {},
+			up_hook: function(h) {
+				h.after("REINDEX TABLE auth_user");
+			}
+		});
+	`
+	if err := sb.Run(code); err != nil {
+		t.Fatalf("Error: %v", err)
+	}
+
+	hooks := sb.GetHooks()
+	if len(hooks.After) != 1 {
+		t.Fatalf("expected 1 after hook, got %d", len(hooks.After))
+	}
+	if hooks.After[0] != "REINDEX TABLE auth_user" {
+		t.Errorf("unexpected after hook: %q", hooks.After[0])
+	}
+}
+
+func TestMigration_UpHook_Backfill(t *testing.T) {
+	sb := NewSandbox(nil)
+	sb.BindMigration()
+
+	code := `
+		migration({
+			up: function(m) {},
+			up_hook: function(h) {
+				h.backfill('auth_user', 'status', 'active');
+			}
+		});
+	`
+	if err := sb.Run(code); err != nil {
+		t.Fatalf("Error: %v", err)
+	}
+
+	hooks := sb.GetHooks()
+	if len(hooks.Before) != 1 {
+		t.Fatalf("expected 1 before hook from backfill, got %d", len(hooks.Before))
+	}
+	expected := "UPDATE auth_user SET status = 'active' WHERE status IS NULL"
+	if hooks.Before[0] != expected {
+		t.Errorf("expected %q, got %q", expected, hooks.Before[0])
+	}
+}
+
+func TestMigration_UpHook_BackfillNumeric(t *testing.T) {
+	sb := NewSandbox(nil)
+	sb.BindMigration()
+
+	code := `
+		migration({
+			up: function(m) {},
+			up_hook: function(h) {
+				h.backfill('core_product', 'quantity', 0);
+			}
+		});
+	`
+	if err := sb.Run(code); err != nil {
+		t.Fatalf("Error: %v", err)
+	}
+
+	hooks := sb.GetHooks()
+	if len(hooks.Before) != 1 {
+		t.Fatalf("expected 1 before hook, got %d", len(hooks.Before))
+	}
+	expected := "UPDATE core_product SET quantity = 0 WHERE quantity IS NULL"
+	if hooks.Before[0] != expected {
+		t.Errorf("expected %q, got %q", expected, hooks.Before[0])
+	}
+}
+
+func TestMigration_UpHook_Multiple(t *testing.T) {
+	sb := NewSandbox(nil)
+	sb.BindMigration()
+
+	code := `
+		migration({
+			up: function(m) {},
+			up_hook: function(h) {
+				h.before("SQL1");
+				h.before("SQL2");
+				h.after("SQL3");
+			}
+		});
+	`
+	if err := sb.Run(code); err != nil {
+		t.Fatalf("Error: %v", err)
+	}
+
+	hooks := sb.GetHooks()
+	if len(hooks.Before) != 2 {
+		t.Errorf("expected 2 before hooks, got %d", len(hooks.Before))
+	}
+	if len(hooks.After) != 1 {
+		t.Errorf("expected 1 after hook, got %d", len(hooks.After))
+	}
+}
+
+func TestMigration_NoUpHook(t *testing.T) {
+	sb := NewSandbox(nil)
+	sb.BindMigration()
+
+	code := `
+		migration({
+			up: function(m) {}
+		});
+	`
+	if err := sb.Run(code); err != nil {
+		t.Fatalf("Error: %v", err)
+	}
+
+	hooks := sb.GetHooks()
+	if len(hooks.Before) != 0 || len(hooks.After) != 0 {
+		t.Errorf("expected no hooks, got %d before, %d after", len(hooks.Before), len(hooks.After))
+	}
+}
+
 // findCol is a test helper that finds a column by name in a TableDef.
 // Returns nil if not found (does not fail the test).
 func findCol(t *testing.T, tableDef *ast.TableDef, name string) *ast.ColumnDef {

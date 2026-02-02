@@ -100,6 +100,12 @@ func (r *Runner) RunDryRun(ctx context.Context, plan *Plan) ([]string, error) {
 	var allSQL []string
 
 	for _, m := range plan.Migrations {
+		// Include before hooks
+		if plan.Direction == Up && len(m.BeforeHooks) > 0 {
+			allSQL = append(allSQL, "-- Before hooks")
+			allSQL = append(allSQL, m.BeforeHooks...)
+		}
+
 		ops := r.getOperations(m, plan.Direction)
 		for _, op := range ops {
 			sqls, err := r.operationToSQL(op)
@@ -107,6 +113,12 @@ func (r *Runner) RunDryRun(ctx context.Context, plan *Plan) ([]string, error) {
 				return nil, err
 			}
 			allSQL = append(allSQL, sqls...)
+		}
+
+		// Include after hooks
+		if plan.Direction == Up && len(m.AfterHooks) > 0 {
+			allSQL = append(allSQL, "-- After hooks")
+			allSQL = append(allSQL, m.AfterHooks...)
 		}
 	}
 
@@ -158,6 +170,16 @@ func (r *Runner) runInTransaction(ctx context.Context, m Migration, dir Directio
 		}
 	}()
 
+	// Execute before hooks
+	if dir == Up {
+		for _, hook := range m.BeforeHooks {
+			if _, err := tx.ExecContext(ctx, hook); err != nil {
+				return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute before hook").
+					WithSQL(hook)
+			}
+		}
+	}
+
 	ops := r.getOperations(m, dir)
 	for _, op := range ops {
 		sqls, err := r.operationToSQL(op)
@@ -173,6 +195,16 @@ func (r *Runner) runInTransaction(ctx context.Context, m Migration, dir Directio
 		}
 	}
 
+	// Execute after hooks
+	if dir == Up {
+		for _, hook := range m.AfterHooks {
+			if _, err := tx.ExecContext(ctx, hook); err != nil {
+				return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute after hook").
+					WithSQL(hook)
+			}
+		}
+	}
+
 	if err := tx.Commit(); err != nil {
 		return alerr.Wrap(alerr.ErrSQLTransaction, err, "failed to commit transaction")
 	}
@@ -184,6 +216,16 @@ func (r *Runner) runInTransaction(ctx context.Context, m Migration, dir Directio
 // runWithoutTransaction executes a migration without a transaction.
 // Used for databases that don't support transactional DDL.
 func (r *Runner) runWithoutTransaction(ctx context.Context, m Migration, dir Direction) error {
+	// Execute before hooks
+	if dir == Up {
+		for _, hook := range m.BeforeHooks {
+			if _, err := r.db.ExecContext(ctx, hook); err != nil {
+				return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute before hook").
+					WithSQL(hook)
+			}
+		}
+	}
+
 	ops := r.getOperations(m, dir)
 	for _, op := range ops {
 		sqls, err := r.operationToSQL(op)
@@ -195,6 +237,16 @@ func (r *Runner) runWithoutTransaction(ctx context.Context, m Migration, dir Dir
 			if _, err := r.db.ExecContext(ctx, sqlStmt); err != nil {
 				return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute statement").
 					WithSQL(sqlStmt)
+			}
+		}
+	}
+
+	// Execute after hooks
+	if dir == Up {
+		for _, hook := range m.AfterHooks {
+			if _, err := r.db.ExecContext(ctx, hook); err != nil {
+				return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute after hook").
+					WithSQL(hook)
 			}
 		}
 	}

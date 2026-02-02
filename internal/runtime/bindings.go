@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -25,8 +26,14 @@ func NewBindingsContext(vm *goja.Runtime, namespace string) *BindingsContext {
 	}
 }
 
+// MigrationHooks stores before/after SQL hooks parsed from migration DSL.
+type MigrationHooks struct {
+	Before []string
+	After  []string
+}
+
 // BindMigration binds the migration() DSL function for migration files.
-// Usage: migration({ up(m) { ... }, down(m) { ... } })
+// Usage: migration({ up(m) { ... }, down(m) { ... }, up_hook(h) { ... } })
 func (s *Sandbox) BindMigration() {
 	s.vm.Set("migration", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
@@ -59,11 +66,64 @@ func (s *Sandbox) BindMigration() {
 			panic(s.vm.ToValue("error in migration up() function: " + err.Error()))
 		}
 
-		// Note: down() is not executed here - it's only called during rollback
-		// The down() function is accessed separately when needed
+		// Process up_hook if present
+		upHookVal := defObj.Get("up_hook")
+		if upHookVal != nil && !goja.IsUndefined(upHookVal) && !goja.IsNull(upHookVal) {
+			if hookFn, ok := goja.AssertFunction(upHookVal); ok {
+				hookBuilder := s.createHookBuilderObject()
+				_, err := hookFn(goja.Undefined(), hookBuilder)
+				if err != nil {
+					panic(s.vm.ToValue("error in migration up_hook() function: " + err.Error()))
+				}
+			}
+		}
+
+		// Note: down() and down_hook() are not executed here - they're only called during rollback
 
 		return goja.Undefined()
 	})
+}
+
+// GetHooks returns the collected migration hooks from the last evaluation.
+func (s *Sandbox) GetHooks() MigrationHooks {
+	return s.hooks
+}
+
+// createHookBuilderObject creates the JS object for hook before/after definitions.
+func (s *Sandbox) createHookBuilderObject() *goja.Object {
+	obj := s.vm.NewObject()
+
+	_ = obj.Set("before", func(sqlStr string) {
+		s.hooks.Before = append(s.hooks.Before, sqlStr)
+	})
+
+	_ = obj.Set("after", func(sqlStr string) {
+		s.hooks.After = append(s.hooks.After, sqlStr)
+	})
+
+	_ = obj.Set("backfill", func(table, column string, value any) {
+		sql := "UPDATE " + table + " SET " + column + " = "
+		switch v := value.(type) {
+		case string:
+			sql += "'" + strings.ReplaceAll(v, "'", "''") + "'"
+		case bool:
+			if v {
+				sql += "true"
+			} else {
+				sql += "false"
+			}
+		case int64:
+			sql += fmt.Sprintf("%d", v)
+		case float64:
+			sql += fmt.Sprintf("%g", v)
+		default:
+			sql += fmt.Sprintf("'%v'", value)
+		}
+		sql += " WHERE " + column + " IS NULL"
+		s.hooks.Before = append(s.hooks.Before, sql)
+	})
+
+	return obj
 }
 
 // createMigrationObject creates the JavaScript object for the migration builder.
