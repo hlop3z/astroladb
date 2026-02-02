@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/lockfile"
 	"github.com/hlop3z/astroladb/internal/ui"
 )
 
@@ -181,17 +182,24 @@ func createEmptyMigration(name string) error {
 		return fmt.Errorf("failed to write migration file: %w", err)
 	}
 
+	// Update lock file
+	lockPath := lockfile.DefaultPath()
+	if err := lockfile.Write(cfg.MigrationsDir, lockPath); err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", ui.Warning("Warning: failed to update lock file"), err)
+	}
+
 	// Show success
 	fmt.Println(ui.Success("Created migration: " + ui.FilePath(path)))
 	return nil
 }
 
 // nextRevision determines the next migration revision number.
+// Uses format NNN_YYYYMMDD_HHMMSS (e.g., "003_20260201_143022").
 func nextRevision(migrationsDir string) (string, error) {
 	entries, err := os.ReadDir(migrationsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "001", nil
+			return fmt.Sprintf("001_%s", time.Now().UTC().Format("20060102_150405")), nil
 		}
 		return "", err
 	}
@@ -207,7 +215,7 @@ func nextRevision(migrationsDir string) (string, error) {
 		}
 	}
 
-	return fmt.Sprintf("%03d", maxNum+1), nil
+	return fmt.Sprintf("%03d_%s", maxNum+1, time.Now().UTC().Format("20060102_150405")), nil
 }
 
 // promptForRenames prompts the user to confirm rename candidates.
