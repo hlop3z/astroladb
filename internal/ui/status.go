@@ -64,14 +64,17 @@ type DriftItem struct {
 
 // MigrationItem represents a migration for the status view.
 type MigrationItem struct {
-	Revision   string
-	Name       string
-	Status     string // applied, pending, missing, modified
-	AppliedAt  string
-	ExecTimeMs int
-	Checksum   string
-	FilePath   string
-	SQL        string // for preview
+	Revision     string
+	Name         string
+	Status       string // applied, pending, missing, modified
+	AppliedAt    string
+	ExecTimeMs   int
+	Checksum     string
+	FilePath     string
+	SQL          string // for preview
+	Description  string
+	SQLChecksum  string
+	AppliedOrder int
 }
 
 // StatusData holds all data for the unified status TUI.
@@ -978,6 +981,10 @@ func formatMigrationDetails(m MigrationItem) string {
 		statusTag = TagError
 	}
 	details.WriteString(fmt.Sprintf(TagLabel+LabelStatus+statusTag+" %s"+TagValue+"\n", m.Status))
+
+	if m.Description != "" {
+		details.WriteString(fmt.Sprintf(TagLabel+LabelDescription+TagValue+" %s\n", m.Description))
+	}
 
 	if m.AppliedAt != "" {
 		details.WriteString(fmt.Sprintf(TagLabel+LabelApplied+TagValue+" %s\n", m.AppliedAt))

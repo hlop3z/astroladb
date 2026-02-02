@@ -172,6 +172,7 @@ const (
 	LabelDuration    = "Duration:"
 	LabelChecksum    = "Checksum:"
 	LabelChecksums   = "Checksums"
+	LabelDescription = "Description:"
 	LabelFile        = "File:"
 	LabelBranch      = "Branch:"
 	LabelLock        = "Lock:"
