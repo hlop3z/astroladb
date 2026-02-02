@@ -18,12 +18,18 @@ export * from "./generator";
 import { SQLExpr } from "./globals";
 import { ColBuilder, FnBuilder } from "./column";
 import { TableChain, ColumnDefinitions } from "./schema";
-import { MigrationBuilder, MigrationDefinition } from "./migration";
+import { MigrationBuilder, MigrationDefinition, HookBuilder, DownHookBuilder } from "./migration";
 import { GeneratorSchema, SchemaTable, RenderOutput } from "./generator";
 
 declare global {
   /** Wraps a string as a raw SQL expression. */
   function sql(expr: string): SQLExpr;
+
+  /** Wraps a string as a PostgreSQL-specific raw SQL expression. Skipped for other dialects. */
+  function postgres(expr: string): SQLExpr;
+
+  /** Wraps a string as a SQLite-specific raw SQL expression. Skipped for other dialects. */
+  function sqlite(expr: string): SQLExpr;
 
   /**
    * Column factory for the object-based table API.

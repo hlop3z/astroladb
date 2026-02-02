@@ -572,7 +572,51 @@ export interface MigrationBuilder {
  *
  * Both functions receive a MigrationBuilder with full IntelliSense support.
  */
+/**
+ * Hook builder for up_hook — runs custom SQL before/after the auto-generated migration SQL.
+ */
+export interface HookBuilder {
+  /** Run raw SQL **before** the auto-generated migration statements. */
+  before(sql: string): void;
+  /** Run raw SQL **after** the auto-generated migration statements. */
+  after(sql: string): void;
+  /**
+   * Backfill a column with a value where it is currently NULL.
+   * Generates: `UPDATE <table> SET <column> = <value> WHERE <column> IS NULL`
+   * Runs as a `before` hook so the column is populated before any NOT NULL constraint is applied.
+   */
+  backfill(table: string, column: string, value: any): void;
+}
+
+/**
+ * Hook builder for down_hook — runs custom SQL before/after the auto-generated rollback SQL.
+ */
+export interface DownHookBuilder {
+  /** Run raw SQL **before** the auto-generated rollback statements. */
+  before(sql: string): void;
+  /** Run raw SQL **after** the auto-generated rollback statements. */
+  after(sql: string): void;
+}
+
 export interface MigrationDefinition {
+  /**
+   * Optional human-readable description of what this migration does.
+   * Shown in `alab status` detail view.
+   */
+  description?: string;
+
+  /**
+   * Explicit column rename hints to bypass the drop-and-add heuristic.
+   *
+   * Keys are old column names, values are new column names.
+   *
+   * @example
+   * renames: { columns: { "name": "full_name", "desc": "description" } }
+   */
+  renames?: {
+    columns?: Record<string, string>;
+  };
+
   /**
    * Migration up function - applies schema changes forward.
    *
@@ -586,6 +630,26 @@ export interface MigrationDefinition {
    * @param m - MigrationBuilder with methods for dropping tables, columns, indexes, etc.
    */
   down(m: MigrationBuilder): void;
+
+  /**
+   * Optional hook to run custom SQL around the auto-generated **up** migration.
+   *
+   * @param h - HookBuilder with before(), after(), and backfill() methods
+   *
+   * @example
+   * up_hook(h) {
+   *   h.backfill("auth.user", "display_name", sql("COALESCE(first_name || ' ' || last_name, email)"))
+   *   h.after("CREATE INDEX CONCURRENTLY idx_user_display ON auth_user (display_name)")
+   * }
+   */
+  up_hook?(h: HookBuilder): void;
+
+  /**
+   * Optional hook to run custom SQL around the auto-generated **down** (rollback) migration.
+   *
+   * @param h - DownHookBuilder with before() and after() methods
+   */
+  down_hook?(h: DownHookBuilder): void;
 }
 
 /**
@@ -745,4 +809,4 @@ export interface MigrationDefinition {
  */
 declare function migration(definition: MigrationDefinition): void;
 
-export { migration, MigrationBuilder, MigrationDefinition, IndexOptions };
+export { migration, MigrationBuilder, MigrationDefinition, HookBuilder, DownHookBuilder, IndexOptions };

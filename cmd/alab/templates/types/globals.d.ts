@@ -45,6 +45,34 @@ export interface SQLExpr {
 declare function sql(expr: string): SQLExpr;
 
 /**
+ * Wraps a string as a PostgreSQL-specific raw SQL expression.
+ *
+ * The expression is only included when migrating against a PostgreSQL database
+ * and is silently skipped for other dialects.
+ *
+ * @param expr - Raw SQL expression string (PostgreSQL dialect)
+ * @returns SQLExpr object recognized by Alab
+ *
+ * @example
+ * m.add_column("auth.user", c => c.text("search_vector").optional().default(postgres("to_tsvector('english', '')")))
+ */
+declare function postgres(expr: string): SQLExpr;
+
+/**
+ * Wraps a string as a SQLite-specific raw SQL expression.
+ *
+ * The expression is only included when migrating against a SQLite database
+ * and is silently skipped for other dialects.
+ *
+ * @param expr - Raw SQL expression string (SQLite dialect)
+ * @returns SQLExpr object recognized by Alab
+ *
+ * @example
+ * m.add_column("auth.user", c => c.text("data").optional().default(sqlite("json('{}'")))
+ */
+declare function sqlite(expr: string): SQLExpr;
+
+/**
  * Column factory for the object-based table API.
  *
  * Use `col.*` methods to define columns. Column names come from the object keys.
@@ -78,4 +106,4 @@ declare const col: ColBuilder;
  */
 declare const fn: FnBuilder;
 
-export { sql, col, fn };
+export { sql, postgres, sqlite, col, fn };
