@@ -14,7 +14,7 @@ import (
 // exportCmd exports the schema in various formats.
 func exportCmd() *cobra.Command {
 	var format, dir string
-	var stdout, mik bool
+	var stdout, mik, relations bool
 
 	cmd := &cobra.Command{
 		Use:   "export",
@@ -47,6 +47,9 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
 			var opts []astroladb.ExportOption
 			if mik {
 				opts = append(opts, astroladb.WithMik())
+			}
+			if relations {
+				opts = append(opts, astroladb.WithRelations())
 			}
 
 			// Handle "all" format
@@ -134,6 +137,7 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
 	cmd.Flags().StringVar(&dir, "dir", DefaultExportsDir, "Output directory")
 	cmd.Flags().BoolVar(&stdout, "stdout", false, "Print to stdout")
 	cmd.Flags().BoolVar(&mik, "mik", false, "Use mik_sdk style for Rust (uses String for date/time)")
+	cmd.Flags().BoolVar(&relations, "relations", false, "Generate WithRelations type variants")
 
 	setupCommandHelp(cmd)
 	return cmd

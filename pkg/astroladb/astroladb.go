@@ -183,6 +183,12 @@ func (c *Client) Config() Config {
 	return *c.config
 }
 
+// ParseMigrationFile parses a single migration file and returns its operations.
+// This is useful for linting or inspecting migration files without applying them.
+func (c *Client) ParseMigrationFile(path string) ([]ast.Operation, error) {
+	return c.sandbox.RunFile(path)
+}
+
 // log logs a message if a logger is configured.
 func (c *Client) log(format string, v ...any) {
 	if c.config.Logger != nil {

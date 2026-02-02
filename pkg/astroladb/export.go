@@ -1544,6 +1544,17 @@ func exportTypeScript(tables []*ast.TableDef, cfg *exportContext) ([]byte, error
 		sb.WriteString(tableToTypeScript(table, cfg))
 	}
 
+	// Generate WithRelations variants if enabled
+	if cfg.Relations {
+		sb.WriteString("\n// WithRelations variants (includes relationship fields)\n\n")
+		for _, table := range sortedTables {
+			if table.Namespace == "" {
+				continue
+			}
+			generateWithRelationsTypeScript(&sb, table, sortedTables, cfg)
+		}
+	}
+
 	// Generate schema URI to type name mapping
 	sb.WriteString("\n// Schema URI to type name mapping\n")
 	sb.WriteString("export const TYPES: Record<string, string> = {\n")
@@ -1638,6 +1649,17 @@ func exportGo(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 		generateGoStruct(&buf, table, cfg)
 	}
 
+	// Generate WithRelations variants if enabled
+	if cfg.Relations {
+		buf.WriteString("// WithRelations variants (includes relationship fields)\n\n")
+		for _, table := range sortedTables {
+			if table.Namespace == "" {
+				continue
+			}
+			generateWithRelationsGo(&buf, table, sortedTables, cfg)
+		}
+	}
+
 	// Generate schema URI to type name mapping
 	buf.WriteString("// TYPES maps schema URIs to type names.\n")
 	buf.WriteString("var TYPES = map[string]string{\n")
@@ -1730,6 +1752,17 @@ func exportPython(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	// Second pass: generate dataclasses
 	for _, table := range sortedTables {
 		generatePythonDataclass(&sb, table, cfg)
+	}
+
+	// Generate WithRelations variants if enabled
+	if cfg.Relations {
+		sb.WriteString("# WithRelations variants (includes relationship fields)\n\n")
+		for _, table := range sortedTables {
+			if table.Namespace == "" {
+				continue
+			}
+			generateWithRelationsPython(&sb, table, sortedTables, cfg)
+		}
 	}
 
 	// Generate schema URI to type name mapping
@@ -1849,6 +1882,17 @@ func exportRust(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	// Second pass: generate structs
 	for _, table := range sortedTables {
 		generateRustStruct(&sb, table, cfg)
+	}
+
+	// Generate WithRelations variants if enabled
+	if cfg.Relations {
+		sb.WriteString("// WithRelations variants (includes relationship fields)\n\n")
+		for _, table := range sortedTables {
+			if table.Namespace == "" {
+				continue
+			}
+			generateWithRelationsRust(&sb, table, sortedTables, cfg)
+		}
 	}
 
 	// Generate schema URI to type name mapping
@@ -2105,4 +2149,191 @@ func columnToGraphQLType(col *ast.ColumnDef, table *ast.TableDef, cfg *exportCon
 		return baseType
 	}
 	return baseType + "!"
+}
+
+// relationField represents a relationship field to add to a WithRelations variant.
+type relationField struct {
+	FieldName string // e.g., "posts"
+	TypeName  string // e.g., "Post"
+	IsMany    bool   // true for has-many, false for belongs-to
+}
+
+// buildRelationFields computes relationship fields for a table based on FK references
+// and many-to-many metadata.
+func buildRelationFields(table *ast.TableDef, allTables []*ast.TableDef, cfg *exportContext) []relationField {
+	var fields []relationField
+
+	// Belongs-to: this table has FK columns referencing other tables
+	for _, col := range table.Columns {
+		if col.Reference == nil {
+			continue
+		}
+		// Find the referenced table name
+		refTable := col.Reference.Table
+		// Strip suffix like "_id" from column name for field name
+		fieldName := col.Name
+		if strings.HasSuffix(fieldName, "_id") {
+			fieldName = fieldName[:len(fieldName)-3]
+		}
+		// Find the referenced table type name
+		typeName := ""
+		for _, t := range allTables {
+			qn := t.QualifiedName()
+			fn := t.FullName()
+			sqlName := t.Namespace + "_" + t.Name
+			if qn == refTable || fn == refTable || sqlName == refTable || t.Name == refTable {
+				typeName = strutil.ToPascalCase(t.FullName())
+				break
+			}
+		}
+		if typeName != "" {
+			fields = append(fields, relationField{
+				FieldName: fieldName,
+				TypeName:  typeName,
+				IsMany:    false,
+			})
+		}
+	}
+
+	// Has-many: other tables have FK columns referencing this table
+	thisSQL := table.FullName()
+	thisQualified := table.QualifiedName()
+	for _, other := range allTables {
+		if other == table || other.Namespace == "" {
+			continue // skip self and join tables
+		}
+		for _, col := range other.Columns {
+			if col.Reference == nil {
+				continue
+			}
+			ref := col.Reference.Table
+			if ref == thisQualified || ref == thisSQL || ref == table.Namespace+"."+table.Name || ref == table.Namespace+"_"+table.Name {
+				fields = append(fields, relationField{
+					FieldName: strutil.ToSnakeCase(other.Name) + "s",
+					TypeName:  strutil.ToPascalCase(other.FullName()),
+					IsMany:    true,
+				})
+				break // one relation per referencing table
+			}
+		}
+	}
+
+	// Many-to-many from metadata
+	if cfg.Metadata != nil {
+		for _, m2m := range cfg.Metadata.ManyToMany {
+			if m2m.Source == table.QualifiedName() {
+				// Find target type
+				for _, t := range allTables {
+					if t.QualifiedName() == m2m.Target {
+						fields = append(fields, relationField{
+							FieldName: strutil.ToSnakeCase(t.Name) + "s",
+							TypeName:  strutil.ToPascalCase(t.FullName()),
+							IsMany:    true,
+						})
+						break
+					}
+				}
+			} else if m2m.Target == table.QualifiedName() {
+				for _, t := range allTables {
+					if t.QualifiedName() == m2m.Source {
+						fields = append(fields, relationField{
+							FieldName: strutil.ToSnakeCase(t.Name) + "s",
+							TypeName:  strutil.ToPascalCase(t.FullName()),
+							IsMany:    true,
+						})
+						break
+					}
+				}
+			}
+		}
+	}
+
+	return fields
+}
+
+// generateWithRelationsTypeScript generates WithRelations variant for TypeScript.
+func generateWithRelationsTypeScript(sb *strings.Builder, table *ast.TableDef, allTables []*ast.TableDef, cfg *exportContext) {
+	fields := buildRelationFields(table, allTables, cfg)
+	if len(fields) == 0 {
+		return
+	}
+
+	baseName := strutil.ToPascalCase(table.FullName())
+	sb.WriteString(fmt.Sprintf("export interface %sWithRelations extends %s {\n", baseName, baseName))
+	for _, f := range fields {
+		if f.IsMany {
+			sb.WriteString(fmt.Sprintf("  %s?: %s[];\n", f.FieldName, f.TypeName))
+		} else {
+			sb.WriteString(fmt.Sprintf("  %s?: %s;\n", f.FieldName, f.TypeName))
+		}
+	}
+	sb.WriteString("}\n\n")
+}
+
+// generateWithRelationsGo generates WithRelations variant for Go.
+func generateWithRelationsGo(buf *bytes.Buffer, table *ast.TableDef, allTables []*ast.TableDef, cfg *exportContext) {
+	fields := buildRelationFields(table, allTables, cfg)
+	if len(fields) == 0 {
+		return
+	}
+
+	baseName := strutil.ToPascalCase(table.FullName())
+	fmt.Fprintf(buf, "type %sWithRelations struct {\n", baseName)
+	fmt.Fprintf(buf, "\t%s\n", baseName)
+	for _, f := range fields {
+		goField := strutil.ToPascalCase(f.FieldName)
+		if f.IsMany {
+			fmt.Fprintf(buf, "\t%s *[]%s `json:\"%s,omitempty\"`\n", goField, f.TypeName, f.FieldName)
+		} else {
+			fmt.Fprintf(buf, "\t%s *%s `json:\"%s,omitempty\"`\n", goField, f.TypeName, f.FieldName)
+		}
+	}
+	buf.WriteString("}\n\n")
+}
+
+// generateWithRelationsPython generates WithRelations variant for Python.
+func generateWithRelationsPython(sb *strings.Builder, table *ast.TableDef, allTables []*ast.TableDef, cfg *exportContext) {
+	fields := buildRelationFields(table, allTables, cfg)
+	if len(fields) == 0 {
+		return
+	}
+
+	baseName := strutil.ToPascalCase(table.FullName())
+	sb.WriteString("@dataclass\n")
+	sb.WriteString(fmt.Sprintf("class %sWithRelations(%s):\n", baseName, baseName))
+	for _, f := range fields {
+		if f.IsMany {
+			sb.WriteString(fmt.Sprintf("    %s: Optional[list[%s]] = None\n", f.FieldName, f.TypeName))
+		} else {
+			sb.WriteString(fmt.Sprintf("    %s: Optional[%s] = None\n", f.FieldName, f.TypeName))
+		}
+	}
+	sb.WriteString("\n")
+}
+
+// generateWithRelationsRust generates WithRelations variant for Rust.
+func generateWithRelationsRust(sb *strings.Builder, table *ast.TableDef, allTables []*ast.TableDef, cfg *exportContext) {
+	fields := buildRelationFields(table, allTables, cfg)
+	if len(fields) == 0 {
+		return
+	}
+
+	baseName := strutil.ToPascalCase(table.FullName())
+	if cfg.UseMik {
+		sb.WriteString("#[derive(Type)]\n")
+	} else {
+		sb.WriteString("#[derive(Debug, Clone, Serialize, Deserialize)]\n")
+		sb.WriteString("#[serde(rename_all = \"snake_case\")]\n")
+	}
+	sb.WriteString(fmt.Sprintf("pub struct %sWithRelations {\n", baseName))
+	sb.WriteString(fmt.Sprintf("    #[serde(flatten)]\n"))
+	sb.WriteString(fmt.Sprintf("    pub base: %s,\n", baseName))
+	for _, f := range fields {
+		if f.IsMany {
+			sb.WriteString(fmt.Sprintf("    pub %s: Option<Vec<%s>>,\n", strutil.ToSnakeCase(f.FieldName), f.TypeName))
+		} else {
+			sb.WriteString(fmt.Sprintf("    pub %s: Option<%s>,\n", strutil.ToSnakeCase(f.FieldName), f.TypeName))
+		}
+	}
+	sb.WriteString("}\n\n")
 }

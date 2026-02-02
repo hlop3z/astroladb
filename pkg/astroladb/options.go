@@ -235,6 +235,10 @@ type ExportConfig struct {
 	// UseMik enables mik_sdk style for Rust exports.
 	// Uses #[derive(Type)] and imports mik_sdk::prelude::*.
 	UseMik bool
+
+	// Relations enables generation of WithRelations type variants
+	// that include relationship fields (foreign key references, many-to-many).
+	Relations bool
 }
 
 // ExportOption is a functional option for export operations.
@@ -259,6 +263,13 @@ func WithChrono() ExportOption {
 func WithMik() ExportOption {
 	return func(c *ExportConfig) {
 		c.UseMik = true
+	}
+}
+
+// WithRelations enables generation of WithRelations type variants.
+func WithRelations() ExportOption {
+	return func(c *ExportConfig) {
+		c.Relations = true
 	}
 }
 
