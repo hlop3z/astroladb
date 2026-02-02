@@ -120,3 +120,29 @@ tasks:
     desc: List available recording scenarios
     cmds:
       - ls -1 scripts/recorder/scenarios/*.sh | xargs -I{} basename {} .sh
+
+  # Database tasks for integration/e2e testing
+  db-up:
+    desc: Start test databases (PostgreSQL, CockroachDB, Gitea)
+    cmds:
+      - docker compose -f docker-compose.test.yml up -d --wait
+      - echo "Test databases ready."
+
+  db-down:
+    desc: Stop test databases
+    cmds:
+      - docker compose -f docker-compose.test.yml down
+
+  test-integration:
+    desc: Run integration tests (starts/stops Docker databases)
+    cmds:
+      - task: db-up
+      - defer: { task: db-down }
+      - go test ./... -tags=integration -count=1
+
+  test-all:
+    desc: Run all tests including e2e (starts/stops Docker databases)
+    cmds:
+      - task: db-up
+      - defer: { task: db-down }
+      - go test ./... -tags=integration,e2e -count=1
