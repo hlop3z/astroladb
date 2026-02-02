@@ -824,6 +824,42 @@ func generateOpenAPISchemas(tables []*ast.TableDef, cfg *exportContext) map[stri
 		schemas[name] = tableToOpenAPISchema(table, tables, cfg)
 	}
 
+	// Generate WithRelations variants if enabled
+	if cfg.ExportConfig.Relations {
+		for _, table := range tables {
+			if table.Namespace == "" {
+				continue
+			}
+			fields := buildRelationFields(table, tables, cfg)
+			if len(fields) == 0 {
+				continue
+			}
+			baseName := strutil.ToPascalCase(table.FullName())
+			relProps := make(map[string]any)
+			for _, f := range fields {
+				if f.IsMany {
+					relProps[f.FieldName] = map[string]any{
+						"type":  "array",
+						"items": map[string]any{"$ref": "#/components/schemas/" + f.TypeName},
+					}
+				} else {
+					relProps[f.FieldName] = map[string]any{
+						"$ref": "#/components/schemas/" + f.TypeName,
+					}
+				}
+			}
+			schemas[baseName+"WithRelations"] = map[string]any{
+				"allOf": []any{
+					map[string]any{"$ref": "#/components/schemas/" + baseName},
+					map[string]any{
+						"type":       "object",
+						"properties": relProps,
+					},
+				},
+			}
+		}
+	}
+
 	return schemas
 }
 
@@ -2056,6 +2092,17 @@ func exportGraphQL(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 		generateGraphQLType(&sb, table, cfg)
 	}
 
+	// Generate WithRelations variants if enabled
+	if cfg.ExportConfig.Relations {
+		sb.WriteString("# WithRelations variants (includes relationship fields)\n\n")
+		for _, table := range sortedTables {
+			if table.Namespace == "" {
+				continue
+			}
+			generateWithRelationsGraphQL(&sb, table, sortedTables, cfg)
+		}
+	}
+
 	// Generate Query type for schema exploration
 	sb.WriteString("type Query {\n")
 	for _, table := range sortedTables {
@@ -2309,6 +2356,33 @@ func generateWithRelationsPython(sb *strings.Builder, table *ast.TableDef, allTa
 		}
 	}
 	sb.WriteString("\n")
+}
+
+// generateWithRelationsGraphQL generates WithRelations variant for GraphQL.
+func generateWithRelationsGraphQL(sb *strings.Builder, table *ast.TableDef, allTables []*ast.TableDef, cfg *exportContext) {
+	fields := buildRelationFields(table, allTables, cfg)
+	if len(fields) == 0 {
+		return
+	}
+
+	baseName := strutil.ToPascalCase(table.FullName())
+	sb.WriteString(fmt.Sprintf("type %sWithRelations {\n", baseName))
+
+	// Include all base fields
+	for _, col := range table.Columns {
+		gqlType := columnToGraphQLType(col, table, cfg)
+		sb.WriteString(fmt.Sprintf("  %s: %s\n", strutil.ToCamelCase(col.Name), gqlType))
+	}
+
+	// Add relationship fields
+	for _, f := range fields {
+		if f.IsMany {
+			sb.WriteString(fmt.Sprintf("  %s: [%s!]\n", f.FieldName, f.TypeName))
+		} else {
+			sb.WriteString(fmt.Sprintf("  %s: %s\n", f.FieldName, f.TypeName))
+		}
+	}
+	sb.WriteString("}\n\n")
 }
 
 // generateWithRelationsRust generates WithRelations variant for Rust.
