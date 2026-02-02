@@ -53,11 +53,16 @@ alab export -f typescript
 alab export -f python
 alab export -f go
 alab export -f rust
+
+# Include relationship fields (WithRelations variants)
+alab export -f typescript --relations
 ```
 
-| Flag | Description                                                                      |
-| ---- | -------------------------------------------------------------------------------- |
-| `-f` | **Required.** Format: `openapi`, `graphql`, `typescript`, `go`, `python`, `rust` |
+| Flag          | Description                                                                      |
+| ------------- | -------------------------------------------------------------------------------- |
+| `-f`          | **Required.** Format: `openapi`, `graphql`, `typescript`, `go`, `python`, `rust` |
+| `--relations` | Generate `WithRelations` type variants with relationship fields                  |
+| `--namespace` | Filter export to a specific namespace                                            |
 
 ---
 
@@ -92,6 +97,22 @@ Apply and auto-commit to git:
 alab migrate --commit
 ```
 
+Verify SQL checksums before applying:
+
+```bash
+alab migrate --verify-sql
+```
+
+| Flag                | Description                                      |
+| ------------------- | ------------------------------------------------ |
+| `--dry`             | Print SQL without executing                      |
+| `--force`           | Skip safety warnings and confirmation prompts    |
+| `--confirm-destroy` | Confirm DROP operations                          |
+| `--commit`          | Auto-commit migration files to git after apply   |
+| `--skip-lock`       | Skip distributed locking (use in CI)             |
+| `--lock-timeout`    | Lock acquisition timeout (default 30s)           |
+| `--verify-sql`      | Verify SQL checksums against stored values first |
+
 ### `alab rollback`
 
 Roll back the most recent migration. Pass a number to roll back multiple steps.
@@ -108,6 +129,71 @@ Drop all tables and re-run every migration from scratch. Development only.
 ```bash
 alab reset
 ```
+
+### `alab check`
+
+Validate schema files or lint migration files for safety issues.
+
+```bash
+# Validate all schema files
+alab check
+
+# Lint migration files for destructive operations, missing defaults, etc.
+alab check --migrations
+
+# Verify SQL determinism for applied migrations
+alab check --determinism
+```
+
+| Flag            | Description                                                  |
+| --------------- | ------------------------------------------------------------ |
+| `--migrations`  | Lint migration files instead of validating schemas           |
+| `--determinism` | Re-generate SQL for applied migrations and compare checksums |
+
+#### Schema validation (default)
+
+Loads all schema files through the sandbox and runs structural validation —
+missing primary keys, invalid column types, broken references, duplicate
+definitions, etc. Exits with code 1 on any error.
+
+#### Migration linting (`--migrations`)
+
+Scans migration operations and warns about:
+
+| Rule                         | Trigger                                                                                              | Message                                          |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| **Drop table**               | `m.drop_table()`                                                                                     | Will DELETE ALL DATA in table                    |
+| **Drop column**              | `m.drop_column()`                                                                                    | Will DELETE DATA in column                       |
+| **NOT NULL without default** | `m.add_column()` with a NOT NULL column that has no `default()`, `backfill()`, or `server_default()` | NOT NULL column has no default or backfill value |
+| **Reserved SQL word**        | Table or column name matches a SQL reserved word (`user`, `order`, `type`, `select`, etc.)           | Identifier is a SQL reserved word                |
+| **Lock file integrity**      | `.alab/schema.lock` checksum mismatch                                                                | Lock file is out of date or tampered             |
+
+Exits with code 1 if any warnings are found. Use `--force` on `alab migrate` to
+proceed despite warnings.
+
+#### SQL determinism (`--determinism`)
+
+Re-parses each applied migration, re-generates its SQL, and compares the SHA-256
+hash against the `sql_checksum` stored in `alab_migrations` at apply time.
+Reports any migration that would produce different DDL today than it did when
+originally applied — catches non-deterministic migrations (e.g. those using
+`Date.now()` or environment-dependent logic).
+
+### `alab squash`
+
+Collapse all migrations into a single baseline migration. Useful after
+accumulating many migrations over time.
+
+```bash
+# Preview what would be squashed
+alab squash --dry-run
+
+# Squash all migrations into a baseline
+alab squash
+```
+
+Old migration files are archived to `.alab/archive/`. Existing environments skip
+the baseline automatically; new environments apply only the baseline.
 
 ---
 
@@ -137,6 +223,24 @@ files.
 
 ```bash
 alab types
+```
+
+### `alab lock`
+
+Manage the migration lock file (`.alab/schema.lock`).
+
+```bash
+# Show lock status
+alab lock status
+
+# Verify lock file integrity
+alab lock verify
+
+# Regenerate lock file from migration files
+alab lock repair
+
+# Force-release a stuck migration lock
+alab lock release --force
 ```
 
 ### `alab meta`

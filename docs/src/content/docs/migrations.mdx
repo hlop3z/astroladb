@@ -65,12 +65,33 @@ computes the diff, and generates a sequentially numbered migration file like
 
 ## Migration File Structure
 
-Here's what a real migration looks like:
+Every migration file has a standard structure with metadata fields and `up`/`down` functions:
 
 ```js
-// Migration: start
-
 export default migration({
+  description: "Add user authentication tables",
+  up_revision: "001_20250115_120000",
+  down_revision: null, // null for the first migration
+
+  up(m) { /* ... */ },
+  down(m) { /* ... */ },
+});
+```
+
+| Field            | Description                                                        |
+| ---------------- | ------------------------------------------------------------------ |
+| `description`    | Human-readable summary shown in `alab status`                      |
+| `up_revision`    | This migration's revision ID (auto-filled from filename)           |
+| `down_revision`  | Previous migration's revision ID (`null` for the first migration)  |
+
+Here's what a full migration looks like:
+
+```js
+export default migration({
+  description: "Create auth and blog tables",
+  up_revision: "001_20250115_120000",
+  down_revision: null,
+
   up(m) {
     // Table: auth.role
     m.create_table("auth.role", (t) => {
@@ -138,9 +159,92 @@ export default migration({
 - The `m` parameter is the migration builder with methods for schema operations
 - The `t` parameter (inside `create_table`) is the table builder for defining
   columns
-- Comments help organize operations by table
 - Tables are created in dependency order (referenced tables first)
 - The `down()` function reverses everything in `up()`
+
+## Migration Hooks
+
+Use `up_hook` and `down_hook` to run arbitrary SQL before or after the
+auto-generated DDL. This is useful for data migrations, backfills, or
+setup/teardown that can't be expressed with the DSL.
+
+```js
+export default migration({
+  description: "Add status column with backfill",
+
+  up(m) {
+    m.add_column("blog.post", (t) => {
+      t.string("status", 20).default("draft");
+    });
+  },
+
+  up_hook(h) {
+    h.before("SET statement_timeout = '60s';");
+    h.after("UPDATE blog_post SET status = 'published' WHERE published_at IS NOT NULL;");
+    h.backfill("blog.post", "status", "'active'");
+  },
+
+  down(m) {
+    m.drop_column("blog.post", "status");
+  },
+
+  down_hook(h) {
+    h.before("SET statement_timeout = '60s';");
+  },
+});
+```
+
+| Method                           | Description                                          |
+| -------------------------------- | ---------------------------------------------------- |
+| `h.before(sql)`                  | Run SQL **before** the generated DDL                 |
+| `h.after(sql)`                   | Run SQL **after** the generated DDL                  |
+| `h.backfill(table, column, val)` | Shorthand for `UPDATE table SET column = val`        |
+
+Both `up_hook` and `down_hook` support the same three methods. Hooks run inside
+the same transaction as the migration.
+
+## Rename Hints
+
+When you rename a column in your schema, AstrolaDB uses heuristics to detect
+renames. If the heuristic doesn't detect a rename, you can provide explicit hints:
+
+```js
+export default migration({
+  description: "Rename email to email_address",
+
+  renames: {
+    columns: {
+      "auth.user.email": "email_address",
+    },
+  },
+
+  up(m) {
+    m.rename_column("auth.user", "email", "email_address");
+  },
+
+  down(m) {
+    m.rename_column("auth.user", "email_address", "email");
+  },
+});
+```
+
+The `renames.columns` object maps `namespace.table.old_column` to the new column
+name. This bypasses the rename-detection heuristic.
+
+## Dialect-Specific SQL
+
+Use `postgres()` and `sqlite()` to embed SQL that only runs on a specific
+database dialect:
+
+```js
+up(m) {
+  m.sql(postgres("CREATE EXTENSION IF NOT EXISTS pgcrypto;"));
+  m.sql(sqlite("PRAGMA journal_mode=WAL;"));
+}
+```
+
+Each helper returns a tagged expression. When generating SQL, AstrolaDB emits
+only the expression matching the active database dialect and ignores the rest.
 
 ## Migration DSL Reference
 

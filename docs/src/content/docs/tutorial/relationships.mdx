@@ -1,0 +1,148 @@
+---
+title: "Adding Relationships"
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+This continues from [Your First Project](/tutorial/first-project/). We'll add
+comments and tags to the blog, introducing foreign keys and many-to-many
+relationships.
+
+## Add a comments table
+
+```bash
+alab table blog comment
+```
+
+Edit `schemas/blog/comment.js`:
+
+```js
+export default table({
+  id: col.id(),
+  body: col.body(),
+  author: col.belongs_to("auth.user"),
+  post: col.belongs_to("blog.post").on_delete("cascade"),
+})
+  .timestamps();
+```
+
+Two foreign keys here:
+
+- `author` → `auth_user.id` — default referential action (restrict).
+- `post` → `blog_post.id` with `on_delete("cascade")` — when a post is
+  deleted, its comments are deleted too.
+
+Each `belongs_to` creates an `_id` column (`author_id`, `post_id`) and an
+index automatically.
+
+## Add a tags table with many-to-many
+
+```bash
+alab table blog tag
+```
+
+Edit `schemas/blog/tag.js`:
+
+```js
+export default table({
+  id: col.id(),
+  name: col.name().unique(),
+  slug: col.slug(),
+});
+```
+
+Now add the many-to-many relationship. Open `schemas/blog/post.js` and chain
+`.many_to_many()`:
+
+```js
+export default table({
+  id: col.id(),
+  title: col.title(),
+  slug: col.slug(),
+  body: col.body(),
+  status: col.enum(["draft", "published", "archived"]).default("draft"),
+  author: col.belongs_to("auth.user"),
+})
+  .timestamps()
+  .soft_delete()
+  .many_to_many("blog.tag");
+```
+
+This tells alab to auto-create a join table (`blog_post_blog_tag`) with
+`post_id` and `tag_id` foreign keys, a unique composite index, and individual
+indexes on each column.
+
+## Optional relationships
+
+Sometimes a foreign key should allow `NULL`. For example, a post might
+optionally have a reviewer:
+
+```js
+// Add to schemas/blog/post.js columns
+reviewer: col.belongs_to("auth.user").optional().on_delete("set_null"),
+```
+
+- `.optional()` makes the column nullable.
+- `.on_delete("set_null")` sets the FK to `NULL` when the referenced user is
+  deleted, instead of blocking the delete.
+
+<Aside type="note">
+We won't add this to the tutorial project — it's here to show the pattern.
+Keep the post schema as-is for the next page.
+</Aside>
+
+## Generate the migration
+
+```bash
+alab new add_comments_and_tags
+```
+
+alab diffs your updated schemas against the state after `001_initial_schema`
+and generates `002_add_comments_and_tags.js`. The migration will:
+
+1. Create `blog_comment` with foreign keys to `auth_user` and `blog_post`
+2. Create `blog_tag`
+3. Create the `blog_post_blog_tag` join table
+4. Create all indexes
+
+Preview and apply:
+
+```bash
+alab migrate --dry
+alab migrate
+```
+
+## What you have now
+
+```
+auth_user
+  ├── id, email, username, password, is_active
+  ├── created_at, updated_at
+  │
+blog_post
+  ├── id, title, slug, body, status, author_id
+  ├── created_at, updated_at, deleted_at
+  ├── FK → auth_user
+  │
+blog_comment
+  ├── id, body, author_id, post_id
+  ├── created_at, updated_at
+  ├── FK → auth_user
+  ├── FK → blog_post (cascade delete)
+  │
+blog_tag
+  ├── id, name, slug
+  │
+blog_post_blog_tag (join table)
+  ├── post_id, tag_id
+  ├── FK → blog_post
+  ├── FK → blog_tag
+```
+
+Four tables, two migrations, zero hand-written SQL. The schema files remain the
+single source of truth.
+
+<Aside type="tip">
+Next: [Generating Code](/tutorial/generating-code/) — we'll export types and
+run a generator to produce a working API from this schema.
+</Aside>

@@ -1,0 +1,134 @@
+---
+title: "Your First Project"
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+This tutorial walks through creating a project from scratch. By the end you will
+have two tables in a database with generated types.
+
+## Initialize the project
+
+```bash
+alab init
+```
+
+This creates:
+
+```
+project/
+├── alab.yaml
+├── schemas/
+├── migrations/
+└── types/
+```
+
+Edit `alab.yaml` to point at a database. For this tutorial, SQLite is the
+easiest option:
+
+```yaml
+database:
+  dialect: sqlite
+  url: ./dev.db
+
+schemas: ./schemas
+migrations: ./migrations
+```
+
+## Define a users table
+
+```bash
+alab table auth user
+```
+
+Open `schemas/auth/user.js` and define the columns:
+
+```js
+export default table({
+  id: col.id(),
+  email: col.email().unique(),
+  username: col.username(),
+  password: col.password_hash(),
+  is_active: col.flag(true),
+})
+  .timestamps();
+```
+
+A few things to notice:
+
+- `col.email()` is a semantic type — it produces a `VARCHAR(255)` with an
+  OpenAPI `format: "email"` hint and a validation pattern. You could write
+  `col.string(255)` instead, but the semantic version carries more metadata.
+- `col.password_hash()` is hidden from API exports. It exists in the database
+  but won't appear in generated types or OpenAPI output.
+- `col.flag(true)` defaults to `true` — no need to chain `.default(true)`.
+- `.timestamps()` adds `created_at` and `updated_at` columns automatically.
+
+## Define a posts table
+
+```bash
+alab table blog post
+```
+
+Edit `schemas/blog/post.js`:
+
+```js
+export default table({
+  id: col.id(),
+  title: col.title(),
+  slug: col.slug(),
+  body: col.body(),
+  status: col.enum(["draft", "published", "archived"]).default("draft"),
+  author: col.belongs_to("auth.user"),
+})
+  .timestamps()
+  .soft_delete();
+```
+
+- `col.slug()` is automatically unique with a slug-format validation pattern.
+- `col.belongs_to("auth.user")` creates an `author_id` foreign key column
+  referencing `auth_user.id`.
+- `.soft_delete()` adds a nullable `deleted_at` column.
+
+## Generate and apply the migration
+
+```bash
+alab new initial_schema
+```
+
+This compares your schema files against an empty state and generates
+`migrations/001_initial_schema.js` with `up()` and `down()` functions.
+
+Preview the SQL:
+
+```bash
+alab migrate --dry
+```
+
+Apply it:
+
+```bash
+alab migrate
+```
+
+## Check the result
+
+```bash
+alab status
+```
+
+This opens a TUI showing your schema state, migration history, and
+verification status. You should see both tables created with all columns,
+indexes, and the foreign key from `blog_post.author_id` to `auth_user.id`.
+
+## What you have now
+
+- Two tables (`auth_user`, `blog_post`) in your database
+- A migration file that can be rolled back with `alab rollback`
+- TypeScript definitions for IDE support
+- A schema that serves as the single source of truth for everything downstream
+
+<Aside type="tip">
+Next: [Adding Relationships](/tutorial/relationships/) — we'll add comments,
+tags, and see how the schema grows.
+</Aside>

@@ -1,0 +1,118 @@
+---
+title: "Generating Code"
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+This continues from [Adding Relationships](/tutorial/relationships/). We have
+four tables in a database. Now we'll generate typed outputs and a working API
+from the same schema.
+
+## Export types
+
+```bash
+alab export -f typescript
+```
+
+This produces TypeScript interfaces for every table. The `password` column on
+`auth_user` is omitted because `col.password_hash()` is hidden from exports.
+
+You can export in other formats too:
+
+```bash
+alab export -f python
+alab export -f go
+alab export -f rust
+```
+
+Every export reads from the same schema. Change a column once, re-export, and
+every language stays in sync.
+
+## Export the OpenAPI schema
+
+```bash
+alab export -f openapi
+```
+
+This produces an `openapi.json` file with:
+
+- Standard OpenAPI 3.0 type definitions for every table
+- `x-db` extensions carrying database-specific metadata (constraints,
+  relationships, indexes, semantic type info)
+
+This file is the portable, machine-readable description of your entire data
+model. Generators, custom tooling, and third-party tools like QuickType or
+`openapi-generator` can all consume it.
+
+## Run a generator
+
+Generators transform the schema into arbitrary output files. Let's use the
+built-in FastAPI example to produce a working Python API.
+
+Download the generator:
+
+```bash
+alab gen add https://raw.githubusercontent.com/hlop3z/astroladb/main/examples/generators/generators/fastapi.js
+```
+
+This saves `generators/fastapi.js`. Now run it:
+
+```bash
+alab gen run generators/fastapi -o ./generated
+```
+
+The output:
+
+```
+generated/
+├── auth/
+│   ├── __init__.py
+│   ├── models.py      # Pydantic models with enums and defaults
+│   └── router.py      # CRUD endpoints
+├── blog/
+│   ├── __init__.py
+│   ├── models.py
+│   └── router.py
+└── main.py            # FastAPI app wiring all routers
+```
+
+To run it:
+
+```bash
+cd generated
+uv add fastapi[standard]
+uv run fastapi dev main.py
+```
+
+Open `http://localhost:8000/docs` to see the interactive API documentation.
+
+## Two paths, same source
+
+The exported types and the generated API both came from the same schema files.
+Neither required you to describe your data model a second time.
+
+This is the core idea:
+
+- **`alab export`** gives you typed structures in any supported language.
+- **`alab gen`** gives you arbitrary file output — APIs, configs, documentation,
+  anything a generator template can produce.
+- **`openapi.json`** is the portable artifact that any external tool can consume
+  directly.
+
+All three read from the same source of truth. Use whichever combination fits
+your project.
+
+<Aside type="note">
+  For more on when to use generators vs. consuming the OpenAPI schema directly,
+  see [Why & When: Generators](../../advanced_users/generators-intro/).
+</Aside>
+
+## Where to go from here
+
+- [Tables](../../tables/) — column modifiers, table modifiers, full syntax
+- [Semantic Types](../../cols/semantics/) — what they add over low-level types
+- [Relationships](../../cols/relationships/) — all relationship types and
+  referential integrity options
+- [Migrations](../../migrations/) — the migration DSL reference
+- [Code Generators](../../advanced_users/generators/) — writing your own
+  generators
