@@ -35,8 +35,8 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
   # Export GraphQL schema to stdout
   alab export --format graphql --stdout
 
-  # Export Rust types using mik_sdk style
-  alab export --format rust --mik`,
+  # With Relations variants
+  alab export --format rust --relations`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newSchemaOnlyClient()
 			if err != nil {
@@ -88,9 +88,10 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
 					formatOpts = append(formatOpts, astroladb.WithChrono())
 				}
 
-				// OpenAPI and GraphQL always go to root (single file)
-				// Other formats split by namespace
-				if f == "openapi" || f == "graphql" {
+				// OpenAPI and GraphQL always go to root (single file).
+				// When --relations is used, all formats export as a single file
+				// so cross-namespace relationships resolve correctly.
+				if f == "openapi" || f == "graphql" || relations {
 					path, err := exportFormat(client, f, dir, stdout, formatOpts)
 					if err != nil {
 						return err
