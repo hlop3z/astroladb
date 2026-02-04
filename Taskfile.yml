@@ -58,6 +58,11 @@ tasks:
     cmds:
       - golangci-lint run ./...
 
+  dupl:
+    desc: "Find duplicate code excluding tests (usage: task dupl T=50)"
+    cmds:
+      - "go list -f '{{`{{range .GoFiles}}{{$.Dir}}/{{.}}\n{{end}}`}}' ./... | dupl -files -t {{.T | default 75}}"
+
   vuln:
     desc: Run govulncheck for security vulnerabilities
     cmds:
