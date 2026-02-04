@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hlop3z/astroladb/internal/git"
+	"github.com/hlop3z/astroladb/internal/lockfile"
 	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
 )
@@ -56,18 +57,7 @@ Use --commit to auto-commit after successful migration.`,
 
 			// Show context information
 			if !dryRun {
-				// Mask database URL for security
-				dbDisplay := MaskDatabaseURL(cfg.Database.URL)
-
-				ctx := &ui.ContextView{
-					Pairs: map[string]string{
-						"Config":     configFile,
-						"Migrations": cfg.MigrationsDir,
-						"Database":   dbDisplay,
-					},
-				}
-				fmt.Println(ctx.Render())
-				fmt.Println()
+				printContextInfo(cfg)
 			}
 
 			// Pre-migration git checks
@@ -198,6 +188,15 @@ Use --commit to auto-commit after successful migration.`,
 			elapsed := time.Since(start)
 
 			if !dryRun {
+				// Update lock file
+				cfg, cfgErr := loadConfig()
+				if cfgErr == nil {
+					lockPath := lockfile.DefaultPath()
+					if lockErr := lockfile.Write(cfg.MigrationsDir, lockPath); lockErr != nil {
+						fmt.Fprintf(os.Stderr, "%s: %v\n", ui.Warning("Warning: failed to update lock file"), lockErr)
+					}
+				}
+
 				// Show success with timing
 				ui.ShowSuccess(
 					TitleMigrationsApplied,
@@ -221,13 +220,13 @@ Use --commit to auto-commit after successful migration.`,
 		},
 	}
 
-	cmd.Flags().BoolVar(&dryRun, "dry", false, "Print SQL without executing")
-	cmd.Flags().BoolVar(&force, "force", false, "Skip safety warnings")
-	cmd.Flags().BoolVar(&confirmDestroy, "confirm-destroy", false, "Confirm DROP operations")
-	cmd.Flags().BoolVar(&commit, "commit", false, "Auto-commit migration files to git")
-	cmd.Flags().BoolVar(&skipLock, "skip-lock", false, "Skip distributed locking (use in CI)")
-	cmd.Flags().DurationVar(&lockTimeout, "lock-timeout", 0, "Lock acquisition timeout (default 30s)")
-	cmd.Flags().BoolVar(&verifySQL, "verify-sql", false, "Verify SQL checksums before applying")
+	cmd.Flags().BoolVar(&dryRun, "dry", false, FlagDescDryRun)
+	cmd.Flags().BoolVar(&force, "force", false, FlagDescForce)
+	cmd.Flags().BoolVar(&confirmDestroy, "confirm-destroy", false, FlagDescConfirmDestroy)
+	cmd.Flags().BoolVar(&commit, "commit", false, FlagDescCommit)
+	cmd.Flags().BoolVar(&skipLock, "skip-lock", false, FlagDescSkipLock)
+	cmd.Flags().DurationVar(&lockTimeout, "lock-timeout", 0, FlagDescLockTimeout)
+	cmd.Flags().BoolVar(&verifySQL, "verify-sql", false, FlagDescVerifySQL)
 
 	setupCommandHelp(cmd)
 	return cmd

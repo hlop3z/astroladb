@@ -163,7 +163,7 @@ func TestIsInternalTable(t *testing.T) {
 		{"users", false},
 		{"auth_users", false},
 		{"migrations", false},
-		{"alab_migrations_lock", false}, // Different table
+		{"alab_migrations_lock", true}, // Also internal
 		{"", false},
 	}
 

@@ -12,31 +12,31 @@ export default migration({
     //
     // Create a table:
     // m.create_table("auth.user", t => {
-    //   t.id()
-    //   t.string("email", 255).unique()
-    //   t.string("username", 50).unique()
-    //   t.string("password", 255)
-    //   t.boolean("is_active").default(true)
-    //   t.timestamps()
-    // })
+    //   t.id();
+    //   t.string("email", 255).unique();
+    //   t.string("username", 50).unique();
+    //   t.string("password", 255);
+    //   t.boolean("is_active").default(true);
+    //   t.timestamps();
+    // });
     //
     // Add columns:
-    // m.add_column("auth.user", c => c.string("phone", 50).optional())
+    // m.add_column("auth.user", c => c.string("phone", 50).optional());
     //
     // Create indexes:
-    // m.create_index("auth.user", ["email"])
+    // m.create_index("auth.user", ["email"]);
     //
     // Rename:
-    // m.rename_column("auth.user", "old_name", "new_name")
+    // m.rename_column("auth.user", "old_name", "new_name");
     //
     // Drop:
-    // m.drop_column("auth.user", "column_name")
+    // m.drop_column("auth.user", "column_name");
   },
 
   down(m) {
     // Reverse the operations in up() in reverse order
     // Examples:
-    // m.drop_table("auth.user")
-    // m.drop_column("auth.user", "phone")
-  }
-})
+    // m.drop_table("auth.user");
+    // m.drop_column("auth.user", "phone");
+  },
+});

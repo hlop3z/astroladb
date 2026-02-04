@@ -53,17 +53,7 @@ after a successful rollback.`,
 
 			// Show context information
 			if !dryRun {
-				dbDisplay := MaskDatabaseURL(cfg.Database.URL)
-
-				ctx := &ui.ContextView{
-					Pairs: map[string]string{
-						"Config":     configFile,
-						"Migrations": cfg.MigrationsDir,
-						"Database":   dbDisplay,
-					},
-				}
-				fmt.Println(ctx.Render())
-				fmt.Println()
+				printContextInfo(cfg)
 			}
 
 			client, err := newClient()
@@ -153,10 +143,10 @@ after a successful rollback.`,
 		},
 	}
 
-	cmd.Flags().BoolVar(&dryRun, "dry", false, "Print SQL without executing")
-	cmd.Flags().BoolVar(&commit, "commit", false, "Auto-commit migration files to git")
-	cmd.Flags().BoolVar(&skipLock, "skip-lock", false, "Skip distributed locking (use in CI)")
-	cmd.Flags().DurationVar(&lockTimeout, "lock-timeout", 0, "Lock acquisition timeout (default 30s)")
+	cmd.Flags().BoolVar(&dryRun, "dry", false, FlagDescDryRun)
+	cmd.Flags().BoolVar(&commit, "commit", false, FlagDescCommit)
+	cmd.Flags().BoolVar(&skipLock, "skip-lock", false, FlagDescSkipLock)
+	cmd.Flags().DurationVar(&lockTimeout, "lock-timeout", 0, FlagDescLockTimeout)
 
 	setupCommandHelp(cmd)
 	return cmd

@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hlop3z/astroladb/internal/engine"
-	"github.com/hlop3z/astroladb/internal/lockfile"
 	"github.com/hlop3z/astroladb/internal/ui"
 )
 
@@ -187,12 +186,6 @@ func createEmptyMigration(name string) error {
 
 	if err := os.WriteFile(path, []byte(content), FilePerm); err != nil {
 		return fmt.Errorf("failed to write migration file: %w", err)
-	}
-
-	// Update lock file
-	lockPath := lockfile.DefaultPath()
-	if err := lockfile.Write(cfg.MigrationsDir, lockPath); err != nil {
-		fmt.Fprintf(os.Stderr, "%s: %v\n", ui.Warning("Warning: failed to update lock file"), err)
 	}
 
 	// Show success

@@ -907,6 +907,8 @@ func (s *Sandbox) RunFile(path string) ([]ast.Operation, error) {
 	// Reset results before evaluation
 	s.tables = make([]*ast.TableDef, 0)
 	s.operations = make([]ast.Operation, 0)
+	s.hooks = MigrationHooks{}
+	s.migrationMeta = MigrationMeta{}
 
 	if err := s.Run(code); err != nil {
 		return nil, err

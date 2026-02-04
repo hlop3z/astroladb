@@ -17,7 +17,7 @@ const (
 
 const (
 	MainTitle   = "⏳ Astroladb"
-	MainSummary = "★  Schema-first migrations. Write once, export everywhere."
+	MainSummary = "★  One schema: many languages."
 )
 
 // Default directory and file names.
@@ -176,6 +176,63 @@ const (
 	MsgNoMigrationRunning     = "No migration is currently running"
 	MsgLockNotHeld            = "Migration lock is not currently held"
 	MsgLockForcefullyReleased = "Migration lock has been forcefully released"
+)
+
+// HTTP header constants for consistent HTTP responses.
+const (
+	// HeaderContentType is the Content-Type header key.
+	HeaderContentType = "Content-Type"
+
+	// HeaderCacheControl is the Cache-Control header key.
+	HeaderCacheControl = "Cache-Control"
+
+	// HeaderCORS is the CORS header for cross-origin requests.
+	HeaderCORS = "Access-Control-Allow-Origin"
+
+	// ContentTypeJSON is the MIME type for JSON responses.
+	ContentTypeJSON = "application/json"
+
+	// ContentTypeHTML is the MIME type for HTML responses.
+	ContentTypeHTML = "text/html; charset=utf-8"
+
+	// CORSAllowAll allows all origins for CORS.
+	CORSAllowAll = "*"
+)
+
+// Flag descriptions for consistent CLI flag help text.
+const (
+	// FlagDescDryRun is the description for --dry flag.
+	FlagDescDryRun = "Print SQL without executing"
+
+	// FlagDescForce is the description for --force flag (skip safety warnings).
+	FlagDescForce = "Skip safety warnings"
+
+	// FlagDescForceConfirm is the description for --force flag (skip confirmation).
+	FlagDescForceConfirm = "Skip confirmation prompt"
+
+	// FlagDescCommit is the description for --commit flag.
+	FlagDescCommit = "Auto-commit migration files to git"
+
+	// FlagDescSkipLock is the description for --skip-lock flag.
+	FlagDescSkipLock = "Skip distributed locking (use in CI)"
+
+	// FlagDescConfirmDestroy is the description for --confirm-destroy flag.
+	FlagDescConfirmDestroy = "Confirm DROP operations"
+
+	// FlagDescLockTimeout is the description for --lock-timeout flag.
+	FlagDescLockTimeout = "Lock acquisition timeout (default 30s)"
+
+	// FlagDescVerifySQL is the description for --verify-sql flag.
+	FlagDescVerifySQL = "Verify SQL checksums before applying"
+
+	// FlagDescJSON is the description for --json flag.
+	FlagDescJSON = "Output as JSON for CI/CD"
+
+	// FlagDescText is the description for --text flag.
+	FlagDescText = "Output as plain text (non-interactive)"
+
+	// FlagDescOverwrite is the description for --overwrite flag.
+	FlagDescOverwrite = "Overwrite existing file"
 )
 
 // MaskDatabaseURL truncates a database URL for display.

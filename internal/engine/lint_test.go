@@ -170,9 +170,10 @@ func TestLintOperations_ReservedWordColumn(t *testing.T) {
 }
 
 func TestLintOperations_ReservedWordTable(t *testing.T) {
+	// Table without namespace - full name "table" is a reserved word
 	ops := []ast.Operation{
 		&ast.CreateTable{
-			TableOp: ast.TableOp{Namespace: "core", Name: "table"},
+			TableOp: ast.TableOp{Namespace: "", Name: "table"},
 			Columns: []*ast.ColumnDef{{Name: "id", Type: "uuid", PrimaryKey: true}},
 		},
 	}
@@ -186,6 +187,23 @@ func TestLintOperations_ReservedWordTable(t *testing.T) {
 	}
 	if !found {
 		t.Error("expected reserved_word warning for table named 'table'")
+	}
+}
+
+func TestLintOperations_NamespacedReservedWordTable_NoWarning(t *testing.T) {
+	// Table with namespace - full name "core_table" is NOT a reserved word
+	ops := []ast.Operation{
+		&ast.CreateTable{
+			TableOp: ast.TableOp{Namespace: "core", Name: "table"},
+			Columns: []*ast.ColumnDef{{Name: "id", Type: "uuid", PrimaryKey: true}},
+		},
+	}
+
+	warnings := LintOperations(ops)
+	for _, w := range warnings {
+		if w.Type == "reserved_word" && w.Table == "" {
+			t.Errorf("unexpected reserved_word warning for namespaced table: %s", w.Message)
+		}
 	}
 }
 

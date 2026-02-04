@@ -19,6 +19,17 @@ func lockCmd() *cobra.Command {
 
 The migration system uses a lock table to prevent concurrent migrations.
 Use these commands to check lock status or release stuck locks.`,
+		Example: `  # Check database migration lock status
+  alab lock status
+
+  # Verify lock file integrity
+  alab lock verify
+
+  # Regenerate lock file from current migrations
+  alab lock repair
+
+  # Force release a stuck lock
+  alab lock release --force`,
 	}
 
 	cmd.AddCommand(lockStatusCmd())
@@ -172,7 +183,7 @@ other migration is currently running.`,
 		},
 	}
 
-	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVar(&force, "force", false, FlagDescForceConfirm)
 
 	setupCommandHelp(cmd)
 	return cmd

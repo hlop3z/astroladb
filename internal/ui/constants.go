@@ -34,16 +34,17 @@ const (
 
 // Panel titles (with padding for borders)
 const (
-	PanelDetails        = " Details "
-	PanelTables         = " Tables "
-	PanelColumns        = " Columns "
-	PanelChainIntegrity = " Chain Integrity "
-	PanelGitStatus      = " Git Status "
-	PanelDriftDetails   = " Drift Details "
-	PanelSQLPreview     = " SQL Preview "
-	PanelConfirm        = " Confirm "
-	PanelInput          = " Input "
-	PanelSelect         = " Select "
+	PanelDetails           = " Details "
+	PanelTables            = " Tables "
+	PanelColumns           = " Columns "
+	PanelChainIntegrity    = " Chain Integrity "
+	PanelLockFileIntegrity = " Lock File "
+	PanelGitStatus         = " Git Status "
+	PanelDriftDetails      = " Drift Details "
+	PanelSQLPreview        = " SQL Preview "
+	PanelConfirm           = " Confirm "
+	PanelInput             = " Input "
+	PanelSelect            = " Select "
 )
 
 // View headers
@@ -154,6 +155,7 @@ const (
 	TitleSchemaDrift          = "Schema Drift"
 	TitleMigrationStatus      = "Migration Status"
 	TitleMigrationChainStatus = "Migration Chain Status"
+	TitleLockFileStatus       = "Lock File Status"
 )
 
 // Common format strings

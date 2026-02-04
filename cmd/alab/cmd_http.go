@@ -56,8 +56,8 @@ func handleSchemaError(w http.ResponseWriter, err error, endpoint string) {
 	}
 
 	// Return JSON error for API clients
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set(HeaderContentType, ContentTypeJSON)
+	w.Header().Set(HeaderCORS, CORSAllowAll)
 	w.WriteHeader(http.StatusBadRequest)
 	fmt.Fprintf(w, `{"error": %q}`, errMsg)
 }
@@ -232,10 +232,10 @@ func startServer(port int) error {
 
 	// SSE endpoint for hot reload
 	http.HandleFunc("/_reload", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set(HeaderContentType, "text/event-stream")
+		w.Header().Set(HeaderCacheControl, "no-cache")
 		w.Header().Set("Connection", "keep-alive")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set(HeaderCORS, CORSAllowAll)
 
 		ch := make(chan struct{}, 1)
 		sseClientsMu.Lock()
@@ -277,8 +277,8 @@ func startServer(port int) error {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set(HeaderContentType, ContentTypeJSON)
+		w.Header().Set(HeaderCORS, CORSAllowAll)
 		w.Write(data)
 	})
 
@@ -297,8 +297,8 @@ func startServer(port int) error {
 			return
 		}
 
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set(HeaderContentType, "text/plain; charset=utf-8")
+		w.Header().Set(HeaderCORS, CORSAllowAll)
 		w.Write(data)
 	})
 
@@ -317,14 +317,14 @@ func startServer(port int) error {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set(HeaderContentType, ContentTypeJSON)
+		w.Header().Set(HeaderCORS, CORSAllowAll)
 		w.Write(data)
 	})
 
 	// Serve GraphQL schema viewer
 	http.HandleFunc("/graphiql", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set(HeaderContentType, ContentTypeHTML)
 		w.Write([]byte(mustReadTemplate(templateGraphQLHTML)))
 	})
 
@@ -335,8 +335,8 @@ func startServer(port int) error {
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", "image/png")
-		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Header().Set(HeaderContentType, "image/png")
+		w.Header().Set(HeaderCacheControl, "public, max-age=86400")
 		w.Write(data)
 	})
 
@@ -348,7 +348,7 @@ func startServer(port int) error {
 		}
 
 		html := getHTML()
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set(HeaderContentType, ContentTypeHTML)
 		w.Write([]byte(html))
 	})
 

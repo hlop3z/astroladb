@@ -223,7 +223,7 @@ func genAddCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&force, "force", false, "Overwrite existing generator file")
+	cmd.Flags().BoolVar(&force, "force", false, FlagDescOverwrite)
 
 	setupCommandHelp(cmd)
 	return cmd
@@ -248,7 +248,7 @@ func loadGeneratorSchema() (map[string]any, error) {
 		return nil, fmt.Errorf("failed to parse OpenAPI schema: %w", err)
 	}
 
-	// Extract models from: openapi.paths["/schemas"].get.responses["200"].content["application/json"].example.models
+	// Extract models from: openapi.paths["/schemas"].get.responses["200"].content[ContentTypeJSON].example.models
 	models, err := extractModels(openapi)
 	if err != nil {
 		return nil, err
@@ -277,7 +277,7 @@ func extractModels(openapi map[string]any) (any, error) {
 	responses, _ := get["responses"].(map[string]any)
 	resp200, _ := responses["200"].(map[string]any)
 	content, _ := resp200["content"].(map[string]any)
-	appJSON, _ := content["application/json"].(map[string]any)
+	appJSON, _ := content[ContentTypeJSON].(map[string]any)
 	example, _ := appJSON["example"].(map[string]any)
 	models, ok := example["models"]
 	if !ok {

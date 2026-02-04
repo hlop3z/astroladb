@@ -205,7 +205,8 @@ func (c *Client) GenerateBaselineContent(squashedThrough string, count int) (str
 	if err != nil {
 		return "", err
 	}
-	content := c.generateMigrationContent("baseline", ops)
+	// Baseline is always revision "001" with no previous revision
+	content := c.generateMigrationContent("baseline", "001", "", ops)
 	// Prepend baseline header comment
 	header := fmt.Sprintf("// Baseline: squashed from %d migrations (through revision %s)\n", count, squashedThrough)
 	return header + content, nil

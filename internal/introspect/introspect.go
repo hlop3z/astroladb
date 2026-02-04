@@ -152,7 +152,8 @@ func normalizeAction(action string) string {
 
 // internalTables lists tables that should be skipped during introspection.
 var internalTables = map[string]bool{
-	"alab_migrations": true,
+	"alab_migrations":      true,
+	"alab_migrations_lock": true,
 }
 
 // isInternalTable checks if a table should be skipped.

@@ -150,7 +150,7 @@ func TestRepair(t *testing.T) {
 
 func TestDefaultPath(t *testing.T) {
 	p := DefaultPath()
-	if p != filepath.Join(".alab", "schema.lock") {
+	if p != "alab.lock" {
 		t.Errorf("unexpected default path: %q", p)
 	}
 }

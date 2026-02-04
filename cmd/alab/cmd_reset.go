@@ -126,7 +126,7 @@ Drops all tables, re-runs migrations, leaves clean schema with no data. Requires
 		},
 	}
 
-	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVar(&force, "force", false, FlagDescForceConfirm)
 
 	setupCommandHelp(cmd)
 	return cmd

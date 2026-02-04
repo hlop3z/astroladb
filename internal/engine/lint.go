@@ -96,7 +96,8 @@ func LintOperations(ops []ast.Operation) []Warning {
 			}
 		case ast.OpCreateTable:
 			ct := op.(*ast.CreateTable)
-			if w := checkReservedWord("", ct.Name); w != nil {
+			// Check full table name (namespace_tablename), not just Name
+			if w := checkReservedWord("", op.Table()); w != nil {
 				warnings = append(warnings, *w)
 			}
 			for _, col := range ct.Columns {

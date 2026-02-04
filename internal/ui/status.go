@@ -89,8 +89,14 @@ type StatusData struct {
 	Migrations []MigrationItem
 
 	// Tab 3: Verify
-	GitStatus  []string // uncommitted files
-	LockHolder string   // who holds the migration lock, if any
+	GitStatus      []string // uncommitted files
+	LockHolder     string   // who holds the migration lock, if any
+	LockFileExists bool     // whether alab.lock exists
+	LockFileValid  bool     // whether lock file verification passed
+	LockNewFiles   []string // files on disk but not in lock
+	LockRemoved    []string // files in lock but not on disk
+	LockModified   []string // files with checksum mismatches
+	LockVerified   []string // files that passed verification
 
 	// Tab 4: Drift
 	DriftItems []DriftItem
@@ -483,49 +489,64 @@ func createStatusHistoryTab(app *tview.Application, data StatusData) tview.Primi
 	return layout
 }
 
-// createStatusVerifyTab creates the Verify tab with chain integrity and git status.
+// createStatusVerifyTab creates the Verify tab with lock file integrity and git status.
 func createStatusVerifyTab(app *tview.Application, data StatusData) tview.Primitive {
-	// Left panel: Chain integrity
+	// Left panel: Lock file integrity
 	chainPanel := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true)
 	chainPanel.SetBackgroundColor(Theme.Background).
 		SetBorder(true).
 		SetBorderColor(Theme.Border).
-		SetTitle(PanelChainIntegrity).
+		SetTitle(PanelLockFileIntegrity).
 		SetTitleColor(Theme.Accent)
 
-	// Build chain integrity content
+	// Build lock file integrity content
 	var chainContent strings.Builder
-	chainContent.WriteString(TagLabel + TitleMigrationChainStatus + TagValue + "\n\n")
+	chainContent.WriteString(TagLabel + TitleLockFileStatus + TagValue + "\n\n")
 
-	applied, pending := countMigrationStats(data.Migrations)
-	issues := 0
-	for _, m := range data.Migrations {
-		if m.Status == StatusMissing || m.Status == StatusModified {
-			issues++
+	if !data.LockFileExists {
+		chainContent.WriteString(TagError + SymbolCross + " Lock file not found" + TagReset + "\n")
+		chainContent.WriteString(TagMuted + "Run 'alab lock repair' to generate it" + TagReset + "\n")
+	} else if data.LockFileValid {
+		chainContent.WriteString(TagSuccess + SymbolCheck + " All checksums verified" + TagReset + "\n")
+		chainContent.WriteString(fmt.Sprintf(TagMuted+"Verified: %d files"+TagReset+"\n", len(data.LockVerified)))
+	} else {
+		// Count issues
+		issues := len(data.LockNewFiles) + len(data.LockRemoved) + len(data.LockModified)
+		chainContent.WriteString(fmt.Sprintf(TagError+LabelIssues+TagValue+" %d\n\n", issues))
+
+		if len(data.LockNewFiles) > 0 {
+			chainContent.WriteString(TagLabel + "New files (not in lock):" + TagReset + "\n")
+			for _, f := range data.LockNewFiles {
+				chainContent.WriteString(fmt.Sprintf("  "+TagError+SymbolCross+TagReset+" %s\n", f))
+			}
+			chainContent.WriteString("\n")
 		}
+		if len(data.LockRemoved) > 0 {
+			chainContent.WriteString(TagLabel + "Removed files (in lock but deleted):" + TagReset + "\n")
+			for _, f := range data.LockRemoved {
+				chainContent.WriteString(fmt.Sprintf("  "+TagError+SymbolCross+TagReset+" %s\n", f))
+			}
+			chainContent.WriteString("\n")
+		}
+		if len(data.LockModified) > 0 {
+			chainContent.WriteString(TagLabel + "Modified files (checksum mismatch):" + TagReset + "\n")
+			for _, f := range data.LockModified {
+				chainContent.WriteString(fmt.Sprintf("  "+TagError+SymbolCross+TagReset+" %s\n", f))
+			}
+			chainContent.WriteString("\n")
+		}
+
+		chainContent.WriteString(TagMuted + "Run 'alab lock repair' to regenerate" + TagReset + "\n")
 	}
 
-	chainContent.WriteString(fmt.Sprintf(TagSuccess+LabelApplied+TagValue+" %d\n", applied))
-	chainContent.WriteString(fmt.Sprintf(TagLabel+LabelPending+TagValue+" %d\n", pending))
-	if issues > 0 {
-		chainContent.WriteString(fmt.Sprintf(TagError+LabelIssues+TagValue+" %d\n", issues))
-	}
-
-	chainContent.WriteString("\n" + TagLabel + LabelChecksums + TagValue + "\n")
-	for _, m := range data.Migrations {
-		statusIcon := TagSuccess + SymbolCheck + TagReset
-		if m.Status == StatusPending {
-			statusIcon = TagLabel + SymbolCircle + TagReset
-		} else if m.Status == StatusMissing || m.Status == StatusModified {
-			statusIcon = TagError + SymbolCross + TagReset
+	// Also show verified files if any
+	if data.LockFileExists && len(data.LockVerified) > 0 && !data.LockFileValid {
+		chainContent.WriteString("\n" + TagLabel + "Verified files:" + TagReset + "\n")
+		for _, f := range data.LockVerified {
+			chainContent.WriteString(fmt.Sprintf("  "+TagSuccess+SymbolCheck+TagReset+" %s\n", f))
 		}
-		checksum := m.Checksum
-		if len(checksum) > Layout.ChecksumDisplayLen {
-			checksum = checksum[:Layout.ChecksumDisplayLen]
-		}
-		chainContent.WriteString(fmt.Sprintf("%s %s "+TagMuted+"%s"+TagReset+"\n", statusIcon, m.Revision, checksum))
 	}
 
 	chainPanel.SetText(chainContent.String())
@@ -699,26 +720,27 @@ func showStatusSimple(tab string, data StatusData) {
 	case TabVerify:
 		fmt.Println(RenderTitle(TitleMigrationVerify))
 		fmt.Println()
-		applied, pending := countMigrationStats(data.Migrations)
-		fmt.Printf("  Applied: %d\n", applied)
-		fmt.Printf("  Pending: %d\n", pending)
 		if data.GitBranch != "" {
 			fmt.Printf("  Branch:  %s\n", data.GitBranch)
 		}
-		// Checksums
-		fmt.Println()
-		for _, m := range data.Migrations {
-			icon := SymbolCheck
-			if m.Status == StatusPending {
-				icon = SymbolCircle
-			} else if m.Status == StatusMissing || m.Status == StatusModified {
-				icon = SymbolCross
+		// Lock file status
+		if !data.LockFileExists {
+			fmt.Printf("  %s Lock file not found\n", SymbolCross)
+			fmt.Println("  " + Muted("Run 'alab lock repair' to generate it"))
+		} else if data.LockFileValid {
+			fmt.Printf("  %s All checksums verified (%d files)\n", SymbolCheck, len(data.LockVerified))
+		} else {
+			issues := len(data.LockNewFiles) + len(data.LockRemoved) + len(data.LockModified)
+			fmt.Printf("  %s %d issues found\n", SymbolCross, issues)
+			for _, f := range data.LockNewFiles {
+				fmt.Printf("    %s %s (new)\n", SymbolCross, f)
 			}
-			checksum := m.Checksum
-			if len(checksum) > Layout.ChecksumDisplayLen {
-				checksum = checksum[:Layout.ChecksumDisplayLen]
+			for _, f := range data.LockRemoved {
+				fmt.Printf("    %s %s (removed)\n", SymbolCross, f)
 			}
-			fmt.Printf("  %s %s %s\n", icon, m.Revision, Dim(checksum))
+			for _, f := range data.LockModified {
+				fmt.Printf("    %s %s (modified)\n", SymbolCross, f)
+			}
 		}
 
 	case TabDrift:
@@ -802,26 +824,40 @@ func ShowStatusText(data StatusData) {
 	}
 	fmt.Println()
 
-	// Verification
+	// Verification (Lock File)
 	fmt.Println(RenderTitle(TitleVerification))
 	fmt.Println()
-	applied, pending := countMigrationStats(data.Migrations)
-	fmt.Printf("  Applied: %d\n", applied)
-	fmt.Printf("  Pending: %d\n", pending)
 	if data.GitBranch != "" {
 		fmt.Printf("  Branch:  %s\n", data.GitBranch)
 	}
-	// Check for issues
-	issues := 0
-	for _, m := range data.Migrations {
-		if m.Status == StatusMissing || m.Status == StatusModified {
-			issues++
-		}
-	}
-	if issues == 0 {
-		fmt.Printf("  %s %s\n", SymbolCheck, MsgAllChecksumsValid)
+	// Check lock file status
+	if !data.LockFileExists {
+		fmt.Printf("  %s Lock file not found\n", SymbolCross)
+		fmt.Println("  " + Muted("Run 'alab lock repair' to generate it"))
+	} else if data.LockFileValid {
+		fmt.Printf("  %s All checksums verified (%d files)\n", SymbolCheck, len(data.LockVerified))
 	} else {
+		issues := len(data.LockNewFiles) + len(data.LockRemoved) + len(data.LockModified)
 		fmt.Printf("  %s "+FmtIssuesFound+"\n", SymbolCross, issues)
+		if len(data.LockNewFiles) > 0 {
+			fmt.Println("  New files (not in lock):")
+			for _, f := range data.LockNewFiles {
+				fmt.Printf("    %s %s\n", SymbolCross, f)
+			}
+		}
+		if len(data.LockRemoved) > 0 {
+			fmt.Println("  Removed files:")
+			for _, f := range data.LockRemoved {
+				fmt.Printf("    %s %s\n", SymbolCross, f)
+			}
+		}
+		if len(data.LockModified) > 0 {
+			fmt.Println("  Modified files:")
+			for _, f := range data.LockModified {
+				fmt.Printf("    %s %s\n", SymbolCross, f)
+			}
+		}
+		fmt.Println("  " + Muted("Run 'alab lock repair' to regenerate"))
 	}
 	fmt.Println()
 

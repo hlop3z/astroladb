@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/lockfile"
 	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
 )
@@ -106,9 +107,24 @@ Use --text for non-interactive output.`,
 				}
 			}
 
-			// Tab 3: Verify - Get git info
+			// Tab 3: Verify - Get lock file verification and git info
 			data.GitBranch = getGitBranch()
 			data.GitStatus = getGitMigrationStatus()
+
+			// Verify lock file integrity
+			cfg, cfgErr := loadConfig()
+			if cfgErr == nil {
+				lockPath := lockfile.DefaultPath()
+				verifyResult, verifyErr := lockfile.VerifyDetailed(cfg.MigrationsDir, lockPath)
+				if verifyErr == nil && verifyResult != nil {
+					data.LockFileExists = verifyResult.LockFileExists
+					data.LockFileValid = verifyResult.Valid
+					data.LockNewFiles = verifyResult.NewFiles
+					data.LockRemoved = verifyResult.RemovedFiles
+					data.LockModified = verifyResult.ModifiedFiles
+					data.LockVerified = verifyResult.VerifiedFiles
+				}
+			}
 
 			// Tab 4: Drift - Check drift
 			driftResult, err := client.CheckDrift()
@@ -135,8 +151,8 @@ Use --text for non-interactive output.`,
 		},
 	}
 
-	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON for CI/CD")
-	cmd.Flags().BoolVar(&textOutput, "text", false, "Output as plain text (non-interactive)")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, FlagDescJSON)
+	cmd.Flags().BoolVar(&textOutput, "text", false, FlagDescText)
 	cmd.Flags().StringVar(&at, "at", "", "Migration revision (e.g., 003)")
 
 	setupCommandHelp(cmd)

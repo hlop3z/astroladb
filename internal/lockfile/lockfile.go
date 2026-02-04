@@ -1,4 +1,4 @@
-// Package lockfile provides read/write/verify/repair for .alab/schema.lock files.
+// Package lockfile provides read/write/verify/repair for alab.lock files.
 // The lock file tracks the integrity of migration files using SHA-256 checksums.
 package lockfile
 
@@ -18,7 +18,7 @@ type Entry struct {
 	Checksum string
 }
 
-// LockFile represents the parsed contents of a schema.lock file.
+// LockFile represents the parsed contents of an alab.lock file.
 type LockFile struct {
 	Aggregate string  // SHA-256 of all individual checksums combined
 	Entries   []Entry // Individual file checksums
@@ -144,9 +144,87 @@ func Repair(migrationsDir, lockPath string) error {
 	return Write(migrationsDir, lockPath)
 }
 
+// VerificationResult holds detailed results of lock file verification.
+type VerificationResult struct {
+	Valid          bool     // Overall validity
+	LockFileExists bool     // Whether lock file exists
+	AggregateMatch bool     // Whether aggregate checksum matches
+	NewFiles       []string // Files on disk but not in lock
+	RemovedFiles   []string // Files in lock but not on disk
+	ModifiedFiles  []string // Files with checksum mismatches
+	VerifiedFiles  []string // Files that passed verification
+}
+
+// VerifyDetailed checks the lock file and returns detailed verification results.
+// Unlike Verify which returns an error, this returns structured results for UI display.
+func VerifyDetailed(migrationsDir, lockPath string) (*VerificationResult, error) {
+	result := &VerificationResult{
+		Valid:          true,
+		LockFileExists: true,
+		AggregateMatch: true,
+	}
+
+	lf, err := Read(lockPath)
+	if err != nil {
+		return nil, err
+	}
+	if lf == nil {
+		result.LockFileExists = false
+		result.Valid = false
+		return result, nil
+	}
+
+	entries, err := computeEntries(migrationsDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check aggregate
+	aggregate := computeAggregate(entries)
+	if aggregate != lf.Aggregate {
+		result.AggregateMatch = false
+		result.Valid = false
+	}
+
+	// Build lookup from lock file
+	lockMap := make(map[string]string)
+	for _, e := range lf.Entries {
+		lockMap[e.Filename] = e.Checksum
+	}
+
+	// Check each file on disk
+	fileMap := make(map[string]bool)
+	for _, e := range entries {
+		fileMap[e.Filename] = true
+
+		expected, ok := lockMap[e.Filename]
+		if !ok {
+			result.NewFiles = append(result.NewFiles, e.Filename)
+			result.Valid = false
+		} else if expected != e.Checksum {
+			result.ModifiedFiles = append(result.ModifiedFiles, e.Filename)
+			result.Valid = false
+		} else {
+			result.VerifiedFiles = append(result.VerifiedFiles, e.Filename)
+		}
+	}
+
+	// Check for removed files
+	for _, e := range lf.Entries {
+		if !fileMap[e.Filename] {
+			result.RemovedFiles = append(result.RemovedFiles, e.Filename)
+			result.Valid = false
+		}
+	}
+
+	return result, nil
+}
+
 // DefaultPath returns the default lock file path for a project.
+// The lock file is placed next to alab.yaml, following the convention
+// of package managers like pnpm, npm, cargo, and poetry.
 func DefaultPath() string {
-	return filepath.Join(".alab", "schema.lock")
+	return "alab.lock"
 }
 
 // computeEntries reads all .js files in the migrations dir and computes their checksums.

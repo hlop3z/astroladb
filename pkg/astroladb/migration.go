@@ -678,13 +678,13 @@ func (c *Client) MigrationGenerate(name string) (string, error) {
 	}
 
 	// Determine next revision number
-	revision, err := c.nextRevision()
+	revision, prevRevision, err := c.nextRevision()
 	if err != nil {
 		return "", err
 	}
 
 	// Generate migration content
-	content := c.generateMigrationContent(name, ops)
+	content := c.generateMigrationContent(name, revision, prevRevision, ops)
 
 	// Write migration file
 	filename := fmt.Sprintf("%s_%s.js", revision, name)
@@ -741,13 +741,13 @@ func (c *Client) MigrationGenerateWithRenames(name string, confirmedRenames []en
 	}
 
 	// Determine next revision number
-	revision, err := c.nextRevision()
+	revision, prevRevision, err := c.nextRevision()
 	if err != nil {
 		return "", err
 	}
 
 	// Generate migration content
-	content := c.generateMigrationContent(name, ops)
+	content := c.generateMigrationContent(name, revision, prevRevision, ops)
 
 	// Write migration file
 	filename := fmt.Sprintf("%s_%s.js", revision, name)
@@ -811,13 +811,13 @@ func (c *Client) MigrationGenerateInteractive(name string, renames []engine.Rena
 	}
 
 	// Determine next revision number
-	revision, err := c.nextRevision()
+	revision, prevRevision, err := c.nextRevision()
 	if err != nil {
 		return "", err
 	}
 
 	// Generate migration content
-	content := c.generateMigrationContent(name, ops)
+	content := c.generateMigrationContent(name, revision, prevRevision, ops)
 
 	// Write migration file
 	filename := fmt.Sprintf("%s_%s.js", revision, name)
@@ -927,14 +927,15 @@ func parseSquashedThrough(path string) string {
 }
 
 // nextRevision determines the next migration revision number.
-func (c *Client) nextRevision() (string, error) {
+// Returns (nextRevision, previousRevision, error). previousRevision is empty if this is the first migration.
+func (c *Client) nextRevision() (string, string, error) {
 	migrations, err := c.loadMigrationFiles()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if len(migrations) == 0 {
-		return "001", nil
+		return "001", "", nil
 	}
 
 	// Get the last revision
@@ -943,24 +944,36 @@ func (c *Client) nextRevision() (string, error) {
 	// Parse as integer and increment (fail fast for determinism)
 	num, err := strconv.Atoi(lastRevision)
 	if err != nil {
-		return "", alerr.New(alerr.ErrMigrationFailed, "migration revisions must be sequential numbers").
+		return "", "", alerr.New(alerr.ErrMigrationFailed, "migration revisions must be sequential numbers").
 			With("last_revision", lastRevision).
 			With("expected", "numeric revision (e.g., 001, 002, 003)")
 	}
 
-	return fmt.Sprintf("%03d", num+1), nil
+	return fmt.Sprintf("%03d", num+1), lastRevision, nil
 }
 
 // generateMigrationContent generates the JavaScript content for a migration.
-func (c *Client) generateMigrationContent(name string, ops []ast.Operation) string {
+// upRevision is the revision of this migration, downRevision is the previous migration (or empty for first).
+func (c *Client) generateMigrationContent(name, upRevision, downRevision string, ops []ast.Operation) string {
 	var sb strings.Builder
 
+	// Header comments
 	sb.WriteString("// Migration: ")
 	sb.WriteString(name)
+	sb.WriteString("\n")
+	sb.WriteString("// Generated at: ")
+	sb.WriteString(time.Now().Format("2006-01-02 15:04:05"))
 	sb.WriteString("\n\n")
 
-	// Write migration wrapper with up function
+	// Write migration wrapper with metadata
 	sb.WriteString("export default migration({\n")
+	sb.WriteString("  description: \"Describe what this migration does\",\n")
+	sb.WriteString(fmt.Sprintf("  up_revision: \"%s\",\n", upRevision))
+	if downRevision == "" {
+		sb.WriteString("  down_revision: null,\n\n")
+	} else {
+		sb.WriteString(fmt.Sprintf("  down_revision: \"%s\",\n\n", downRevision))
+	}
 	sb.WriteString("  up(m) {\n")
 
 	// Track operation sections for organizing comments
@@ -1120,7 +1133,6 @@ func beautifyJavaScript(code string) string {
 	cmd := exec.Command("npx", "--yes", "prettier@3.4.2",
 		"--parser", "babel",
 		"--tab-width", "2",
-		"--no-semi",
 		"--single-quote=false",
 		"--trailing-comma", "none",
 		"--arrow-parens", "avoid",
