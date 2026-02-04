@@ -108,8 +108,18 @@ alab migrate
 
 **Export types**
 
+> Exports all types, **split into separate files** per namespace.
+
 ```bash
 alab export -f all
+```
+
+**Export types with relations variants**
+
+> Bundled into a **single combined file** in the root output directory (instead of being split per namespace).
+
+```bash
+alab export -f all --relations
 ```
 
 ---
