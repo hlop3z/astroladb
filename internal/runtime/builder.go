@@ -292,14 +292,15 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 		}
 		tb.columns = append(tb.columns, col)
 
-		// Auto-create index on foreign key
-		idx := &IndexDef{
-			Columns: []string{colName},
-			Unique:  false,
-		}
-		tb.indexes = append(tb.indexes, idx)
+		// Note: Index is NOT created here for migrations.
+		// In migrations, indexes are handled as separate create_index operations.
+		// The writeCreateTable function generates these explicitly.
+		// Creating the index here would cause duplicates when:
+		// 1. belongs_to adds index to CreateTable.Indexes
+		// 2. Separate create_index operation is also in the migration
+		// 3. Both get replayed, causing "index already exists" errors
 
-		return tb.relationshipBuilder(ref, col, idx)
+		return tb.relationshipBuilder(ref, col, nil)
 	})
 
 	// one_to_one(ref) - Unique foreign key relationship with chaining API
@@ -324,14 +325,10 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 		}
 		tb.columns = append(tb.columns, col)
 
-		// Auto-create unique index on foreign key
-		idx := &IndexDef{
-			Columns: []string{colName},
-			Unique:  true,
-		}
-		tb.indexes = append(tb.indexes, idx)
+		// Note: Index is NOT created here for migrations (same as belongs_to).
+		// See belongs_to comment above for explanation.
 
-		return tb.relationshipBuilder(ref, col, idx)
+		return tb.relationshipBuilder(ref, col, nil)
 	})
 
 	// many_to_many(ref, opts)
@@ -379,10 +376,8 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 			Type: "uuid",
 		})
 
-		// Auto-create composite index on (type, id)
-		tb.indexes = append(tb.indexes, &IndexDef{
-			Columns: []string{typeCol, idCol},
-		})
+		// Note: Index is NOT created here for migrations (same as belongs_to).
+		// See belongs_to comment above for explanation.
 
 		// Store polymorphic relationship metadata
 		tb.relationships = append(tb.relationships, &RelationshipDef{
@@ -580,7 +575,10 @@ func (tb *TableBuilder) relationshipBuilder(ref string, col *ColumnDef, idx *Ind
 	_ = obj.Set("as", func(alias string) *goja.Object {
 		newName := alias + "_id"
 		col.Name = newName
-		idx.Columns = []string{newName}
+		// Update index columns if index exists (may be nil in migrations)
+		if idx != nil {
+			idx.Columns = []string{newName}
+		}
 		return obj
 	})
 

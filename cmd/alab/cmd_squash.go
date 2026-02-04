@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,8 +11,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hlop3z/astroladb/internal/chain"
 	"github.com/hlop3z/astroladb/internal/lockfile"
 	"github.com/hlop3z/astroladb/internal/ui"
+	"github.com/hlop3z/astroladb/pkg/astroladb"
 )
 
 // squashCmd squashes all existing migrations into a single baseline migration.
@@ -83,17 +87,17 @@ func runSquash(dryRun bool) error {
 		return nil
 	}
 
-	// Load schema and generate baseline content
-	client, err := newSchemaOnlyClient()
+	// Load schema and generate baseline content (schema-only client for baseline generation)
+	schemaClient, err := newSchemaOnlyClient()
 	if err != nil {
 		if !handleClientError(err) {
 			fmt.Fprintln(os.Stderr, ui.Error("error")+": "+err.Error())
 		}
 		os.Exit(1)
 	}
-	defer client.Close()
+	defer schemaClient.Close()
 
-	ops, err := client.GenerateBaselineOps()
+	ops, err := schemaClient.GenerateBaselineOps()
 	if err != nil {
 		return fmt.Errorf("failed to generate baseline: %w", err)
 	}
@@ -101,6 +105,16 @@ func runSquash(dryRun bool) error {
 	if len(ops) == 0 {
 		fmt.Println(ui.Warning("Schema has no tables — nothing to squash"))
 		return nil
+	}
+
+	// Try to get database client for history archival (optional - squash works without DB)
+	var dbClient *astroladb.Client
+	var migrationHistory []astroladb.MigrationHistoryEntry
+	dbClient, err = newClient()
+	if err == nil {
+		defer dbClient.Close()
+		// Get migration history for archival
+		migrationHistory, _ = dbClient.MigrationHistory()
 	}
 
 	if dryRun {
@@ -116,10 +130,15 @@ func runSquash(dryRun bool) error {
 		for _, f := range migFiles {
 			fmt.Printf("    %s\n", ui.Dim(f))
 		}
+		if len(migrationHistory) > 0 {
+			fmt.Println()
+			fmt.Printf("  Database records to archive: %s\n",
+				ui.FormatCount(len(migrationHistory), "record", "records"))
+		}
 		return nil
 	}
 
-	baselineContent, err := client.GenerateBaselineContent(lastRevision, len(migFiles))
+	baselineContent, err := schemaClient.GenerateBaselineContent(lastRevision, len(migFiles))
 	if err != nil {
 		return fmt.Errorf("failed to generate baseline content: %w", err)
 	}
@@ -130,11 +149,24 @@ func runSquash(dryRun bool) error {
 		return fmt.Errorf("failed to create archive directory: %w", err)
 	}
 
+	// Archive migration files
 	for _, f := range migFiles {
 		src := filepath.Join(cfg.MigrationsDir, f)
 		dst := filepath.Join(archiveDir, f)
 		if err := os.Rename(src, dst); err != nil {
 			return fmt.Errorf("failed to archive %s: %w", f, err)
+		}
+	}
+
+	// Archive database migration history to JSON file (if available)
+	var dbRecordsArchived int
+	if len(migrationHistory) > 0 {
+		historyPath := filepath.Join(archiveDir, "migration_history.json")
+		if err := archiveMigrationHistory(historyPath, migrationHistory); err != nil {
+			// Non-fatal: warn but continue
+			fmt.Fprintf(os.Stderr, "  %s: could not archive migration history: %v\n", ui.Warning("warning"), err)
+		} else {
+			dbRecordsArchived = len(migrationHistory)
 		}
 	}
 
@@ -144,19 +176,83 @@ func runSquash(dryRun bool) error {
 		return fmt.Errorf("failed to write baseline: %w", err)
 	}
 
+	// Compute checksum for the new baseline file
+	baselineChecksum := ""
+	migrationChain, err := chain.ComputeFromDir(cfg.MigrationsDir)
+	if err == nil && len(migrationChain.Links) > 0 {
+		baselineChecksum = migrationChain.Links[0].Checksum
+	}
+
+	// Update database: clear old records and insert baseline record
+	if dbClient != nil && len(migrationHistory) > 0 {
+		ctx := context.Background()
+
+		// Clear old migration records
+		_, err := dbClient.ClearMigrationHistory(ctx)
+		if err != nil {
+			// Non-fatal: warn but continue
+			fmt.Fprintf(os.Stderr, "  %s: could not clear migration history: %v\n", ui.Warning("warning"), err)
+		} else {
+			// Record the new baseline
+			err = dbClient.RecordSquashedBaseline(ctx, "001", baselineChecksum, lastRevision, len(migFiles))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "  %s: could not record baseline: %v\n", ui.Warning("warning"), err)
+			}
+		}
+	}
+
 	// Update lock file
 	lockPath := lockfile.DefaultPath()
 	_ = lockfile.Write(cfg.MigrationsDir, lockPath)
 
-	ui.ShowSuccess(
-		"Squash Complete",
-		fmt.Sprintf("Squashed %s into baseline\n  Archived to: %s\n  Baseline: %s\n  Squashed through: %s",
-			ui.FormatCount(len(migFiles), "migration", "migrations"),
-			ui.Dim(archiveDir),
-			ui.Primary(baselinePath),
-			lastRevision,
-		),
+	// Build success message
+	successMsg := fmt.Sprintf("Squashed %s into baseline\n  Archived to: %s\n  Baseline: %s\n  Squashed through: %s",
+		ui.FormatCount(len(migFiles), "migration", "migrations"),
+		ui.Dim(archiveDir),
+		ui.Primary(baselinePath),
+		lastRevision,
 	)
+	if dbRecordsArchived > 0 {
+		successMsg += fmt.Sprintf("\n  DB records archived: %d", dbRecordsArchived)
+	}
+
+	ui.ShowSuccess("Squash Complete", successMsg)
 
 	return nil
+}
+
+// archiveMigrationHistory writes migration history to a JSON file.
+func archiveMigrationHistory(path string, history []astroladb.MigrationHistoryEntry) error {
+	// Convert to a serializable format
+	type archivedEntry struct {
+		Revision     string `json:"revision"`
+		Name         string `json:"name"`
+		AppliedAt    string `json:"applied_at"`
+		Checksum     string `json:"checksum,omitempty"`
+		ExecTimeMs   int    `json:"exec_time_ms,omitempty"`
+		Description  string `json:"description,omitempty"`
+		SQLChecksum  string `json:"sql_checksum,omitempty"`
+		AppliedOrder int    `json:"applied_order,omitempty"`
+	}
+
+	archived := make([]archivedEntry, len(history))
+	for i, h := range history {
+		archived[i] = archivedEntry{
+			Revision:     h.Revision,
+			Name:         h.Name,
+			AppliedAt:    h.AppliedAt.Format(time.RFC3339),
+			Checksum:     h.Checksum,
+			ExecTimeMs:   h.ExecTimeMs,
+			Description:  h.Description,
+			SQLChecksum:  h.SQLChecksum,
+			AppliedOrder: h.AppliedOrder,
+		}
+	}
+
+	data, err := json.MarshalIndent(archived, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, FilePerm)
 }

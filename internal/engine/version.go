@@ -797,3 +797,24 @@ func (v *VersionManager) getLockIdentifier() string {
 	}
 	return fmt.Sprintf("%s:%d", hostname, os.Getpid())
 }
+
+// DeleteAll removes all records from the migrations table.
+// Returns the number of records deleted.
+// This is used during squash operations to clear old migration history.
+func (v *VersionManager) DeleteAll(ctx context.Context) (int, error) {
+	quotedTable := v.dialect.QuoteIdent(MigrationTableName)
+	query := fmt.Sprintf("DELETE FROM %s", quotedTable)
+
+	result, err := v.db.ExecContext(ctx, query)
+	if err != nil {
+		return 0, alerr.Wrap(alerr.ErrSQLExecution, err, "failed to delete all migration records").
+			WithSQL(query)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, alerr.Wrap(alerr.ErrSQLExecution, err, "failed to get rows affected")
+	}
+
+	return int(rowsAffected), nil
+}

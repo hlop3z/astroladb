@@ -405,6 +405,68 @@ func (c *Client) MigrationHistory() ([]MigrationHistoryEntry, error) {
 	return result, nil
 }
 
+// ClearMigrationHistory deletes all records from the alab_migrations table.
+// This is used during squash to remove old migration records before inserting
+// the baseline record. Returns the number of records deleted.
+//
+// WARNING: This permanently removes migration history from the database.
+// Always archive the history before calling this method.
+func (c *Client) ClearMigrationHistory(ctx context.Context) (int, error) {
+	if err := c.runner.VersionManager().EnsureTable(ctx); err != nil {
+		return 0, &MigrationError{
+			Operation: "ensure migration table",
+			Cause:     err,
+		}
+	}
+
+	deleted, err := c.runner.VersionManager().DeleteAll(ctx)
+	if err != nil {
+		return 0, &MigrationError{
+			Operation: "clear migration history",
+			Cause:     err,
+		}
+	}
+
+	return deleted, nil
+}
+
+// RecordSquashedBaseline records a baseline migration entry after squashing.
+// This creates a single record that represents all previously applied migrations.
+//
+// Parameters:
+//   - ctx: Context for the operation
+//   - revision: The revision of the baseline migration (typically "001")
+//   - checksum: The SHA256 checksum of the baseline migration file
+//   - squashedThrough: The last revision that was squashed (e.g., "005")
+//   - squashedCount: Number of migrations that were squashed
+func (c *Client) RecordSquashedBaseline(ctx context.Context, revision, checksum, squashedThrough string, squashedCount int) error {
+	if err := c.runner.VersionManager().EnsureTable(ctx); err != nil {
+		return &MigrationError{
+			Operation: "ensure migration table",
+			Cause:     err,
+		}
+	}
+
+	description := fmt.Sprintf("Baseline: squashed from %d migrations", squashedCount)
+
+	rec := engine.ApplyRecord{
+		Revision:        revision,
+		Checksum:        checksum,
+		ExecTime:        0, // No actual execution time for squash
+		Description:     description,
+		SquashedThrough: squashedThrough,
+	}
+
+	if err := c.runner.VersionManager().RecordApplied(ctx, rec); err != nil {
+		return &MigrationError{
+			Operation: "record baseline migration",
+			Cause:     err,
+		}
+	}
+
+	return nil
+}
+
 // VerifyChain verifies the integrity of the migration chain.
 // Returns the verification result with details about any issues found.
 func (c *Client) VerifyChain() (*chain.VerificationResult, error) {
@@ -967,7 +1029,7 @@ func (c *Client) generateMigrationContent(name, upRevision, downRevision string,
 
 	// Write migration wrapper with metadata
 	sb.WriteString("export default migration({\n")
-	sb.WriteString("  description: \"Describe what this migration does\",\n")
+	sb.WriteString("  description: null,\n")
 	sb.WriteString(fmt.Sprintf("  up_revision: \"%s\",\n", upRevision))
 	if downRevision == "" {
 		sb.WriteString("  down_revision: null,\n\n")

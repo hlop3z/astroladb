@@ -84,11 +84,15 @@ func applyCreateTable(schema *Schema, op *ast.CreateTable) error {
 		table.Columns[i] = &colCopy
 	}
 
-	// Copy indexes
+	// Copy indexes (auto-generate names if empty)
 	if op.Indexes != nil {
 		table.Indexes = make([]*ast.IndexDef, len(op.Indexes))
 		for i, idx := range op.Indexes {
 			idxCopy := *idx
+			// Auto-generate name if not provided
+			if idxCopy.Name == "" {
+				idxCopy.Name = "idx_" + table.FullName() + "_" + strings.Join(idxCopy.Columns, "_")
+			}
 			table.Indexes[i] = &idxCopy
 		}
 	}
@@ -315,32 +319,56 @@ func applyCreateIndex(schema *Schema, op *ast.CreateIndex) error {
 			WithTable(op.Namespace, op.Table_)
 	}
 
-	// Check if index already exists (by name)
-	if op.Name != "" && !op.IfNotExists {
-		for _, idx := range table.Indexes {
-			if idx.Name == op.Name {
-				return alerr.New(alerr.ErrSchemaDuplicate, "index already exists").
-					WithTable(op.Namespace, op.Table_).
-					With("index", op.Name)
+	// Auto-generate name if not provided (do this first to enable duplicate detection)
+	indexName := op.Name
+	if indexName == "" {
+		indexName = "idx_" + table.FullName() + "_" + strings.Join(op.Columns, "_")
+	}
+
+	// Check if index already exists (by name or by columns)
+	for _, idx := range table.Indexes {
+		// Check by explicit name - if user explicitly named both indexes the same, that's an error
+		// (unless IfNotExists is set)
+		if op.Name != "" && idx.Name == op.Name {
+			if op.IfNotExists {
+				return nil // Silently skip
 			}
+			return alerr.New(alerr.ErrSchemaDuplicate, "index already exists").
+				WithTable(op.Namespace, op.Table_).
+				With("index", op.Name)
+		}
+		// Check by columns - silently skip duplicates to handle cases where:
+		// 1. belongs_to creates an index inside CreateTable (with auto-generated name)
+		// 2. A separate CreateIndex operation tries to create the same index
+		// This prevents duplicate indexes on the same columns
+		if columnsMatch(idx.Columns, op.Columns) {
+			return nil
 		}
 	}
 
 	// Add the index
 	idx := &ast.IndexDef{
-		Name:    op.Name,
+		Name:    indexName,
 		Columns: make([]string, len(op.Columns)),
 		Unique:  op.Unique,
 	}
 	copy(idx.Columns, op.Columns)
 
-	// Auto-generate name if not provided
-	if idx.Name == "" {
-		idx.Name = "idx_" + table.FullName() + "_" + strings.Join(op.Columns, "_")
-	}
-
 	table.Indexes = append(table.Indexes, idx)
 	return nil
+}
+
+// columnsMatch checks if two column lists are identical (order matters).
+func columnsMatch(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // applyDropIndex removes an index from an existing table.

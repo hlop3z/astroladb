@@ -88,7 +88,7 @@ after a successful rollback.`,
 				warning := ui.RenderWarningPanel(
 					TitleDestructiveOperation,
 					list.String()+"\n"+
-						ui.Warning("⚠ "+HelpMakeBackup+"\n")+
+						ui.Warning(HelpMakeBackup+"\n")+
 						ui.Help(HelpUseDryRun),
 				)
 				fmt.Println(warning)
