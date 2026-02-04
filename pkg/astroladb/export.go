@@ -1131,47 +1131,37 @@ func buildRelationships(table *ast.TableDef, allTables []*ast.TableDef, meta *me
 		for _, m2m := range meta.ManyToMany {
 			// Check if this table is the source of the m2m relationship
 			if m2m.Source == table.QualifiedName() {
-				// This table has a manyToMany to target
 				targetParts := strings.Split(m2m.Target, ".")
 				targetName := targetParts[len(targetParts)-1]
-
-				relationships[targetName] = map[string]any{
-					"type":         "many_to_many",
-					"target":       m2m.Target,
-					"target_table": strings.ReplaceAll(m2m.Target, ".", "_"),
-					"local_key":    "id",
-					"backref":      table.Name,
-					"through": map[string]any{
-						"table":       m2m.JoinTable,
-						"local_key":   m2m.SourceFK,
-						"foreign_key": m2m.TargetFK,
-					},
-				}
+				relationships[targetName] = buildM2MRelationship(m2m.Target, table.Name, m2m.JoinTable, m2m.SourceFK, m2m.TargetFK)
 			}
 
 			// Check if this table is the target of the m2m relationship
 			if m2m.Target == table.QualifiedName() {
-				// This table has an inverse manyToMany
 				sourceParts := strings.Split(m2m.Source, ".")
 				sourceName := sourceParts[len(sourceParts)-1]
-
-				relationships[sourceName] = map[string]any{
-					"type":         "many_to_many",
-					"target":       m2m.Source,
-					"target_table": strings.ReplaceAll(m2m.Source, ".", "_"),
-					"local_key":    "id",
-					"backref":      table.Name,
-					"through": map[string]any{
-						"table":       m2m.JoinTable,
-						"local_key":   m2m.TargetFK,
-						"foreign_key": m2m.SourceFK,
-					},
-				}
+				relationships[sourceName] = buildM2MRelationship(m2m.Source, table.Name, m2m.JoinTable, m2m.TargetFK, m2m.SourceFK)
 			}
 		}
 	}
 
 	return relationships
+}
+
+// buildM2MRelationship builds a many_to_many relationship map.
+func buildM2MRelationship(target, backref, joinTable, localFK, foreignFK string) map[string]any {
+	return map[string]any{
+		"type":         "many_to_many",
+		"target":       target,
+		"target_table": strings.ReplaceAll(target, ".", "_"),
+		"local_key":    "id",
+		"backref":      backref,
+		"through": map[string]any{
+			"table":       joinTable,
+			"local_key":   localFK,
+			"foreign_key": foreignFK,
+		},
+	}
 }
 
 // matchesTable checks if a reference matches a table.

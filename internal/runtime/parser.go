@@ -100,6 +100,16 @@ func (p *SchemaParser) ParseColumnDef(obj any) *ast.ColumnDef {
 
 // ParseReference converts a JS object to an ast.Reference.
 func (p *SchemaParser) ParseReference(m map[string]any) *ast.Reference {
+	return parseReference(m)
+}
+
+// ParseIndexDef converts a JS object to an ast.IndexDef.
+func (p *SchemaParser) ParseIndexDef(obj any) *ast.IndexDef {
+	return parseIndexDef(obj)
+}
+
+// parseReference converts a JS object to an ast.Reference (shared implementation).
+func parseReference(m map[string]any) *ast.Reference {
 	ref := &ast.Reference{}
 
 	if table, ok := m["table"].(string); ok {
@@ -122,8 +132,8 @@ func (p *SchemaParser) ParseReference(m map[string]any) *ast.Reference {
 	return ref
 }
 
-// ParseIndexDef converts a JS object to an ast.IndexDef.
-func (p *SchemaParser) ParseIndexDef(obj any) *ast.IndexDef {
+// parseIndexDef converts a JS object to an ast.IndexDef (shared implementation).
+func parseIndexDef(obj any) *ast.IndexDef {
 	m, ok := obj.(map[string]any)
 	if !ok {
 		return nil

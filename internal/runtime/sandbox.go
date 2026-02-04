@@ -410,14 +410,14 @@ func (s *Sandbox) parseTableDef(namespace, name string, defObj any) *ast.TableDe
 	// Parse indexes (handle both []any and []map[string]any from Goja)
 	if idxsAny, ok := def["indexes"].([]any); ok {
 		for _, i := range idxsAny {
-			if idxDef := s.parseIndexDef(i); idxDef != nil {
+			if idxDef := parseIndexDef(i); idxDef != nil {
 				tableDef.Indexes = append(tableDef.Indexes, idxDef)
 			}
 		}
 	} else if idxsMap, ok := def["indexes"].([]map[string]any); ok {
 		// Handle direct []map[string]any from Go slices passed through Goja
 		for _, i := range idxsMap {
-			if idxDef := s.parseIndexDef(i); idxDef != nil {
+			if idxDef := parseIndexDef(i); idxDef != nil {
 				tableDef.Indexes = append(tableDef.Indexes, idxDef)
 			}
 		}
@@ -524,7 +524,7 @@ func (s *Sandbox) parseColumnDef(obj any) *ast.ColumnDef {
 
 	// Parse reference
 	if ref, ok := m["reference"].(map[string]any); ok {
-		col.Reference = s.parseReference(ref)
+		col.Reference = parseReference(ref)
 	}
 
 	// Parse validation
@@ -562,30 +562,6 @@ func (s *Sandbox) parseColumnDef(obj any) *ast.ColumnDef {
 	return col
 }
 
-// parseReference converts a JS object to an ast.Reference.
-func (s *Sandbox) parseReference(m map[string]any) *ast.Reference {
-	ref := &ast.Reference{}
-
-	if table, ok := m["table"].(string); ok {
-		// Keep the original reference format (e.g., "auth.users")
-		// The SQL dialect will convert to flat table name when generating SQL
-		ref.Table = table
-	}
-	if column, ok := m["column"].(string); ok {
-		ref.Column = column
-	} else {
-		ref.Column = "id" // Default to id
-	}
-	if onDelete, ok := m["on_delete"].(string); ok {
-		ref.OnDelete = onDelete
-	}
-	if onUpdate, ok := m["on_update"].(string); ok {
-		ref.OnUpdate = onUpdate
-	}
-
-	return ref
-}
-
 // convertValue converts JS values (like sql("...") results) to Go types.
 func (s *Sandbox) convertValue(v any) any {
 	switch val := v.(type) {
@@ -600,35 +576,6 @@ func (s *Sandbox) convertValue(v any) any {
 	default:
 		return v
 	}
-}
-
-// parseIndexDef converts a JS object to an ast.IndexDef.
-func (s *Sandbox) parseIndexDef(obj any) *ast.IndexDef {
-	m, ok := obj.(map[string]any)
-	if !ok {
-		return nil
-	}
-
-	idx := &ast.IndexDef{}
-
-	if name, ok := m["name"].(string); ok {
-		idx.Name = name
-	}
-	if cols, ok := m["columns"].([]any); ok {
-		for _, c := range cols {
-			if s, ok := c.(string); ok {
-				idx.Columns = append(idx.Columns, s)
-			}
-		}
-	}
-	if unique, ok := m["unique"].(bool); ok {
-		idx.Unique = unique
-	}
-	if where, ok := m["where"].(string); ok {
-		idx.Where = where
-	}
-
-	return idx
 }
 
 // SetTimeout sets the execution timeout for JS code.

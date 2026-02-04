@@ -8,6 +8,29 @@ import (
 	"github.com/hlop3z/astroladb/internal/ast"
 )
 
+// opName extracts the Name field from an operation using reflection.
+func opName(op ast.Operation) string {
+	v := reflect.ValueOf(op)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	if f := v.FieldByName("Name"); f.IsValid() && f.Kind() == reflect.String {
+		return f.String()
+	}
+	return ""
+}
+
+// sortOpsByTypeAndName sorts operations first by Type(), then by name for deterministic output.
+func sortOpsByTypeAndName(ops []ast.Operation) {
+	sort.SliceStable(ops, func(i, j int) bool {
+		ti, tj := ops[i].Type(), ops[j].Type()
+		if ti != tj {
+			return ti < tj
+		}
+		return opName(ops[i]) < opName(ops[j])
+	})
+}
+
 // Diff compares two schemas and returns the operations needed to transform
 // the old schema into the new schema.
 //
@@ -346,25 +369,7 @@ func diffIndexes(oldTable, newTable *ast.TableDef) []ast.Operation {
 	}
 
 	// Sort for deterministic output
-	sort.SliceStable(ops, func(i, j int) bool {
-		// CreateIndex before DropIndex
-		ti, tj := ops[i].Type(), ops[j].Type()
-		if ti != tj {
-			return ti < tj
-		}
-		// Then by index name
-		switch a := ops[i].(type) {
-		case *ast.CreateIndex:
-			if b, ok := ops[j].(*ast.CreateIndex); ok {
-				return a.Name < b.Name
-			}
-		case *ast.DropIndex:
-			if b, ok := ops[j].(*ast.DropIndex); ok {
-				return a.Name < b.Name
-			}
-		}
-		return false
-	})
+	sortOpsByTypeAndName(ops)
 
 	return ops
 }
@@ -425,25 +430,7 @@ func diffForeignKeys(oldTable, newTable *ast.TableDef) []ast.Operation {
 	}
 
 	// Sort for deterministic output
-	sort.SliceStable(ops, func(i, j int) bool {
-		// AddForeignKey before DropForeignKey
-		ti, tj := ops[i].Type(), ops[j].Type()
-		if ti != tj {
-			return ti < tj
-		}
-		// Then by FK name
-		switch a := ops[i].(type) {
-		case *ast.AddForeignKey:
-			if b, ok := ops[j].(*ast.AddForeignKey); ok {
-				return a.Name < b.Name
-			}
-		case *ast.DropForeignKey:
-			if b, ok := ops[j].(*ast.DropForeignKey); ok {
-				return a.Name < b.Name
-			}
-		}
-		return false
-	})
+	sortOpsByTypeAndName(ops)
 
 	return ops
 }
@@ -531,25 +518,7 @@ func diffCheckConstraints(oldTable, newTable *ast.TableDef) []ast.Operation {
 	}
 
 	// Sort for deterministic output
-	sort.SliceStable(ops, func(i, j int) bool {
-		// AddCheck before DropCheck
-		ti, tj := ops[i].Type(), ops[j].Type()
-		if ti != tj {
-			return ti < tj
-		}
-		// Then by constraint name
-		switch a := ops[i].(type) {
-		case *ast.AddCheck:
-			if b, ok := ops[j].(*ast.AddCheck); ok {
-				return a.Name < b.Name
-			}
-		case *ast.DropCheck:
-			if b, ok := ops[j].(*ast.DropCheck); ok {
-				return a.Name < b.Name
-			}
-		}
-		return false
-	})
+	sortOpsByTypeAndName(ops)
 
 	return ops
 }

@@ -305,6 +305,22 @@ func padStr(s string, width int) string {
 	return s + strings.Repeat(" ", width-len(s))
 }
 
+// renderFlagGrid renders a grid of flags with their descriptions.
+func renderFlagGrid(flags *pflag.FlagSet, title string, dividerWidth int) {
+	fmt.Println(ui.Header(title, ui.Success))
+	grid := ui.NewGrid("Flag", "Description", dividerWidth, 24)
+	flags.VisitAll(func(flag *pflag.Flag) {
+		if !flag.Hidden {
+			flagName := fmt.Sprintf("--%s", flag.Name)
+			if flag.Shorthand != "" {
+				flagName = fmt.Sprintf("-%s, --%s", flag.Shorthand, flag.Name)
+			}
+			grid.AddRow(flagName, flag.Usage)
+		}
+	})
+	fmt.Print(grid.String())
+}
+
 // renderCommandHelp renders help for a specific command.
 func renderCommandHelp(cmd *cobra.Command) {
 	dividerWidth := 80
@@ -339,40 +355,12 @@ func renderCommandHelp(cmd *cobra.Command) {
 
 	// Flags
 	if cmd.HasAvailableLocalFlags() {
-		fmt.Println(ui.Header("Flags", ui.Success))
-
-		grid := ui.NewGrid("Flag", "Description", dividerWidth, 24)
-
-		cmd.LocalFlags().VisitAll(func(flag *pflag.Flag) {
-			if !flag.Hidden {
-				flagName := fmt.Sprintf("--%s", flag.Name)
-				if flag.Shorthand != "" {
-					flagName = fmt.Sprintf("-%s, --%s", flag.Shorthand, flag.Name)
-				}
-				grid.AddRow(flagName, flag.Usage)
-			}
-		})
-
-		fmt.Print(grid.String())
+		renderFlagGrid(cmd.LocalFlags(), "Flags", dividerWidth)
 	}
 
 	// Global flags
 	if cmd.HasAvailableInheritedFlags() {
-		fmt.Println(ui.Header("Global Flags", ui.Success))
-
-		grid := ui.NewGrid("Flag", "Description", dividerWidth, 24)
-
-		cmd.InheritedFlags().VisitAll(func(flag *pflag.Flag) {
-			if !flag.Hidden {
-				flagName := fmt.Sprintf("--%s", flag.Name)
-				if flag.Shorthand != "" {
-					flagName = fmt.Sprintf("-%s, --%s", flag.Shorthand, flag.Name)
-				}
-				grid.AddRow(flagName, flag.Usage)
-			}
-		})
-
-		fmt.Print(grid.String())
+		renderFlagGrid(cmd.InheritedFlags(), "Global Flags", dividerWidth)
 	}
 
 	// Examples

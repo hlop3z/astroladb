@@ -36,6 +36,26 @@ const (
 	templateGraphQLHTML = "templates/graphiql.html"
 )
 
+// serveSchemaExport handles schema export endpoints with fresh client creation.
+func serveSchemaExport(w http.ResponseWriter, format, endpoint, contentType string) {
+	freshClient, err := newSchemaOnlyClient()
+	if err != nil {
+		handleSchemaError(w, err, endpoint)
+		return
+	}
+	defer freshClient.Close()
+
+	data, err := freshClient.SchemaExport(format)
+	if err != nil {
+		handleSchemaError(w, err, endpoint)
+		return
+	}
+
+	w.Header().Set(HeaderContentType, contentType)
+	w.Header().Set(HeaderCORS, CORSAllowAll)
+	w.Write(data)
+}
+
 // handleSchemaError writes a user-friendly error response and logs to console.
 func handleSchemaError(w http.ResponseWriter, err error, endpoint string) {
 	// Format error with clickable file URI for IDEs
@@ -264,62 +284,17 @@ func startServer(port int) error {
 
 	// Serve OpenAPI spec (regenerated on each request)
 	http.HandleFunc("/openapi.json", func(w http.ResponseWriter, r *http.Request) {
-		freshClient, err := newSchemaOnlyClient()
-		if err != nil {
-			handleSchemaError(w, err, "/openapi.json")
-			return
-		}
-		defer freshClient.Close()
-
-		data, err := freshClient.SchemaExport("openapi")
-		if err != nil {
-			handleSchemaError(w, err, "/openapi.json")
-			return
-		}
-
-		w.Header().Set(HeaderContentType, ContentTypeJSON)
-		w.Header().Set(HeaderCORS, CORSAllowAll)
-		w.Write(data)
+		serveSchemaExport(w, "openapi", "/openapi.json", ContentTypeJSON)
 	})
 
 	// Serve GraphQL schema (regenerated on each request)
 	http.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
-		freshClient, err := newSchemaOnlyClient()
-		if err != nil {
-			handleSchemaError(w, err, "/graphql")
-			return
-		}
-		defer freshClient.Close()
-
-		data, err := freshClient.SchemaExport("graphql")
-		if err != nil {
-			handleSchemaError(w, err, "/graphql")
-			return
-		}
-
-		w.Header().Set(HeaderContentType, "text/plain; charset=utf-8")
-		w.Header().Set(HeaderCORS, CORSAllowAll)
-		w.Write(data)
+		serveSchemaExport(w, "graphql", "/graphql", "text/plain; charset=utf-8")
 	})
 
 	// Serve GraphQL examples (for mock responses)
 	http.HandleFunc("/graphql/examples", func(w http.ResponseWriter, r *http.Request) {
-		freshClient, err := newSchemaOnlyClient()
-		if err != nil {
-			handleSchemaError(w, err, "/graphql/examples")
-			return
-		}
-		defer freshClient.Close()
-
-		data, err := freshClient.SchemaExport("graphql-examples")
-		if err != nil {
-			handleSchemaError(w, err, "/graphql/examples")
-			return
-		}
-
-		w.Header().Set(HeaderContentType, ContentTypeJSON)
-		w.Header().Set(HeaderCORS, CORSAllowAll)
-		w.Write(data)
+		serveSchemaExport(w, "graphql-examples", "/graphql/examples", ContentTypeJSON)
 	})
 
 	// Serve GraphQL schema viewer

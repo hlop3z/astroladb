@@ -681,30 +681,35 @@ func createStatusDriftTab(app *tview.Application, data StatusData) tview.Primiti
 	return grid
 }
 
+// renderSchemaTables renders the schema tables list.
+func renderSchemaTables(tables []TableInfo) {
+	if len(tables) == 0 {
+		fmt.Println(Info(MsgNoTables))
+	} else {
+		fmt.Printf("  %s\n\n", Muted(FormatCount(len(tables), "table", "tables")))
+		for _, t := range tables {
+			fmt.Printf("  %s\n", Primary(t.QualifiedName()))
+			for _, col := range t.Columns {
+				fmt.Printf("    - %s %s\n", col.Name, Dim(col.Type))
+			}
+			if len(t.ForeignKeys) > 0 {
+				fmt.Printf("    %s\n", Muted(LabelForeignKeys))
+				for _, fk := range t.ForeignKeys {
+					fmt.Printf("      %s -> %s.%s\n", fk.Column, fk.RefTable, fk.RefColumn)
+				}
+			}
+			fmt.Println()
+		}
+	}
+}
+
 // showStatusSimple displays simple non-interactive output.
 func showStatusSimple(tab string, data StatusData) {
 	switch tab {
 	case TabBrowse:
 		fmt.Println(RenderTitle(fmt.Sprintf(FmtSchemaAtRev, data.Revision)))
 		fmt.Println()
-		if len(data.Tables) == 0 {
-			fmt.Println(Info(MsgNoTables))
-		} else {
-			fmt.Printf("  %s\n\n", Muted(FormatCount(len(data.Tables), "table", "tables")))
-			for _, t := range data.Tables {
-				fmt.Printf("  %s\n", Primary(t.QualifiedName()))
-				for _, col := range t.Columns {
-					fmt.Printf("    - %s %s\n", col.Name, Dim(col.Type))
-				}
-				if len(t.ForeignKeys) > 0 {
-					fmt.Printf("    %s\n", Muted(LabelForeignKeys))
-					for _, fk := range t.ForeignKeys {
-						fmt.Printf("      %s -> %s.%s\n", fk.Column, fk.RefTable, fk.RefColumn)
-					}
-				}
-				fmt.Println()
-			}
-		}
+		renderSchemaTables(data.Tables)
 
 	case TabHistory:
 		fmt.Println(RenderTitle(TitleMigrationHistory))
@@ -788,24 +793,7 @@ func ShowStatusText(data StatusData) {
 	// Schema at revision
 	fmt.Println(RenderTitle(fmt.Sprintf(FmtSchemaAtRev, data.Revision)))
 	fmt.Println()
-	if len(data.Tables) == 0 {
-		fmt.Println(Info(MsgNoTables))
-	} else {
-		fmt.Printf("  %s\n\n", Muted(FormatCount(len(data.Tables), "table", "tables")))
-		for _, t := range data.Tables {
-			fmt.Printf("  %s\n", Primary(t.QualifiedName()))
-			for _, col := range t.Columns {
-				fmt.Printf("    - %s %s\n", col.Name, Dim(col.Type))
-			}
-			if len(t.ForeignKeys) > 0 {
-				fmt.Printf("    %s\n", Muted(LabelForeignKeys))
-				for _, fk := range t.ForeignKeys {
-					fmt.Printf("      %s -> %s.%s\n", fk.Column, fk.RefTable, fk.RefColumn)
-				}
-			}
-			fmt.Println()
-		}
-	}
+	renderSchemaTables(data.Tables)
 
 	// Migration History
 	fmt.Println(RenderTitle(TitleMigrationHistory))
