@@ -166,7 +166,7 @@ Scans migration operations and warns about:
 | **Drop column**              | `m.drop_column()`                                                                                    | Will DELETE DATA in column                       |
 | **NOT NULL without default** | `m.add_column()` with a NOT NULL column that has no `default()`, `backfill()`, or `server_default()` | NOT NULL column has no default or backfill value |
 | **Reserved SQL word**        | Table or column name matches a SQL reserved word (`user`, `order`, `type`, `select`, etc.)           | Identifier is a SQL reserved word                |
-| **Lock file integrity**      | `.alab/schema.lock` checksum mismatch                                                                | Lock file is out of date or tampered             |
+| **Lock file integrity**      | `alab.lock` checksum mismatch                                                                        | Lock file is out of date or tampered             |
 
 Exits with code 1 if any warnings are found. Use `--force` on `alab migrate` to
 proceed despite warnings.
@@ -227,7 +227,7 @@ alab types
 
 ### `alab lock`
 
-Manage the migration lock file (`.alab/schema.lock`).
+Manage the migration lock file (`alab.lock`).
 
 ```bash
 # Show lock status
