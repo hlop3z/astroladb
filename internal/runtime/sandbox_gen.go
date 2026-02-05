@@ -16,8 +16,8 @@ type GeneratorResult struct {
 // RunGenerator evaluates a generator JS file and returns the render output.
 // The schema parameter is a map that will be frozen and passed to the generator callback.
 func (s *Sandbox) RunGenerator(code string, schema map[string]any) (*GeneratorResult, error) {
-	// Reset VM if tainted
-	if s.tainted {
+	// Reset VM if tainted or restricted (generators need full JS access)
+	if s.tainted || s.restricted {
 		s.Reset()
 	}
 

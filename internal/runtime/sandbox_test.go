@@ -682,3 +682,220 @@ func TestSandboxResetMethod(t *testing.T) {
 		t.Errorf("expected 2, got %v", result.Export())
 	}
 }
+
+// --- Restricted Globals Tests ---
+// Schemas and migrations should not have access to Date, Math, JSON, Map, Set, etc.
+
+func TestSandbox_SchemaRestrictsDate(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	_, err := sb.EvalSchema(`table({ id: col.id(), d: col.datetime().default(Date.now()) })`, "test", "date_check")
+	if err == nil {
+		t.Fatal("expected error when using Date.now() in schema")
+	}
+}
+
+func TestSandbox_SchemaRestrictsMath(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	_, err := sb.EvalSchema(`table({ id: col.id(), n: col.integer().default(Math.floor(1.5)) })`, "test", "math_check")
+	if err == nil {
+		t.Fatal("expected error when using Math.floor() in schema")
+	}
+}
+
+func TestSandbox_SchemaRestrictsJSON(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	_, err := sb.EvalSchema(`table({ id: col.id(), j: col.json().default(JSON.parse("{}")) })`, "test", "json_check")
+	if err == nil {
+		t.Fatal("expected error when using JSON.parse() in schema")
+	}
+}
+
+func TestSandbox_SchemaRestrictsMap(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	// Map should be undefined — new Map() should throw
+	sb.restrictGlobals()
+	result, err := sb.RunWithResult("typeof Map")
+	if err != nil {
+		t.Fatalf("RunWithResult error: %v", err)
+	}
+	if result.String() != "undefined" {
+		t.Errorf("Map should be undefined in restricted mode, got typeof = %q", result.String())
+	}
+}
+
+func TestSandbox_SchemaRestrictsSet(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	sb.restrictGlobals()
+	result, err := sb.RunWithResult("typeof Set")
+	if err != nil {
+		t.Fatalf("RunWithResult error: %v", err)
+	}
+	if result.String() != "undefined" {
+		t.Errorf("Set should be undefined in restricted mode, got typeof = %q", result.String())
+	}
+}
+
+func TestSandbox_SchemaRestrictsParseInt(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	sb.restrictGlobals()
+	result, err := sb.RunWithResult("typeof parseInt")
+	if err != nil {
+		t.Fatalf("RunWithResult error: %v", err)
+	}
+	if result.String() != "undefined" {
+		t.Errorf("parseInt should be undefined in restricted mode, got typeof = %q", result.String())
+	}
+}
+
+func TestSandbox_SchemaRestrictsEncoding(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	sb.restrictGlobals()
+	for _, global := range []string{"encodeURIComponent", "decodeURIComponent", "encodeURI", "decodeURI"} {
+		result, err := sb.RunWithResult("typeof " + global)
+		if err != nil {
+			t.Fatalf("RunWithResult(%s) error: %v", global, err)
+		}
+		if result.String() != "undefined" {
+			t.Errorf("%s should be undefined in restricted mode, got typeof = %q", global, result.String())
+		}
+	}
+}
+
+func TestSandbox_SchemaStillWorks(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	// Normal schema DSL should work perfectly after restriction
+	table, err := sb.EvalSchema(`table({
+		id: col.id(),
+		username: col.string(50).unique(),
+		bio: col.text().optional(),
+		role: col.enum(["admin", "editor", "viewer"]).default("viewer"),
+	}).timestamps()`, "auth", "user")
+
+	if err != nil {
+		t.Fatalf("EvalSchema failed after restriction: %v", err)
+	}
+	if table == nil {
+		t.Fatal("expected non-nil table")
+	}
+	if table.Name != "user" {
+		t.Errorf("expected table name 'user', got %q", table.Name)
+	}
+	if table.Namespace != "auth" {
+		t.Errorf("expected namespace 'auth', got %q", table.Namespace)
+	}
+}
+
+func TestSandbox_MigrationRestrictsDate(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	// Attempting to use Date in a migration should fail
+	sb.restrictGlobals()
+	err := sb.Run(`
+		migration({
+			up: function(m) {
+				var ts = Date.now();
+			},
+			down: function(m) {}
+		})
+	`)
+	if err == nil {
+		t.Fatal("expected error when using Date.now() in migration context")
+	}
+}
+
+func TestSandbox_RestrictedFlagSetAfterRestriction(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	if sb.restricted {
+		t.Fatal("sandbox should not be restricted initially")
+	}
+
+	sb.restrictGlobals()
+
+	if !sb.restricted {
+		t.Fatal("sandbox should be restricted after restrictGlobals()")
+	}
+}
+
+func TestSandbox_ResetClearsRestricted(t *testing.T) {
+	sb := NewSandbox(nil)
+
+	sb.restrictGlobals()
+	if !sb.restricted {
+		t.Fatal("should be restricted")
+	}
+
+	sb.Reset()
+	if sb.restricted {
+		t.Fatal("restricted should be cleared after Reset()")
+	}
+
+	// After reset, Date should be available again
+	result, err := sb.RunWithResult("typeof Date")
+	if err != nil {
+		t.Fatalf("RunWithResult error: %v", err)
+	}
+	if result.String() != "function" {
+		t.Errorf("Date should be available after Reset(), got typeof = %q", result.String())
+	}
+}
+
+func TestSandbox_AllRestrictedGlobals(t *testing.T) {
+	sb := NewSandbox(nil)
+	sb.restrictGlobals()
+
+	restricted := []string{
+		"Date", "Math", "isNaN", "isFinite",
+		"parseInt", "parseFloat",
+		"Map", "Set", "WeakMap", "WeakSet",
+		"JSON",
+		"encodeURIComponent", "decodeURIComponent",
+		"encodeURI", "decodeURI",
+		"ArrayBuffer", "DataView",
+	}
+
+	for _, name := range restricted {
+		result, err := sb.RunWithResult("typeof " + name)
+		if err != nil {
+			t.Errorf("typeof %s failed: %v", name, err)
+			continue
+		}
+		if result.String() != "undefined" {
+			t.Errorf("%s should be undefined after restrictGlobals(), got typeof = %q", name, result.String())
+		}
+	}
+}
+
+func TestSandbox_AllowedGlobalsAfterRestriction(t *testing.T) {
+	sb := NewSandbox(nil)
+	sb.restrictGlobals()
+
+	// These must remain available for the DSL to work
+	allowed := map[string]string{
+		"Object":  "function",
+		"Array":   "function",
+		"String":  "function",
+		"Number":  "function",
+		"Boolean": "function",
+		"Error":   "function",
+	}
+
+	for name, expectedType := range allowed {
+		result, err := sb.RunWithResult("typeof " + name)
+		if err != nil {
+			t.Errorf("typeof %s failed: %v", name, err)
+			continue
+		}
+		if result.String() != expectedType {
+			t.Errorf("%s should be %q after restrictGlobals(), got typeof = %q", name, expectedType, result.String())
+		}
+	}
+}

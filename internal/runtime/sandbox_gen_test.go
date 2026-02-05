@@ -378,6 +378,69 @@ func TestPerNamespaceEmptySchema(t *testing.T) {
 	}
 }
 
+func TestGeneratorAllowsDateAfterSchemaRestriction(t *testing.T) {
+	s := NewSandbox(nil)
+
+	// First, run a schema evaluation which restricts globals
+	_, _ = s.EvalSchema(`table({ id: col.id() })`, "test", "restrict")
+
+	if !s.restricted {
+		t.Fatal("sandbox should be restricted after EvalSchema")
+	}
+
+	// Now run a generator — it should auto-reset and have full JS access
+	code := `gen((schema) => {
+		var d = new Date(2024, 0, 1);
+		var ts = d.getFullYear().toString();
+		var m = Math.floor(3.7).toString();
+		var j = JSON.stringify({ok: true});
+		render({"out.txt": ts + " " + m + " " + j});
+	})`
+	schema := map[string]any{}
+
+	result, err := s.RunGenerator(code, schema)
+	if err != nil {
+		t.Fatalf("RunGenerator should succeed with full JS access, got: %v", err)
+	}
+
+	content := result.Files["out.txt"]
+	if !strings.Contains(content, "2024") {
+		t.Errorf("expected Date to work in generator, got: %q", content)
+	}
+	if !strings.Contains(content, "3") {
+		t.Errorf("expected Math to work in generator, got: %q", content)
+	}
+	if !strings.Contains(content, `"ok":true`) {
+		t.Errorf("expected JSON to work in generator, got: %q", content)
+	}
+}
+
+func TestGeneratorUsesMapAndSet(t *testing.T) {
+	s := NewSandbox(nil)
+
+	// Run a schema to trigger restriction
+	_, _ = s.EvalSchema(`table({ id: col.id() })`, "test", "restrict")
+
+	// Generator should still have Map and Set
+	code := `gen((schema) => {
+		var m = new Map();
+		m.set("key", "value");
+		var setObj = new Set([1, 2, 3]);
+		render({"out.txt": m.get("key") + " " + setObj.size});
+	})`
+	schema := map[string]any{}
+
+	result, err := s.RunGenerator(code, schema)
+	if err != nil {
+		t.Fatalf("RunGenerator should support Map/Set, got: %v", err)
+	}
+
+	content := result.Files["out.txt"]
+	if !strings.Contains(content, "value") || !strings.Contains(content, "3") {
+		t.Errorf("expected Map/Set to work in generator, got: %q", content)
+	}
+}
+
 func TestComplexGenerator(t *testing.T) {
 	s := NewSandbox(nil)
 	code := `gen((schema) => {

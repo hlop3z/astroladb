@@ -205,9 +205,30 @@ func wrapJSError(err error, code alerr.Code, message string, ctx *ErrorContext) 
 	return alErr
 }
 
+// restrictedGlobalHints maps restricted JS globals to helpful DSL alternatives.
+// When a user tries to use Date, Math, etc. in a schema or migration, they get
+// a clear message suggesting the right DSL approach instead.
+var restrictedGlobalHints = map[string]string{
+	"date":     "use col.datetime() for timestamp columns or sql('NOW()') for default values",
+	"math":     "schemas and migrations are declarative — use sql() or fn.*() for computed values",
+	"json":     "use col.json() for JSON columns — JSON.parse/stringify are not available here",
+	"map":      "use plain objects {} instead of Map in schemas and migrations",
+	"set":      "use arrays [] instead of Set in schemas and migrations",
+	"parseint": "use integer literals directly — parseInt is not available in schemas and migrations",
+}
+
 // addJSErrorHelp adds contextual help based on the error message.
 func addJSErrorHelp(err *alerr.Error, message string) {
 	msg := strings.ToLower(message)
+
+	// Check for restricted global access first (most actionable hints)
+	for global, hint := range restrictedGlobalHints {
+		if strings.Contains(msg, global) {
+			err.WithNote("schemas and migrations are declarative — JS globals like Date, Math, and JSON are not available")
+			err.WithHelp(hint)
+			return
+		}
+	}
 
 	switch {
 	case strings.Contains(msg, "undefined"):

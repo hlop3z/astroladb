@@ -56,6 +56,11 @@ type Sandbox struct {
 	// may have leftover state and should be reset before reuse.
 	tainted bool
 
+	// restricted is set to true after restrictGlobals() runs, indicating the VM
+	// has non-DSL globals removed (Date, Math, JSON, etc.). The VM must be Reset()
+	// before it can be used for generators which need full JS access.
+	restricted bool
+
 	// hooks stores before/after SQL hooks from migration DSL.
 	hooks MigrationHooks
 
@@ -109,6 +114,7 @@ func (s *Sandbox) Reset() {
 
 	s.vm = vm
 	s.tainted = false
+	s.restricted = false
 	s.tables = make([]*ast.TableDef, 0)
 	s.operations = nil
 	s.hooks = MigrationHooks{}
@@ -143,6 +149,16 @@ func disableDangerousGlobals(vm *goja.Runtime) {
 	// This is done safely - errors are ignored if freeze fails
 	freezeCode := mustReadJSFile("js/freeze.js")
 	_, _ = vm.RunString(freezeCode)
+}
+
+// restrictGlobals removes non-declarative JS globals (Date, Math, JSON, etc.)
+// from the VM. This makes schemas and migrations behave like typed, executable JSON
+// where only the DSL functions are available. After calling this, the sandbox is
+// marked as restricted and must be Reset() before use with generators.
+func (s *Sandbox) restrictGlobals() {
+	restrictCode := mustReadJSFile("js/restrict.js")
+	_, _ = s.vm.RunString(restrictCode)
+	s.restricted = true
 }
 
 // bindDSL binds the schema DSL functions to the JS runtime.
@@ -721,6 +737,12 @@ func (s *Sandbox) EvalSchema(code string, namespace string, tableName string) (*
 		s.Reset()
 	}
 
+	// Restrict non-DSL globals (Date, Math, JSON, etc.)
+	// Schemas are declarative — only the DSL should be available.
+	if !s.restricted {
+		s.restrictGlobals()
+	}
+
 	// Store original code for error context (if not already set by EvalSchemaFile)
 	if s.currentCode == "" {
 		s.currentCode = code
@@ -829,6 +851,12 @@ func (s *Sandbox) RunFile(path string) ([]ast.Operation, error) {
 	// Reset VM if tainted by a previous interrupt/timeout
 	if s.tainted {
 		s.Reset()
+	}
+
+	// Restrict non-DSL globals (Date, Math, JSON, etc.)
+	// Migrations are declarative — only the DSL should be available.
+	if !s.restricted {
+		s.restrictGlobals()
 	}
 
 	// Set current file for error context
