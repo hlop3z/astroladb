@@ -8,8 +8,16 @@ const SIDEBAR = [
             { label: "Comparison", slug: "comparison" },
             { label: "Exports", slug: "exports" },
             { label: "Commands", slug: "commands" },
-            { label: "Migrations (Experimental)", slug: "migrations" },
             { label: "Tables", slug: "tables" },
+            {
+                label: "Columns",
+                items: [
+                    { label: "Low Level", slug: "cols/low-level" },
+                    { label: "Semantics", slug: "cols/semantics" },
+                    { label: "Relationships", slug: "cols/relationships" },
+                    { label: "Computed", slug: "cols/computed" },
+                ],
+            },
             {
                 label: "Tutorial",
                 items: [
@@ -19,12 +27,12 @@ const SIDEBAR = [
                 ],
             },
             {
-                label: "Columns",
+                label: "Migrations",
                 items: [
-                    { label: "Low Level", slug: "cols/low-level" },
-                    { label: "Semantics", slug: "cols/semantics" },
-                    { label: "Relationships", slug: "cols/relationships" },
-                    { label: "Computed", slug: "cols/computed" },
+                    { label: "Overview", slug: "migrations/overview" },
+                    { label: "File Anatomy & Safety", slug: "migrations/guide" },
+                    { label: "DSL Reference", slug: "migrations/dsl-reference" },
+                    { label: "Squash & Internals", slug: "migrations/advanced" },
                 ],
             },
             {

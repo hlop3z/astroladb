@@ -40,17 +40,16 @@ export default table({
   id: col.id(),
   email: col.email().unique(),
   username: col.username(),
-  bio: col.text().nullable(),
+  bio: col.text().optional(),
   role: col.enum(["admin", "editor", "viewer"]).default("viewer"),
 });
 ```
 
 | Modifier          | What it does             |
 | ----------------- | ------------------------ |
-| `.nullable()`     | Allows `NULL` values     |
+| `.optional()`     | Allows `NULL` values     |
 | `.unique()`       | Adds a unique constraint |
 | `.default(value)` | Sets a default value     |
-| `.primary()`      | Marks as primary key     |
 
 <Aside type="note">
   Semantic types like `col.slug()` and `col.flag()` come with built-in defaults

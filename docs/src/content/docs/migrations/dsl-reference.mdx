@@ -1,0 +1,129 @@
+---
+title: DSL Reference
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+These are the operations available in generated migrations. Use this reference
+when reviewing or editing migrations.
+
+## Migration Builder (`m`)
+
+The migration builder `m` provides these operations:
+
+| Method                                                   | Description                                                              |
+| -------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `m.create_table(ref, fn)`                                | Create a new table. Pass a callback that receives the table builder.     |
+| `m.drop_table(ref)`                                      | Drop an existing table.                                                  |
+| `m.rename_table(oldRef, newName)`                        | Rename a table.                                                          |
+| `m.add_column(ref, fn)`                                  | Add a column to an existing table.                                       |
+| `m.drop_column(ref, name)`                               | Drop a column from a table.                                              |
+| `m.rename_column(ref, oldName, newName)`                 | Rename a column.                                                         |
+| `m.alter_column(ref, name, fn)`                          | Alter a column's type or constraints.                                    |
+| `m.create_index(ref, columns, opts?)`                    | Create an index. Options: `name`, `unique`.                              |
+| `m.drop_index(name)`                                     | Drop an index by name.                                                   |
+| `m.add_foreign_key(ref, cols, refTable, refCols, opts?)` | Add a foreign key constraint. Options: `name`, `on_delete`, `on_update`. |
+| `m.drop_foreign_key(ref, name)`                          | Drop a foreign key constraint.                                           |
+| `m.add_check(ref, name, expression)`                     | Add a CHECK constraint.                                                  |
+| `m.drop_check(ref, name)`                                | Drop a CHECK constraint.                                                 |
+| `m.sql(statement)`                                       | Execute raw SQL.                                                         |
+
+**Example usage:**
+
+```js
+up(m) {
+  // Add a new column
+  m.add_column("auth.user", (t) => {
+    t.string("phone", 20).optional();
+  });
+
+  // Create an index
+  m.create_index("auth.user", ["email"], {
+    name: "idx_user_email"
+  });
+
+  // Add a CHECK constraint
+  m.add_check("auth.user", "chk_age", "age >= 18");
+
+  // Raw SQL for complex operations
+  m.sql("CREATE EXTENSION IF NOT EXISTS pgcrypto;");
+}
+```
+
+### `alter_column` Reference
+
+The `alter_column` callback receives a column modifier `c` with these chainable
+methods:
+
+| Method                       | Description                                                 |
+| ---------------------------- | ----------------------------------------------------------- |
+| `c.set_type(type, ...args)`  | Change the column type (e.g., `c.set_type("varchar", 255)`) |
+| `c.set_nullable()`           | Allow NULL values                                           |
+| `c.set_not_null()`           | Disallow NULL values                                        |
+| `c.set_default(value)`       | Set a default value                                         |
+| `c.drop_default()`           | Remove the default value                                    |
+| `c.set_server_default(expr)` | Set a server-side default expression                        |
+
+```js
+up(m) {
+  m.alter_column("auth.user", "email", (c) =>
+    c.set_type("varchar", 500).set_not_null()
+  );
+
+  m.alter_column("blog.post", "status", (c) =>
+    c.set_default("draft").set_nullable()
+  );
+}
+```
+
+## Table Builder (`t`)
+
+Inside `create_table` and `add_column`, the table builder `t` provides:
+
+| Method                              | Description                                                                                                           |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `t.id()`                            | UUID primary key column (named `id`).                                                                                 |
+| `t.timestamps()`                    | Adds `created_at` and `updated_at` columns.                                                                           |
+| `t.soft_delete()`                   | Adds a nullable `deleted_at` datetime column.                                                                         |
+| `t.sortable()`                      | Adds a `position` integer column (default `0`).                                                                       |
+| `t.belongs_to(ref)`                 | Foreign key to another table. Chainable with `.as(alias)`, `.optional()`, `.on_delete(action)`, `.on_update(action)`. |
+| `t.one_to_one(ref)`                 | Unique foreign key (same chainable API as `belongs_to`).                                                              |
+| `t.belongs_to_any(refs, opts?)`     | Polymorphic relationship. Adds `{as}_type` and `{as}_id` columns. Options: `{ as: "name" }`.                          |
+| `t.string(name, length)`            | Variable-length string column.                                                                                        |
+| `t.text(name)`                      | Text column (unlimited length).                                                                                       |
+| `t.integer(name)`                   | Integer column.                                                                                                       |
+| `t.float(name)`                     | Floating-point number.                                                                                                |
+| `t.decimal(name, precision, scale)` | Decimal column for precise numbers.                                                                                   |
+| `t.boolean(name)`                   | Boolean column.                                                                                                       |
+| `t.date(name)`                      | Date column (no time).                                                                                                |
+| `t.time(name)`                      | Time column (no date).                                                                                                |
+| `t.datetime(name)`                  | Timestamp column.                                                                                                     |
+| `t.uuid(name)`                      | UUID column.                                                                                                          |
+| `t.json(name)`                      | JSON column.                                                                                                          |
+| `t.base64(name)`                    | Base64-encoded binary column.                                                                                         |
+| `t.enum(name, values)`              | Enum column with predefined values.                                                                                   |
+
+### Column Modifiers (Chainable)
+
+- `.optional()` - Allow NULL values
+- `.unique()` - Add unique constraint
+- `.default(value)` - Set default value
+- `.backfill(value)` - Set backfill value for existing rows when adding a NOT
+  NULL column
+
+**Example usage:**
+
+```js
+m.create_table("products.item", (t) => {
+  t.id();
+  t.string("sku", 50).unique();
+  t.string("name", 200);
+  t.text("description").optional();
+  t.decimal("price", 10, 2);
+  t.integer("stock").default(0);
+  t.boolean("available").default(true);
+  t.enum("category", ["electronics", "clothing", "food"]);
+  t.belongs_to("products.brand").optional().on_delete("SET NULL");
+  t.timestamps();
+});
+```

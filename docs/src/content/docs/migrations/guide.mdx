@@ -1,0 +1,224 @@
+---
+title: File Anatomy & Safety
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+## Migration File Structure
+
+Every migration file has a standard structure with metadata fields and
+`up`/`down` functions:
+
+```js
+export default migration({
+  description: "Add user authentication tables",
+  up_revision: "001",
+  down_revision: null, // null for the first migration
+
+  up(m) {
+    /* ... */
+  },
+  down(m) {
+    /* ... */
+  },
+});
+```
+
+| Field           | Description                                                       |
+| --------------- | ----------------------------------------------------------------- |
+| `description`   | Human-readable summary shown in `alab status`                     |
+| `up_revision`   | This migration's revision ID (auto-filled from filename)          |
+| `down_revision` | Previous migration's revision ID (`null` for the first migration) |
+
+Here's a complete example:
+
+```js
+export default migration({
+  description: "Create auth and blog tables",
+  up_revision: "001",
+  down_revision: null,
+
+  up(m) {
+    m.create_table("auth.role", (t) => {
+      t.id();
+      t.string("name", 100).unique();
+      t.timestamps();
+    });
+
+    m.create_table("auth.user", (t) => {
+      t.id();
+      t.string("email", 255).unique();
+      t.boolean("is_active").default(true);
+      t.string("password", 255);
+      t.string("username", 50).unique();
+      t.timestamps();
+    });
+
+    m.create_table("blog.post", (t) => {
+      t.id();
+      t.belongs_to("auth.user").as("author");
+      t.text("body");
+      t.string("title", 200);
+      t.timestamps();
+    });
+    m.create_index("blog.post", ["author_id"]);
+  },
+
+  down(m) {
+    m.drop_table("blog.post");
+    m.drop_table("auth.user");
+    m.drop_table("auth.role");
+  },
+});
+```
+
+Tables are created in dependency order (referenced tables first). The `down()`
+function reverses everything in `up()`. See the
+[DSL Reference](../dsl-reference/) for all available `m.*` and `t.*`
+methods.
+
+## Hooks
+
+Use `up_hook` and `down_hook` to run arbitrary SQL before or after the
+auto-generated DDL:
+
+```js
+export default migration({
+  up(m) {
+    m.add_column("blog.post", (t) => {
+      t.string("status", 20).default("draft");
+    });
+  },
+
+  up_hook(h) {
+    h.before("SET statement_timeout = '60s';");
+    h.after(
+      "UPDATE blog_post SET status = 'published' WHERE published_at IS NOT NULL;",
+    );
+    h.backfill("blog.post", "status", "'active'");
+  },
+
+  down(m) {
+    m.drop_column("blog.post", "status");
+  },
+
+  down_hook(h) {
+    h.before("SET statement_timeout = '60s';");
+  },
+});
+```
+
+| Method                           | Description                                   |
+| -------------------------------- | --------------------------------------------- |
+| `h.before(sql)`                  | Run SQL **before** the generated DDL          |
+| `h.after(sql)`                   | Run SQL **after** the generated DDL           |
+| `h.backfill(table, column, val)` | Shorthand for `UPDATE table SET column = val` |
+
+Hooks run inside the same transaction as the migration.
+
+## Rename Hints
+
+If the interactive rename detection (during `alab new`) doesn't catch a rename,
+you can provide explicit hints in the migration file:
+
+```js
+export default migration({
+  renames: {
+    columns: {
+      "auth.user.email": "email_address",
+    },
+  },
+
+  up(m) {
+    m.rename_column("auth.user", "email", "email_address");
+  },
+
+  down(m) {
+    m.rename_column("auth.user", "email_address", "email");
+  },
+});
+```
+
+The `renames.columns` object maps `namespace.table.old_column` to the new column
+name. This bypasses the rename-detection heuristic.
+
+## Dialect-Specific SQL
+
+Use `postgres()` and `sqlite()` to embed SQL that only runs on a specific
+database dialect:
+
+```js
+up(m) {
+  m.sql(postgres("CREATE EXTENSION IF NOT EXISTS pgcrypto;"));
+  m.sql(sqlite("PRAGMA journal_mode=WAL;"));
+}
+```
+
+AstrolaDB emits only the expression matching the active dialect and ignores the
+rest.
+
+---
+
+## Integrity & Safety
+
+AstrolaDB includes several layers of protection to prevent accidental data loss
+and migration tampering.
+
+### Checksum Chain
+
+Every migration is part of a **checksum chain**. Each checksum is computed as
+`sha256(file_content + previous_checksum)`, starting from a `"genesis"` seed.
+Modifying any file invalidates all subsequent checksums.
+
+When you run `alab migrate`, the runner verifies checksums against the database.
+If a file was modified after being applied, migration is blocked.
+
+<Aside type="caution">
+  Never edit a migration file after it has been applied. Create a new migration
+  instead.
+</Aside>
+
+### Lock File
+
+The `alab.lock` file tracks all migration files via SHA-256 checksums. The first
+line is an aggregate checksum of all files — a single value that detects any
+change. Manage it with `alab lock status`, `alab lock verify`, and
+`alab lock repair`. It updates automatically after `alab migrate` and
+`alab squash`.
+
+### Destructive Operations
+
+Migrations containing DROP operations require `--confirm-destroy`:
+
+```bash
+alab migrate --confirm-destroy
+```
+
+<Aside type="note">
+  The `--force` flag does **not** bypass this check. You must use
+  `--confirm-destroy` specifically — forcing past lint warnings is different
+  from confirming data deletion.
+</Aside>
+
+### Git Safety
+
+Before applying migrations, AstrolaDB checks your git working tree. Modified
+migration files block the run (override with `--force`). Uncommitted schema
+changes trigger a warning.
+
+### SQL Determinism
+
+Use `alab check --determinism` to verify migrations produce consistent SQL. It
+re-generates SQL from each applied migration and compares against the stored
+`sql_checksum`. Catches non-deterministic migrations (e.g., using `Date.now()`).
+
+### Distributed Locking
+
+Multiple processes sharing a database are protected by distributed locking. Use
+`--skip-lock` for single-writer CI environments, or `--lock-timeout 60s` for
+custom timeouts. Release stuck locks with `alab lock release --force`.
+
+<Aside type="tip">
+  See [CLI Commands](../../commands/) for the full flag reference for all safety
+  features.
+</Aside>

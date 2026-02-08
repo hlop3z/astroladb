@@ -1,0 +1,101 @@
+---
+title: Migrations
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+Migrations are the rockstar way to evolve your database schema over time.
+AstrolaDB automatically generates migration files that track every change to
+your schema, making it easy to apply updates, roll back changes, and keep your
+team in sync.
+
+Migrations are JavaScript files that live in your `migrations/` directory. Each
+migration contains two functions:
+
+- **`up(m)`** - Applies the schema changes (create tables, add columns, etc.)
+- **`down(m)`** - Reverses those changes (for rollbacks)
+
+<Aside type="note">
+Migrations are always **generated** — never written from scratch. However, after
+generation you can **edit** them to add custom logic like raw SQL, data
+migrations, or tweaks that the generator can't infer.
+
+**Typical workflow:**
+
+1. Update your schema files (in `schemas/`)
+2. Run `alab new <name>` to generate a new migration
+3. Review and optionally edit the generated migration
+4. Run `alab migrate` to apply it
+
+This keeps your schema definitions as the single source of truth while giving
+you full control over the migration logic when needed.
+
+</Aside>
+
+## Quick Example
+
+```js
+export default migration({
+  up(m) {
+    m.create_table("auth.user", (t) => {});
+    m.create_table("blog.post", (t) => {});
+    m.create_index("blog.post", ["author_id"]);
+  },
+  down(m) {
+    m.drop_table("blog.post");
+    m.drop_table("auth.user");
+  },
+});
+```
+
+## Generating Migrations
+
+Use the `alab new` command to generate a migration from your current schema
+diff:
+
+```bash
+# Generate a migration with a descriptive name
+alab new add_user_auth
+
+# Create an empty migration for manual edits
+alab new data_backfill --empty
+```
+
+AstrolaDB compares your current schema files against the last migration's state,
+computes the diff, and generates a sequentially numbered migration file like
+`001_add_user_auth.js`. Names are auto-normalized to `snake_case` (`CreateUsers`
+becomes `create_users`, `add-email` becomes `add_email`).
+
+### Interactive Prompts
+
+During generation, AstrolaDB may prompt you interactively:
+
+**Rename detection** — When you rename a column or table in your schema,
+AstrolaDB detects potential renames by matching drop + add pairs. It asks you to
+confirm each candidate:
+
+```
+? Column "email" → "email_address" in auth.user — Is this a rename? (y/N)
+```
+
+Confirmed renames generate `rename_column` operations instead of separate
+`drop_column` + `add_column`, preserving data.
+
+**Backfill prompts** — When adding a NOT NULL column without a default value,
+AstrolaDB prompts for a backfill value with type-appropriate suggestions:
+
+```
+! Column "status" (string) on blog.post is NOT NULL with no default
+? Enter backfill value (or "skip" to skip): 'draft'
+```
+
+See [CLI Commands](../../commands/#alab-new) for the full `alab new` flag
+reference.
+
+## Section Guide
+
+| Page                                          | Description                                                        |
+| --------------------------------------------- | ------------------------------------------------------------------ |
+| [File Anatomy & Safety](../guide/) | Migration file structure, hooks, rename hints, integrity checks    |
+| [DSL Reference](../dsl-reference/) | Full reference for the migration builder `m` and table builder `t` |
+| [Squash & Internals](../advanced/) | Squash migrations into a baseline, how the diff engine works       |

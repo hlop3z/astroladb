@@ -1,0 +1,114 @@
+---
+title: Squash & Internals
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+## Squash & Baseline
+
+After accumulating many migrations, you can **squash** them into a single
+**baseline** migration that captures the current schema as `create_table` +
+`create_index` operations.
+
+**When to squash:**
+
+- Onboarding new team members — one file vs dozens of incremental changes
+- Cleaning up history — old add/drop/rename chains become noise
+- Speeding up fresh deployments — new environments apply one file instead of
+  many
+
+```bash
+# Preview what would be squashed
+alab squash --dry-run
+
+# Squash all migrations into a baseline
+alab squash
+```
+
+### How Squash Works
+
+1. **Generates** a baseline from your current schema
+2. **Archives** old migration files to `.alab/archive/<timestamp>/`
+3. **Archives** database history to `migration_history.json` in the same
+   directory
+4. **Writes** a new `001_baseline.js`
+5. **Updates** the `alab_migrations` table — clears old records, inserts a
+   baseline record
+6. **Regenerates** the `alab.lock` file
+
+Old files are preserved, not deleted:
+
+```
+.alab/archive/20250115_120000/
+├── 001_initial_schema.js
+├── 002_add_user_email.js
+├── 003_add_blog_posts.js
+└── migration_history.json
+```
+
+### Existing vs New Environments
+
+**Existing databases** are unaffected — the runner detects the baseline's
+`squashed_through` revision has already been applied and skips it.
+
+**New databases** apply only the baseline, then any migrations created after the
+squash.
+
+<Aside type="note">
+  The baseline includes a header comment like `// Baseline: squashed from 5
+  migrations (through revision 005)` so you can always trace which revisions
+  were folded in.
+</Aside>
+
+---
+
+## How Generation Works
+
+When you run `alab new`, the generator follows a deterministic algorithm.
+
+### Diff Calculation
+
+The generator compares your current schema files against the state stored in the
+**last migration** (not the database). It replays all existing migrations
+in-memory to reconstruct the schema, then diffs it against your `schemas/`
+directory.
+
+This means you don't need a database connection to generate migrations — schema
+files remain the single source of truth.
+
+### Dependency Ordering
+
+Tables are created in dependency order using topological sort:
+
+1. Tables with no foreign key references first
+2. Then tables referencing only already-created tables
+3. Circular references are appended in alphabetical order
+
+### Column Sorting
+
+Columns appear in a predictable order: `id` first, then alphabetical, then
+`created_at`/`updated_at` last. This deterministic ordering means regenerating
+from the same schema always produces identical output.
+
+### Automatic Reversals
+
+The `down()` function is auto-generated as the reverse of `up()`:
+
+| Forward                   | Reverse                                  |
+| ------------------------- | ---------------------------------------- |
+| `create_table`            | `drop_table`                             |
+| `add_column`              | `drop_column`                            |
+| `rename_column(old, new)` | `rename_column(new, old)`                |
+| `rename_table(old, new)`  | `rename_table(new, old)`                 |
+| `create_index`            | `drop_index`                             |
+| `add_foreign_key`         | `drop_foreign_key`                       |
+| `add_check`               | `drop_check`                             |
+| `alter_column`            | `alter_column` (restores previous state) |
+
+Operations like `drop_table`, `drop_column`, and `sql()` cannot be auto-reversed
+— the generator marks these as irreversible and leaves comments in `down()` for
+manual handling.
+
+### Code Formatting
+
+Generated files are formatted with `npx prettier` when available.
