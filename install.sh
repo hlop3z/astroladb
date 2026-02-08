@@ -259,10 +259,9 @@ install_from_source() {
 # Main
 main() {
     echo ""
-    echo "  ╭───────────────────────────────────────╮"
-    echo "  │         Alab Installer                │"
-    echo "  │   Database Migration Tool             │"
-    echo "  ╰───────────────────────────────────────╯"
+    echo "  ╭─────────────────────────────────╮"
+    echo "  │         Alab Installer          │"
+    echo "  ╰─────────────────────────────────╯"
     echo ""
 
     install_alab
