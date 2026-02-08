@@ -2,7 +2,7 @@ module github.com/hlop3z/astroladb
 
 go 1.24.4
 
-toolchain go1.24.11
+toolchain go1.24.13
 
 require (
 	github.com/cbergoon/merkletree v0.2.0
