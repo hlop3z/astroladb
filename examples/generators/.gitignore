@@ -1,0 +1,49 @@
+
+# Rust
+target/
+*.rlib
+*.rmeta
+**/*.rs.bk
+
+# WASM binaries
+*.wasm
+
+# IDE
+.idea/
+# Note: .vscode/ is tracked for shared snippets and settings
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (for docs)
+node_modules/
+
+# Env
+.env
+
+# Legacy/temp
+.__notes__/
+.img
+
+# Local config
+.claude/
+.notes/
+CLAUDE.md
+
+# Test projects
+.test-*/
+
+# wasmCloud test binaries (nats-server, wash, wasmcloud-host)
+tests-integration/fixtures/wasmcloud-bin/
+
+# Spin runtime files
+.spin/
+tests-integration/fixtures/.spin/
+tests-integration/fixtures/spin-temp.toml
+
+# Generated OpenAPI schemas
+**/openapi.json
+
+# Generated WASI bindings (cargo-component)
+**/bindings.rs

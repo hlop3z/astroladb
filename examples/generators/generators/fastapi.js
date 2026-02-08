@@ -1,4 +1,4 @@
-// FastAPI Code Generator
+// FastAPI Code Generator (v2 - Clean Templates)
 // Generates Pydantic models and CRUD routers from your alab schema.
 //
 // Usage:
@@ -8,6 +8,9 @@ export default gen((schema) => {
   const files = {};
 
   // ─── Helpers ───────────────────────────────────────────────
+
+  const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const pascalCase = (s) => s.split("_").map(capitalize).join("");
 
   const TYPE_MAP = {
     uuid: "UUID",
@@ -22,24 +25,16 @@ export default gen((schema) => {
     decimal: "Decimal",
     json: "dict",
     base64: "str",
-    enum: "str",
   };
-
-  const AUTO_FIELDS = new Set(["id", "created_at", "updated_at"]);
-
-  const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-  const pascalCase = (s) => s.split("_").map(capitalize).join("");
 
   const pyType = (col) => {
     if (col.type === "enum" && col.enum) return `${capitalize(col.name)}Enum`;
     return TYPE_MAP[col.type] || "Any";
   };
 
-  // Format a Python default value, or return "" if none.
   const pyDefault = (col) => {
     const def = col.default;
-    if (def === undefined) return "";
-    if (typeof def === "object") return ""; // SQL expression
+    if (def === undefined || typeof def === "object") return "";
     const pt = pyType(col);
     if (col.type === "enum") return ` = ${pt}.${String(def).toUpperCase()}`;
     if (typeof def === "boolean") return ` = ${def ? "True" : "False"}`;
@@ -48,151 +43,123 @@ export default gen((schema) => {
     return ` = ${def}`;
   };
 
-  // Format a single Pydantic field line.
   const pyField = (col) => {
     const pt = pyType(col);
     if (col.nullable) return `    ${col.name}: Optional[${pt}] = None`;
     return `    ${col.name}: ${pt}${pyDefault(col)}`;
   };
 
-  // ─── Models ────────────────────────────────────────────────
+  // ─── Templates ─────────────────────────────────────────────
 
-  const MODEL_IMPORTS = [
-    "from __future__ import annotations",
-    "",
-    "from datetime import date, time, datetime",
-    "from decimal import Decimal",
-    "from enum import Enum",
-    "from typing import Optional",
-    "from uuid import UUID",
-    "",
-    "from pydantic import BaseModel",
-    "",
-  ].join("\n");
-
-  function modelFile(tables) {
-    let out = MODEL_IMPORTS + "\n";
-
-    for (const table of tables) {
+  const modelFile = (tables) => {
+    const models = tables.map((table) => {
       const cls = pascalCase(table.name);
+      const fields = table.columns
+        .filter((c) => !["id", "created_at", "updated_at"].includes(c.name))
+        .map(pyField);
 
-      // Enums
-      for (const col of table.columns) {
-        if (col.type !== "enum" || !col.enum) continue;
-        const enumName = `${capitalize(col.name)}Enum`;
-        out += `\nclass ${enumName}(str, Enum):\n`;
-        for (const val of col.enum) {
-          out += `    ${val.toUpperCase()} = "${val}"\n`;
-        }
-        out += "\n";
-      }
+      const enums = table.columns
+        .filter((col) => col.type === "enum" && col.enum)
+        .map((col) => {
+          const enumName = `${capitalize(col.name)}Enum`;
+          const values = col.enum
+            .map((val) => `    ${val.toUpperCase()} = "${val}"`)
+            .join("\n");
+          return `\nclass ${enumName}(str, Enum):\n${values}\n`;
+        })
+        .join("");
 
-      // Base model (create/update — no id, no timestamps)
-      out += `\nclass ${cls}Base(BaseModel):\n`;
-      const fields = table.columns.filter((c) => !AUTO_FIELDS.has(c.name));
-      if (fields.length === 0) {
-        out += "    pass\n";
-      } else {
-        for (const col of fields) out += `${pyField(col)}\n`;
-      }
+      const baseFields = fields.length > 0 ? fields.join("\n") : "    pass";
 
-      // Read model (adds id + timestamps)
-      out += `\n\nclass ${cls}(${cls}Base):\n`;
-      out += "    id: UUID\n";
-      if (table.timestamps) {
-        out += "    created_at: datetime\n";
-        out += "    updated_at: datetime\n";
-      }
-      out += "\n    class Config:\n        from_attributes = True\n\n";
-    }
+      return `${enums}
+class ${cls}Base(BaseModel):
+${baseFields}
 
-    return out;
-  }
 
-  // ─── Router ────────────────────────────────────────────────
+class ${cls}(${cls}Base):
+    id: UUID
+${table.timestamps ? "    created_at: datetime\n    updated_at: datetime\n" : ""}
+    class Config:
+        from_attributes = True
+`.trim();
+    }).join("\n\n");
 
-  // Each CRUD operation as a data entry — no copy-paste per endpoint.
-  const CRUD = [
-    {
-      method: "get",
-      path: "",
-      fn: "list",
-      args: "",
-      resp: "list[$CLS]",
-      status: "",
-    },
-    {
-      method: "get",
-      path: "/{item_id}",
-      fn: "get",
-      args: "item_id: UUID",
-      resp: "$CLS",
-      status: "",
-    },
-    {
-      method: "post",
-      path: "",
-      fn: "create",
-      args: "body: $CLSBase",
-      resp: "$CLS",
-      status: ", status_code=201",
-    },
-    {
-      method: "patch",
-      path: "/{item_id}",
-      fn: "update",
-      args: "item_id: UUID, body: $CLSBase",
-      resp: "$CLS",
-      status: "",
-    },
-    {
-      method: "delete",
-      path: "/{item_id}",
-      fn: "delete",
-      args: "item_id: UUID",
-      resp: "",
-      status: ", status_code=204",
-    },
-  ];
+    return `
+from __future__ import annotations
 
-  function crudBlock(slug, name, cls, op) {
-    const resp = op.resp
-      ? `, response_model=${op.resp.replace(/\$CLS/g, cls)}`
-      : "";
-    const args = op.args.replace(/\$CLS/g, cls);
-    return (
-      `@router.${op.method}("/${slug}${op.path}"${resp}${op.status})\n` +
-      `async def ${op.fn}_${name}(${args}):\n` +
-      `    # TODO: implement\n` +
-      `    raise HTTPException(501, "not implemented")\n\n\n`
-    );
-  }
+from datetime import date, time, datetime
+from decimal import Decimal
+from enum import Enum
+from typing import Optional
+from uuid import UUID
 
-  function routerFile(ns, tables) {
+from pydantic import BaseModel
+
+${models}
+`.trim() + "\n";
+  };
+
+  const routerFile = (ns, tables) => {
     const imports = tables
-      .map((t) => pascalCase(t.name))
-      .map((cls) => `    ${cls},\n    ${cls}Base,`)
+      .map((t) => `    ${pascalCase(t.name)},\n    ${pascalCase(t.name)}Base,`)
       .join("\n");
 
-    let out =
-      "from __future__ import annotations\n\n" +
-      "from uuid import UUID\n\n" +
-      "from fastapi import APIRouter, HTTPException\n\n" +
-      `from .models import (\n${imports}\n)\n\n\n` +
-      `router = APIRouter(prefix="/${ns}", tags=["${ns}"])\n\n\n`;
-
-    for (const table of tables) {
+    const routers = tables.map((table) => {
       const cls = pascalCase(table.name);
       const slug = table.name.replace(/_/g, "-");
-      for (const op of CRUD) out += crudBlock(slug, table.name, cls, op);
-    }
 
-    return out;
-  }
+      return `
+@router.get("/${slug}")
+async def list_${table.name}():
+    # TODO: implement
+    raise HTTPException(501, "not implemented")
 
-  // ─── Main app ──────────────────────────────────────────────
 
-  function mainFile(namespaces) {
+@router.get("/${slug}/{item_id}")
+async def get_${table.name}(item_id: UUID):
+    # TODO: implement
+    raise HTTPException(501, "not implemented")
+
+
+@router.post("/${slug}", response_model=${cls}, status_code=201)
+async def create_${table.name}(body: ${cls}Base):
+    # TODO: implement
+    raise HTTPException(501, "not implemented")
+
+
+@router.patch("/${slug}/{item_id}", response_model=${cls})
+async def update_${table.name}(item_id: UUID, body: ${cls}Base):
+    # TODO: implement
+    raise HTTPException(501, "not implemented")
+
+
+@router.delete("/${slug}/{item_id}", status_code=204)
+async def delete_${table.name}(item_id: UUID):
+    # TODO: implement
+    raise HTTPException(501, "not implemented")
+`.trim();
+    }).join("\n\n\n");
+
+    return `
+from __future__ import annotations
+
+from uuid import UUID
+
+from fastapi import APIRouter, HTTPException
+
+from .models import (
+${imports}
+)
+
+
+router = APIRouter(prefix="/${ns}", tags=["${ns}"])
+
+
+${routers}
+`.trim() + "\n";
+  };
+
+  const mainFile = (namespaces) => {
     const imports = namespaces
       .map((ns) => `from ${ns} import router as ${ns}_router`)
       .join("\n");
@@ -200,21 +167,30 @@ export default gen((schema) => {
       .map((ns) => `app.include_router(${ns}_router)`)
       .join("\n");
 
-    return (
-      '"""\n' +
-      "FastAPI app (generated by alab).\n\n" +
-      "Run:\n    uv run fastapi dev main.py\n\n" +
-      "Then open http://localhost:8000/docs\n" +
-      '"""\n\n' +
-      "from fastapi import FastAPI\n\n" +
-      `${imports}\n\n` +
-      'app = FastAPI(title="Alab Generated API")\n\n' +
-      `${routers}\n\n\n` +
-      '@app.get("/")\n' +
-      "async def root():\n" +
-      '    return {"message": "Alab Generated API", "docs": "/docs"}\n'
-    );
-  }
+    return `
+"""
+FastAPI app (generated by alab).
+
+Run:
+    uv run fastapi dev main.py
+
+Then open http://localhost:8000/docs
+"""
+
+from fastapi import FastAPI
+
+${imports}
+
+app = FastAPI(title="Alab Generated API")
+
+${routers}
+
+
+@app.get("/")
+async def root():
+    return {"message": "Alab Generated API", "docs": "/docs"}
+`.trim() + "\n";
+  };
 
   // ─── Generate ──────────────────────────────────────────────
 

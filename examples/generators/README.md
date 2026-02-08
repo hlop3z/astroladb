@@ -35,3 +35,19 @@ uv run mypy auth/
 ```sh
 uv run fastapi dev main.py
 ```
+
+---
+
+## All
+
+```bash
+./build-all.sh --check
+```
+
+```bash
+./check-all.sh
+```
+
+```bash
+node test-all.mjs --auto
+```

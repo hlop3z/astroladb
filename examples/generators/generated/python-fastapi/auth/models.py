@@ -8,12 +8,10 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-
 class RoleEnum(str, Enum):
     ADMIN = "admin"
     EDITOR = "editor"
     VIEWER = "viewer"
-
 
 class UserBase(BaseModel):
     age: Optional[int] = None
@@ -38,4 +36,3 @@ class User(UserBase):
 
     class Config:
         from_attributes = True
-

@@ -13,13 +13,13 @@ from .models import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.get("/user", response_model=list[User])
+@router.get("/user")
 async def list_user():
     # TODO: implement
     raise HTTPException(501, "not implemented")
 
 
-@router.get("/user/{item_id}", response_model=User)
+@router.get("/user/{item_id}")
 async def get_user(item_id: UUID):
     # TODO: implement
     raise HTTPException(501, "not implemented")
@@ -41,5 +41,3 @@ async def update_user(item_id: UUID, body: UserBase):
 async def delete_user(item_id: UUID):
     # TODO: implement
     raise HTTPException(501, "not implemented")
-
-
