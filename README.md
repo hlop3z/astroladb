@@ -8,46 +8,79 @@
     <a href="https://github.com/hlop3z/astroladb/actions/workflows/ci.yml"><img src="https://github.com/hlop3z/astroladb/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
     <a href="https://goreportcard.com/report/github.com/hlop3z/astroladb"><img src="https://goreportcard.com/badge/github.com/hlop3z/astroladb" alt="Go Report Card" /></a>
     <a href="https://github.com/hlop3z/astroladb/releases"><img src="https://img.shields.io/github/v/release/hlop3z/astroladb?color=teal" alt="Release" /></a>
-    <img src="https://img.shields.io/badge/status-experimental-indigo" alt="Experimental" />
+    <img src="https://img.shields.io/badge/status-preview-indigo" alt="Preview" />
 </p>
 
 <p align="center">
-  <strong>One schema: many languages.</strong>
-</p>
-
-<p align="center">
-  <a href="https://hlop3z.github.io/astroladb/">Documentation</a> |
-  <a href="https://hlop3z.github.io/astroladb/comparison/">Comparison</a> |
-  <a href="https://hlop3z.github.io/astroladb/exports/">Generated-Code</a> |
-  <a href="https://hlop3z.github.io/astroladb/commands/">Commands</a> |
-  <a href="https://hlop3z.github.io/astroladb/cols/semantics/">Fields</a>
-</p>
-
-<p align="center">
-  <img src="docs/gifs/flowchart.png" alt="Flowchart" width="400" />
+  <strong>One schema: many outputs.</strong>
 </p>
 
 ---
 
-**AstrolaDB** is a **schema-as-code** orchestration tool for **one-to-many, multi-language** code generation.
+**Stop writing boilerplate.** Define your data model once in JavaScript. Use **custom generators** to produce REST APIs in **FastAPI**, **Go Chi**, **Rust Axum**, or **tRPC**. Export types, SQL migrations, and OpenAPI specs directly from the core engine.
 
-> **No Node.js. No runtime lock-in.**
-> A single, portable binary.
+## One Schema
 
-Define your schema once in **constrained JavaScript** — a typed, executable "`JSON`" with type safety, **autocomplete**, and **IDE support**.
+```js
+// schemas/auth/user.js
+export default table({
+  id: col.id(),
+  username: col.username().unique(),
+  email: col.email().unique(),
+  password: col.password_hash(),
+  is_active: col.flag(true),
+}).timestamps();
+```
 
-From the same schema, **generate**:
+## Many Outputs
 
-**SQL** migrations, **Rust** structs, **Go** models, **Python** classes, **TypeScript** types, **GraphQL** schemas and **OpenAPI** specs.
+AstrolaDB turns a single schema into multiple artifacts. Some built-in, others produced via custom generators.
 
 ---
 
-## Key Highlights
+### Built-in Outputs (Core Engine)
 
-- **Single ~8 MB static binary**
-- **Zero dependencies**, no external runtimes
-- Fast, portable and **CI/CD-friendly**
-- Works **without** JVM, Node.js or Python
+Deterministic outputs provided natively by AstrolaDB.
+
+| Output             | Languages / Formats          |
+| ------------------ | ---------------------------- |
+| **Type Exports**   | Rust, Go, Python, TypeScript |
+| **SQL Migrations** | PostgreSQL, SQLite           |
+| **API Specs**      | OpenAPI, GraphQL             |
+
+These features are **first-party** and maintained as part of the **core engine**.
+
+---
+
+### Generator-Powered Outputs
+
+Produced via sandboxed JavaScript generators you write or share.
+
+| What You Can Generate   | Examples / Targets                          |
+| ----------------------- | ------------------------------------------- |
+| **Complete APIs**       | FastAPI, Chi, Axum, tRPC                    |
+| **Infra Configs**       | Terraform, Docker, Helm                     |
+| **SDKs & Clients**      | Language SDKs, RPC clients                  |
+| **Tooling**             | CLIs, test suites, documentation            |
+| **Anything Text-Based** | Any framework or format expressible as code |
+
+Generators transform the schema object into files: giving you full control over structure, frameworks, and conventions.
+
+---
+
+> **Core outputs** are built-in and versioned with AstrolaDB.
+> **Generator outputs** are user-extensible and defined as JavaScript functions.
+
+---
+
+## Documentation
+
+- **[Quick Start Guide](https://hlop3z.github.io/astroladb/quick-start/)** — Get started in 5 minutes
+- **[Tutorial](https://hlop3z.github.io/astroladb/tutorial/first-project/)** — Build your first project
+- **[Generator Guide](https://hlop3z.github.io/astroladb/advanced_users/generators/)** — Write custom generators
+- **[Migration Reference](https://hlop3z.github.io/astroladb/migrations/overview/)** — Schema evolution
+- **[Field Types](https://hlop3z.github.io/astroladb/cols/semantics/)** — All available column types
+- **[CLI Commands](https://hlop3z.github.io/astroladb/commands/)** — Complete command reference
 
 ---
 
@@ -59,104 +92,227 @@ From the same schema, **generate**:
 [![Linux (amd64)](https://img.shields.io/badge/Linux%20amd64-Download-green?logo=linux)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-linux-amd64.tar.gz)
 [![Linux (arm64)](https://img.shields.io/badge/Linux%20ARM-Download-green?logo=linux)](https://github.com/hlop3z/astroladb/releases/latest/download/alab-linux-arm64.tar.gz)
 
----
-
-## Install
+**Or install via script:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh | sh
 ```
 
-## Quick Start
+---
 
-**Initialize project**
+## See It In Action
+
+**From schema to running API using an example generator:**
+
+```bash
+# 1. Initialize project
+alab init
+
+# 2. Create your schema
+alab table auth user
+
+# 3. Download an example generator
+alab gen add https://raw.githubusercontent.com/hlop3z/astroladb/main/examples/generators/generators/fastapi.js
+
+# 4. Run the generator
+alab gen run generators/fastapi -o ./backend
+
+# 5. Run it
+cd backend
+uv add fastapi[standard]
+uv run fastapi dev main.py
+# → http://localhost:8000/docs
+```
+
+**What the generator produced:**
+
+```
+backend/
+├── auth/
+│   ├── models.py      # Pydantic models with validation
+│   ├── router.py      # CRUD endpoints (list, get, create, update, delete)
+│   └── __init__.py
+└── main.py            # FastAPI app with Swagger docs
+```
+
+**All from that one schema file.** The generator handles the boilerplate.
+
+[View all generator examples →](https://github.com/hlop3z/astroladb/tree/main/examples/generators)
+
+---
+
+## 💎 Example Generators
+
+Example generators demonstrating what's possible with the platform:
+
+| Framework   | Language   | What It Generates                            | Example Output                                                                                           |
+| ----------- | ---------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **FastAPI** | Python     | Pydantic models + CRUD routers + FastAPI app | [View Code](https://github.com/hlop3z/astroladb/tree/main/examples/generators/generated/python-fastapi)  |
+| **Chi**     | Go         | Structs + handlers + Chi router              | [View Code](https://github.com/hlop3z/astroladb/tree/main/examples/generators/generated/go-chi)          |
+| **Axum**    | Rust       | Structs + handlers + Axum server             | [View Code](https://github.com/hlop3z/astroladb/tree/main/examples/generators/generated/rust-axum)       |
+| **tRPC**    | TypeScript | Zod schemas + type-safe RPC routers          | [View Code](https://github.com/hlop3z/astroladb/tree/main/examples/generators/generated/typescript-trpc) |
+
+These are **reference implementations** you can use or modify. Or [write your own generator](https://hlop3z.github.io/astroladb/advanced_users/generators/) in JavaScript to produce any text output.
+
+---
+
+## ⚡ Core Features
+
+The platform provides built-in schema orchestration and a generator runtime:
+
+| Feature                   | Description                                                      |
+| ------------------------- | ---------------------------------------------------------------- |
+| **Single Binary**         | ~9 MB static executable. Zero dependencies.                      |
+| **Schema Engine**         | Type-safe JavaScript DSL for data modeling.                      |
+| **Auto Migrations**       | SQL migrations generated from schema changes.                    |
+| **Multi-Language Export** | Built-in types for Rust, Go, Python, TypeScript.                 |
+| **Generator Runtime**     | Sandboxed JS execution for custom code generation.               |
+| **No Runtime Lock-in**    | Works without Node.js, JVM, or Python runtime.                   |
+| **Live Development**      | Built-in HTTP server (`alab live`) with hot reload.              |
+| **OpenAPI Ready**         | Exports `openapi.json` for integration with 25+ languages.       |
+| **Namespace Support**     | Logical grouping (e.g., `auth.user`) prevents naming collisions. |
+
+---
+
+## Generator Platform = Extensibility
+
+AstrolaDB is **not just** a schema tool. It's a meta-programming platform:
+
+```
+Schema Engine
+   ↓
+Normalized Schema Object
+   ↓
+Generator Runtime (sandboxed JS)
+   ↓
+Arbitrary Text Outputs
+```
+
+**You can generate:**
+
+- REST APIs (FastAPI, Chi, Axum, Express)
+- GraphQL servers
+- tRPC routers
+- SDK clients
+- Terraform configs
+- Docker Compose files
+- Kubernetes manifests
+- Test suites
+- Documentation sites
+- CLI tools
+
+Anything that can be derived from your schema structure.
+
+---
+
+## AstrolaDB vs. Writing It Manually
+
+| Task                    | Manual Approach                     | With AstrolaDB             |
+| ----------------------- | ----------------------------------- | -------------------------- |
+| **Define models**       | Write in each language separately   | Once, in schema            |
+| **API endpoints**       | ~500 lines of boilerplate per model | Via generators             |
+| **Database migrations** | Handwrite SQL                       | Auto-generated (core)      |
+| **OpenAPI docs**        | Manual annotations                  | Included (core)            |
+| **Type safety**         | Manually keep languages in sync     | Always synchronized (core) |
+| **Validation**          | Write validators in each language   | Generated from schema      |
+
+---
+
+## 🎸 Complete Workflow
+
+### 1. Initialize Project
 
 ```bash
 alab init
 ```
 
-**Create a table schema**
+Creates:
+
+```
+project/
+├── alab.yaml        # Configuration
+├── schemas/         # Your schema definitions
+├── migrations/      # Generated SQL migrations
+└── types/           # TypeScript definitions for IDE support
+```
+
+### 2. Define Your Schema
 
 ```bash
 alab table auth user
 ```
 
-**Edit your schema**
+Edit `schemas/auth/user.js`:
 
 ```js
-// schemas/auth/user.js
 export default table({
   id: col.id(),
   email: col.email().unique(),
   username: col.username().unique(),
   password: col.password_hash(),
+  role: col.enum(["admin", "editor", "viewer"]).default("viewer"),
   is_active: col.flag(true),
 }).timestamps();
 ```
 
-**Generate migration**
+### 3. Generate & Apply Migrations
 
 ```bash
+# Generate migration
 alab new create_users
-```
 
-**Apply migration**
+# Preview SQL
+alab migrate --dry
 
-```bash
+# Apply to database
 alab migrate
 ```
 
-**Export types**
-
-> Exports all types, **split into separate files** per namespace.
+### 4. Export Types
 
 ```bash
+# Export to all languages
 alab export -f all
+
+# Or specific language
+alab export -f typescript
+alab export -f python
+alab export -f go
+alab export -f rust
 ```
 
-**Export types with relations variants**
-
-> Bundled into a **single combined file** in the root output directory (instead of being split per namespace).
+### 5. Use Generators (Optional)
 
 ```bash
-alab export -f all --relations
+# Download example generator
+alab gen add https://raw.githubusercontent.com/hlop3z/astroladb/main/examples/generators/generators/fastapi.js
+
+# Run generator
+alab gen run generators/fastapi -o ./backend
 ```
 
 ---
 
-## Features 🎸
+## Who Is This For?
 
-**Alab** gives you **a lab** to play, explore and design your schemas.
+- **Platform engineers** building code generation pipelines
+- **Polyglot developers** maintaining services in multiple languages
+- **Meta-programmers** who want deterministic code generation
+- **Startups** needing to move fast without sacrificing type safety
+- **Solo developers** prototyping full-stack applications
+- **API-first teams** who want to skip repetitive boilerplate
 
-| Feature                     | Description                                                                      |
-| --------------------------- | -------------------------------------------------------------------------------- |
-| **Unified Source of Truth** | Centralized schemas prevent drift between **database** and **application** code. |
-| **Multi-Language Export**   | Generates **type-safe models** for multiple target languages.                    |
-| **Schema Orchestration**    | Manages **SQL migrations** from generation to deployment.                        |
-| **Embedded Engine**         | Executes `.js` schemas via Goja inside a **standalone Go binary**.               |
-| **Live Development**        | Built-in HTTP server (`alab live`) with instant reloads.                         |
-| **OpenAPI Integration**     | Exports `openapi.json` for **25+ languages** via Quicktype.                      |
-| **Logical Namespacing**     | Groups tables (e.g. `auth.user`) to **avoid naming collisions**.                 |
-| **Native Outputs**          | Produces **SQL** and **language-native types**.                                  |
+---
 
-## Who Is This Tool For?
+## Live Development Mode
 
-- **Meta Programmers**
-- **Polyglot developers**
-- **Polyglot teams**
-
-It allows you to define schemas once and export **strongly-typed
-representations** to multiple languages, reducing duplication and drift. You can
-start prototyping in Python, then move to Rust or Go or vice versa. However,
-**the schema remains the constant**.
-
-## Live Server
-
-Instant API exploration with automatic hot reloading:
+Instant schema exploration with automatic hot reloading:
 
 ```bash
 alab live
 ```
+
+Opens an interactive HTTP server where you can explore your schema, test the normalized object, and see changes in real-time.
 
 ---
 
@@ -168,30 +324,30 @@ alab live
 
 ---
 
-## Experimental Status
-
-AstrolaDB is actively evolving. Current stability:
-
-### Migrations — **Experimental**
-
-The migration engine is **not yet battle-tested** for large-scale production.
-
-- Migration logic is still evolving
-- APIs may change and introduce breaking updates
-
-Use caution when applying migrations directly to production systems.
-
-### Code Generation — **Stable**
-
-Schema orchestration and type generation are safe for development workflows.
-
-- `alab export` generates types for Rust, Go, Python, and TypeScript
-- Does **not** modify live databases
-
-> **Recommendation:** Always validate generated SQL and test migrations in staging before production use.
-
----
-
 ## License
 
 BSD-3-Clause
+
+---
+
+## Stability Status
+
+### Core Engine — Stable
+
+- **Schema DSL**
+- **Type Exports** (Rust, Go, Python, TypeScript)
+- **OpenAPI Export**
+- **Generator Runtime**
+- Does **not** modify your database directly
+
+### Migrations — Preview Status
+
+- Migration engine is **actively evolving**
+- APIs may introduce breaking changes
+- **Recommendation**: Always test thoroughly in staging before production
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ by hlop3z</sub>
+</p>
