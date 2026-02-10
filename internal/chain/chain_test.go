@@ -454,6 +454,34 @@ func TestComputeFromDir(t *testing.T) {
 			t.Error("third link should be 003")
 		}
 	})
+
+	t.Run("ignores_subdirectories", func(t *testing.T) {
+		dir := t.TempDir()
+
+		// Create a migration file and a subdirectory
+		files := map[string]string{
+			"001_init.js": "export function up(m) {}",
+		}
+		for name, content := range files {
+			path := dir + "/" + name
+			if err := writeTestFile(path, content); err != nil {
+				t.Fatalf("failed to create file: %v", err)
+			}
+		}
+
+		// Create a subdirectory
+		if err := os.Mkdir(dir+"/subdir", 0755); err != nil {
+			t.Fatalf("failed to create subdirectory: %v", err)
+		}
+
+		chain, err := ComputeFromDir(dir)
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if len(chain.Links) != 1 {
+			t.Errorf("expected 1 link (subdirectory ignored), got %d", len(chain.Links))
+		}
+	})
 }
 
 // -----------------------------------------------------------------------------

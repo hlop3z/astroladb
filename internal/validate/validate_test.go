@@ -179,6 +179,31 @@ func TestIsSnakeCase(t *testing.T) {
 	}
 }
 
+func TestToSnakeCase(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"", ""},
+		{"UserName", "user_name"},
+		{"userName", "user_name"},
+		{"user_name", "user_name"},
+		{"user-name", "user_name"},
+		{"user name", "user_name"},
+		{"HTTPServer", "httpserver"},
+		{"user123", "user123"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := toSnakeCase(tt.input)
+			if got != tt.want {
+				t.Errorf("toSnakeCase(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 // -----------------------------------------------------------------------------
 // Reserved Word Tests
 // -----------------------------------------------------------------------------
@@ -312,6 +337,9 @@ func TestTableRef(t *testing.T) {
 		// Invalid: empty table after dot
 		{"empty_table", "auth.", "", "", true},
 
+		// Invalid: just double dot (edge case)
+		{"double_dot", "..", "", "", true},
+
 		// Invalid: too many parts
 		{"too_many_parts", "a.b.c", "", "", true},
 
@@ -321,6 +349,15 @@ func TestTableRef(t *testing.T) {
 		// Invalid: invalid table name
 		{"invalid_table", "auth.User", "", "", true}, // PascalCase not allowed
 		{"reserved_table", "auth.select", "", "", true},
+
+		// Invalid: invalid table name with leading dot
+		{"invalid_dot_table", ".User", "", "", true},
+
+		// Invalid: invalid simple table name
+		{"invalid_simple_table", "User", "", "", true},
+
+		// Invalid: invalid namespace
+		{"invalid_namespace", "Auth.users", "", "", true},
 	}
 
 	for _, tt := range tests {
@@ -366,6 +403,9 @@ func TestParseRef(t *testing.T) {
 		// Error: relative ref without currentNS
 		{"relative_no_ns", "users", "", "", "", true},
 		{"dot_no_ns", ".users", "", "", "", true},
+
+		// Error: invalid reference (empty)
+		{"empty_ref", "", "auth", "", "", true},
 	}
 
 	for _, tt := range tests {
@@ -599,6 +639,24 @@ func TestErrorWith(t *testing.T) {
 	}
 	if err.Context["key2"] != 42 {
 		t.Errorf("key2 = %v, want 42", err.Context["key2"])
+	}
+}
+
+func TestErrorWithNilContext(t *testing.T) {
+	// Create an Error with nil Context to test the initialization path
+	err := &Error{
+		Code:    ErrInvalidIdentifier,
+		Message: "test",
+		Context: nil,
+	}
+
+	err.With("key", "value")
+
+	if err.Context == nil {
+		t.Error("Context should be initialized")
+	}
+	if err.Context["key"] != "value" {
+		t.Errorf("key = %v, want 'value'", err.Context["key"])
 	}
 }
 

@@ -10,6 +10,22 @@ import (
 // Type Registry Tests
 // -----------------------------------------------------------------------------
 
+func TestRegisterDuplicate(t *testing.T) {
+	// Test that registering a duplicate type panics
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Register() should panic when registering duplicate type")
+		}
+	}()
+
+	// Try to register a type that already exists (id is registered during init)
+	Register(&TypeDef{
+		Name:   "id",
+		JSName: "id",
+		GoType: "string",
+	})
+}
+
 func TestGet(t *testing.T) {
 	tests := []struct {
 		name     string

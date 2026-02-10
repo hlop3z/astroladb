@@ -286,3 +286,18 @@ func TestFormatDiagnostic_WithCode(t *testing.T) {
 		t.Errorf("error code should be bracketed: %q", result)
 	}
 }
+
+func TestFormatDiagnostic_WithFileLineColumn(t *testing.T) {
+	d := &DiagnosticMessage{
+		Type:    TypeError,
+		Message: "test error",
+		File:    "test.js",
+		Line:    10,
+		Column:  5,
+	}
+	result := formatDiagnostic(d)
+
+	if !strings.Contains(result, "test.js:10:5") {
+		t.Errorf("result should contain file:line:column: %q", result)
+	}
+}

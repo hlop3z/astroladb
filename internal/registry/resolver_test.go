@@ -223,6 +223,13 @@ func TestModelRegistry_Resolve(t *testing.T) {
 			want:      nil,
 			wantErr:   true,
 		},
+		{
+			name:      "unqualified without namespace",
+			ref:       "users",
+			currentNS: "",
+			want:      nil,
+			wantErr:   true,
+		},
 	}
 
 	for _, tt := range tests {
