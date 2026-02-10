@@ -127,13 +127,14 @@ func TestMapPostgresType(t *testing.T) {
 		}
 	})
 
-	t.Run("decimal_default_precision", func(t *testing.T) {
+	t.Run("decimal_without_precision", func(t *testing.T) {
 		result := MapPostgresType("DECIMAL", sql.NullInt64{}, sql.NullInt64{}, sql.NullInt64{})
 		if result.AlabType != "decimal" {
 			t.Errorf("AlabType = %q, want %q", result.AlabType, "decimal")
 		}
-		if len(result.TypeArgs) != 2 || result.TypeArgs[0] != 10 || result.TypeArgs[1] != 2 {
-			t.Errorf("TypeArgs = %v, want [10, 2] (default)", result.TypeArgs)
+		// When precision/scale are not provided, TypeArgs should be empty
+		if len(result.TypeArgs) != 0 {
+			t.Errorf("TypeArgs = %v, want [] (no precision metadata)", result.TypeArgs)
 		}
 	})
 
@@ -304,8 +305,18 @@ func TestMapSQLiteType(t *testing.T) {
 		}
 	})
 
-	t.Run("unknown_type", func(t *testing.T) {
+	t.Run("varchar_with_length", func(t *testing.T) {
 		result := MapSQLiteType("VARCHAR(100)")
+		if result.AlabType != "string" {
+			t.Errorf("AlabType = %q, want %q", result.AlabType, "string")
+		}
+		if len(result.TypeArgs) != 1 || result.TypeArgs[0] != 100 {
+			t.Errorf("TypeArgs = %v, want [100]", result.TypeArgs)
+		}
+	})
+
+	t.Run("unknown_custom_type", func(t *testing.T) {
+		result := MapSQLiteType("CUSTOMTYPE")
 		if result.AlabType != "text" {
 			t.Errorf("AlabType = %q, want %q (unknown types default to text)", result.AlabType, "text")
 		}

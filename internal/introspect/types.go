@@ -2,6 +2,8 @@ package introspect
 
 import (
 	"database/sql"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -25,6 +27,13 @@ func MapPostgresType(sqlType string, maxLen, precision, scale sql.NullInt64) Typ
 		}
 		return TypeMapping{AlabType: "string", TypeArgs: []any{255}}
 
+	case upper == "CHARACTER", upper == "CHAR", strings.HasPrefix(upper, "BPCHAR"):
+		// CHARACTER/CHAR without length defaults to 1
+		if maxLen.Valid && maxLen.Int64 > 0 {
+			return TypeMapping{AlabType: "string", TypeArgs: []any{int(maxLen.Int64)}}
+		}
+		return TypeMapping{AlabType: "string", TypeArgs: []any{1}}
+
 	case upper == "TEXT":
 		return TypeMapping{AlabType: "text"}
 
@@ -45,14 +54,13 @@ func MapPostgresType(sqlType string, maxLen, precision, scale sql.NullInt64) Typ
 		return TypeMapping{AlabType: "float"}
 
 	case strings.HasPrefix(upper, "NUMERIC"), strings.HasPrefix(upper, "DECIMAL"):
-		p, s := 10, 2
-		if precision.Valid {
-			p = int(precision.Int64)
+		// Only include TypeArgs if precision/scale are actually provided
+		if precision.Valid && scale.Valid {
+			return TypeMapping{AlabType: "decimal", TypeArgs: []any{int(precision.Int64), int(scale.Int64)}}
+		} else if precision.Valid {
+			return TypeMapping{AlabType: "decimal", TypeArgs: []any{int(precision.Int64)}}
 		}
-		if scale.Valid {
-			s = int(scale.Int64)
-		}
-		return TypeMapping{AlabType: "decimal", TypeArgs: []any{p, s}}
+		return TypeMapping{AlabType: "decimal"}
 
 	case upper == "BOOLEAN", upper == "BOOL":
 		return TypeMapping{AlabType: "boolean"}
@@ -84,41 +92,108 @@ func MapPostgresType(sqlType string, maxLen, precision, scale sql.NullInt64) Typ
 
 // MapSQLiteType converts SQLite type to Alab type.
 // SQLite has dynamic typing with type affinity, so we map based on declared type.
-// Note: SQLite does not preserve type precision/scale, so TypeArgs may be empty.
+// Parses type parameters from strings like VARCHAR(100) or NUMERIC(10,2).
 func MapSQLiteType(sqlType string) TypeMapping {
-	upper := strings.ToUpper(sqlType)
+	// Parse base type and arguments from strings like "VARCHAR(100)" or "NUMERIC(10,2)"
+	baseType, args := parseSQLiteType(sqlType)
+	upper := strings.ToUpper(baseType)
 
 	switch {
-	case upper == "TEXT":
+	// Text types
+	case upper == "TEXT", upper == "CLOB":
 		return TypeMapping{AlabType: "text"}
 
-	case upper == "INTEGER":
+	case strings.Contains(upper, "CHAR"), strings.Contains(upper, "VARCHAR"):
+		// VARCHAR(n), CHARACTER(n), CHAR(n)
+		if len(args) > 0 {
+			return TypeMapping{AlabType: "string", TypeArgs: []any{args[0]}}
+		}
+		// CHAR without length defaults to length 1
+		if upper == "CHARACTER" || upper == "CHAR" {
+			return TypeMapping{AlabType: "string", TypeArgs: []any{1}}
+		}
+		return TypeMapping{AlabType: "string", TypeArgs: []any{255}}
+
+	// Integer types
+	case upper == "INTEGER", upper == "INT", upper == "TINYINT",
+		upper == "SMALLINT", upper == "MEDIUMINT", upper == "BIGINT",
+		upper == "INT2", upper == "INT8":
 		return TypeMapping{AlabType: "integer"}
 
-	case upper == "REAL":
+	// Float types
+	case upper == "REAL", upper == "DOUBLE", upper == "FLOAT":
 		return TypeMapping{AlabType: "float"}
 
+	// Decimal/Numeric types
+	case upper == "NUMERIC", upper == "DECIMAL":
+		// Parse precision and scale from args
+		if len(args) >= 2 {
+			return TypeMapping{AlabType: "decimal", TypeArgs: []any{args[0], args[1]}}
+		} else if len(args) == 1 {
+			return TypeMapping{AlabType: "decimal", TypeArgs: []any{args[0]}}
+		}
+		return TypeMapping{AlabType: "decimal"}
+
+	// Boolean
+	case upper == "BOOLEAN", upper == "BOOL":
+		return TypeMapping{AlabType: "boolean"}
+
+	// Binary
 	case upper == "BLOB":
 		return TypeMapping{AlabType: "base64"}
 
-	case upper == "NUMERIC", upper == "DECIMAL":
-		// SQLite stores NUMERIC/DECIMAL as TEXT without precision metadata
-		// Return decimal type with empty args to indicate unknown precision
-		return TypeMapping{AlabType: "decimal", TypeArgs: []any{}}
-
-	case upper == "DATETIME", upper == "TIMESTAMP":
-		return TypeMapping{AlabType: "datetime"}
-
+	// Date/Time types
 	case upper == "DATE":
 		return TypeMapping{AlabType: "date"}
 
 	case upper == "TIME":
 		return TypeMapping{AlabType: "time"}
 
+	case upper == "DATETIME", upper == "TIMESTAMP":
+		return TypeMapping{AlabType: "datetime"}
+
 	default:
 		// SQLite is lenient with types, default to text
 		return TypeMapping{AlabType: "text"}
 	}
+}
+
+// parseSQLiteType extracts base type and arguments from SQLite type string.
+// Examples:
+//   - "VARCHAR(100)" -> ("VARCHAR", [100])
+//   - "NUMERIC(10,2)" -> ("NUMERIC", [10, 2])
+//   - "INTEGER" -> ("INTEGER", [])
+func parseSQLiteType(sqlType string) (string, []int) {
+	sqlType = strings.TrimSpace(sqlType)
+
+	// Match pattern: TYPE(args) or TYPE
+	re := regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_\s]*)\s*(?:\(([^)]+)\))?`)
+	matches := re.FindStringSubmatch(sqlType)
+
+	if len(matches) < 2 {
+		return sqlType, nil
+	}
+
+	baseType := strings.TrimSpace(matches[1])
+
+	// No arguments
+	if len(matches) < 3 || matches[2] == "" {
+		return baseType, nil
+	}
+
+	// Parse arguments (comma-separated integers)
+	argsStr := matches[2]
+	parts := strings.Split(argsStr, ",")
+	var args []int
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if num, err := strconv.Atoi(part); err == nil {
+			args = append(args, num)
+		}
+	}
+
+	return baseType, args
 }
 
 // Removed heuristic type inference functions.
