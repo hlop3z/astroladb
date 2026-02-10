@@ -71,18 +71,41 @@ describe("Fixture Loading", () => {
   });
 
   describe("Schema Fixtures", () => {
-    it("should load schema fixtures from Phase 1", () => {
+    it("should load auth schema fixture", () => {
       const authSchema = join(fixturesRoot, "schemas/auth.js");
-      const blogSchema = join(fixturesRoot, "schemas/blog.js");
 
       expect(existsSync(authSchema)).toBe(true);
-      expect(existsSync(blogSchema)).toBe(true);
 
       const authContent = readFileSync(authSchema, "utf-8");
-      const blogContent = readFileSync(blogSchema, "utf-8");
 
-      expect(authContent).toContain("table(");
-      expect(blogContent).toContain("table(");
+      expect(authContent).toContain("export default table(");
+      expect(authContent).toContain("col.id()");
+      expect(authContent).toContain("col.email()");
+    });
+
+    it("should load blog schema fixtures as separate files", () => {
+      const postSchema = join(fixturesRoot, "schemas/blog/post.js");
+      const commentSchema = join(fixturesRoot, "schemas/blog/comment.js");
+      const tagSchema = join(fixturesRoot, "schemas/blog/tag.js");
+
+      expect(existsSync(postSchema)).toBe(true);
+      expect(existsSync(commentSchema)).toBe(true);
+      expect(existsSync(tagSchema)).toBe(true);
+
+      const postContent = readFileSync(postSchema, "utf-8");
+      const commentContent = readFileSync(commentSchema, "utf-8");
+      const tagContent = readFileSync(tagSchema, "utf-8");
+
+      // Each should use export default pattern
+      expect(postContent).toContain("export default table(");
+      expect(commentContent).toContain("export default table(");
+      expect(tagContent).toContain("export default table(");
+
+      // Verify table contents
+      expect(postContent).toContain("col.title()");
+      expect(postContent).toContain("col.slug()");
+      expect(commentContent).toContain("col.text()");
+      expect(tagContent).toContain("col.string(50)");
     });
   });
 
