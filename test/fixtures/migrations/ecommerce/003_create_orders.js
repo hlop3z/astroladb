@@ -1,0 +1,30 @@
+migration(m => {
+	m.create_table("order.order", t => {
+		t.id()
+		t.uuid("customer_id")
+		t.string("order_number", 50).unique()
+		t.string("status", 30).default("pending")
+		t.decimal("subtotal", 10, 2)
+		t.decimal("tax", 10, 2)
+		t.decimal("shipping", 10, 2)
+		t.decimal("total", 10, 2)
+		t.string("currency", 3).default("USD")
+		t.text("notes").optional()
+		t.timestamps()
+	})
+
+	m.create_table("order.line_item", t => {
+		t.id()
+		t.uuid("order_id")
+		t.uuid("product_id")
+		t.string("product_name", 200)
+		t.string("product_sku", 50)
+		t.integer("quantity")
+		t.decimal("unit_price", 10, 2)
+		t.decimal("total", 10, 2)
+	})
+
+	m.create_index("order.order", ["customer_id"], { name: "idx_order_order_customer_id" })
+	m.create_index("order.order", ["status"], { name: "idx_order_order_status" })
+	m.create_index("order.line_item", ["order_id"], { name: "idx_order_line_item_order_id" })
+})
