@@ -90,7 +90,7 @@ func printSchemaAtError() {
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintln(os.Stderr, "  alab schema --at 001                    # Schema after migration 001")
 	fmt.Fprintln(os.Stderr, "  alab schema --at 005 --format json      # Output as JSON")
-	fmt.Fprintln(os.Stderr, "  alab schema --at 003 --table auth.user  # Show specific table")
+	fmt.Fprintln(os.Stderr, "  alab schema --at 003 --format sql       # Generate SQL CREATE statements")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "To see available revisions:")
 	fmt.Fprintln(os.Stderr, "  alab status")
@@ -124,7 +124,7 @@ func handleClientError(err error) bool {
 		fmt.Fprintf(os.Stderr, "  %v\n", err)
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, ui.Note("note")+": check the syntax of your schema file")
-		fmt.Fprintln(os.Stderr, ui.Help("help")+": run `alab check --schema-only` to validate schemas")
+		fmt.Fprintln(os.Stderr, ui.Help("help")+": run `alab check` to validate schemas")
 		return true
 	}
 
