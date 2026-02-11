@@ -65,57 +65,6 @@ func printConnectionError(connErr *astroladb.ConnectionError) {
 	}
 }
 
-// printSchemasDirError prints a helpful error message when schemas directory is missing.
-func printSchemasDirError(schemasDir string) {
-	fmt.Fprintln(os.Stderr, "Error: Schemas directory not found")
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintf(os.Stderr, "  Expected: %s\n", schemasDir)
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "To fix this:")
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "  1. Initialize a new project:")
-	fmt.Fprintln(os.Stderr, "     alab init")
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "  2. Or create the directory manually:")
-	fmt.Fprintf(os.Stderr, "     mkdir -p %s\n", schemasDir)
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "  3. Or specify a different location:")
-	fmt.Fprintln(os.Stderr, "     alab check --schemas-dir /path/to/schemas")
-}
-
-// printMigrationsDirError prints a helpful error message when migrations directory is missing.
-func printMigrationsDirError(migrationsDir string) {
-	fmt.Fprintln(os.Stderr, "Error: Migrations directory not found")
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintf(os.Stderr, "  Expected: %s\n", migrationsDir)
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "To fix this:")
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "  1. Initialize a new project:")
-	fmt.Fprintln(os.Stderr, "     alab init")
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "  2. Or create the directory manually:")
-	fmt.Fprintf(os.Stderr, "     mkdir -p %s\n", migrationsDir)
-}
-
-// printMigrationNameError prints a helpful error message for missing migration name.
-func printMigrationNameError() {
-	fmt.Fprintln(os.Stderr, "Error: Migration name is required")
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "Usage:")
-	fmt.Fprintln(os.Stderr, "  alab new <name>")
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "Examples:")
-	fmt.Fprintln(os.Stderr, "  alab new create_users              # Creates 001_create_users.js")
-	fmt.Fprintln(os.Stderr, "  alab new add_email_to_users        # Creates 002_add_email_to_users.js")
-	fmt.Fprintln(os.Stderr, "  alab new --empty manual_changes    # Creates empty migration")
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "Tips:")
-	fmt.Fprintln(os.Stderr, "  - Use snake_case for migration names")
-	fmt.Fprintln(os.Stderr, "  - Start with a verb: create_, add_, remove_, update_")
-	fmt.Fprintln(os.Stderr, "  - Be descriptive: add_index_on_users_email")
-}
-
 // printRollbackStepsError prints a helpful error message for invalid rollback steps.
 func printRollbackStepsError(input string) {
 	fmt.Fprintln(os.Stderr, "Error: Invalid steps argument")

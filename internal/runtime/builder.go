@@ -690,14 +690,8 @@ type colOpt = ColOpt
 var (
 	colWithLength     = withLength
 	colWithArgs       = withArgs
-	colWithFormat     = withFormat
-	colWithPattern    = withPattern
-	colWithUnique     = withUnique
 	colWithDefault    = withDefault
-	colWithHidden     = withHidden
 	colWithPrimaryKey = withPrimaryKey
-	colWithMin        = withMin
-	colWithMax        = withMax
 )
 
 // colOptsFromSemantic is an alias for optsFromSemantic since ColDef = ColumnDef.

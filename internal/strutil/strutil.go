@@ -234,16 +234,3 @@ func ContainsUpper(s string) bool {
 	}
 	return false
 }
-
-// -----------------------------------------------------------------------------
-// Helper functions
-// -----------------------------------------------------------------------------
-
-// isVowel returns true if the rune is a vowel.
-func isVowel(r rune) bool {
-	switch unicode.ToLower(r) {
-	case 'a', 'e', 'i', 'o', 'u':
-		return true
-	}
-	return false
-}

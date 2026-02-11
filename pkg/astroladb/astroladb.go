@@ -332,14 +332,6 @@ func (c *Client) loadTables() ([]*ast.TableDef, error) {
 	return tables, nil
 }
 
-// loadMigrations loads all migration files from the migrations directory.
-func (c *Client) loadMigrations() ([]engine.Migration, error) {
-	// This would load migrations from files
-	// For now, we return empty since the migration loading logic
-	// is typically handled by the evaluator
-	return nil, nil
-}
-
 // getSchema loads the schema from schema files.
 func (c *Client) getSchema() (*engine.Schema, error) {
 	tables, err := c.loadTables()
@@ -591,9 +583,4 @@ func FormatDriftResult(result *DriftResult) string {
 	}
 
 	return drift.FormatResult(internalResult)
-}
-
-// computeMerkleHash computes the merkle hash for a schema.
-func (c *Client) computeMerkleHash(schema *engine.Schema) (*drift.SchemaHash, error) {
-	return drift.ComputeSchemaHash(schema)
 }

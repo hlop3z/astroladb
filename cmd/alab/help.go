@@ -140,89 +140,6 @@ func printHelp(key string, args ...any) {
 	}
 }
 
-// connectionHelpPostgres provides PostgreSQL-specific connection troubleshooting.
-var connectionHelpPostgres = map[string][]string{
-	"connection refused": {
-		"- Is PostgreSQL running? Check: pg_isready -h localhost -p 5432",
-		"- Verify the host and port in your URL",
-	},
-	"password": {
-		"- Check your username and password",
-		"- Verify pg_hba.conf allows your connection method",
-	},
-	"authentication": {
-		"- Check your username and password",
-		"- Verify pg_hba.conf allows your connection method",
-	},
-	"does not exist": {
-		"- Database does not exist. Create it with:",
-		"  createdb mydbname",
-	},
-	"timeout": {
-		"- Connection timed out. Check network/firewall settings",
-	},
-	"default": {
-		"- Verify the database server is running and accessible",
-		"- Check your connection URL format:",
-		"  postgres://user:pass@host:5432/dbname",
-	},
-}
-
-// connectionHelpSQLite provides SQLite-specific connection troubleshooting.
-var connectionHelpSQLite = map[string][]string{
-	"no such file": {
-		"- Database file path does not exist",
-		"- Check the directory exists and is writable",
-	},
-	"unable to open": {
-		"- Database file path does not exist",
-		"- Check the directory exists and is writable",
-	},
-	"permission": {
-		"- Permission denied. Check file/directory permissions",
-	},
-	"read-only": {
-		"- Permission denied. Check file/directory permissions",
-	},
-	"default": {
-		"- Verify the file path is correct",
-		"- Check your database URL format:",
-		"  ./path/to/database.db",
-	},
-}
-
-// getConnectionHelp returns troubleshooting advice for a connection error.
-func getConnectionHelp(dialect, causeStr string) []string {
-	causeStr = strings.ToLower(causeStr)
-
-	var helpMap map[string][]string
-	switch dialect {
-	case "postgres":
-		helpMap = connectionHelpPostgres
-	case "sqlite":
-		helpMap = connectionHelpSQLite
-	default:
-		return []string{
-			"- Verify the database server is running",
-			"- Check your connection URL format",
-			"- Ensure credentials are correct",
-		}
-	}
-
-	// Check each key for a match in the cause string
-	for key, help := range helpMap {
-		if key != "default" && strings.Contains(causeStr, key) {
-			return help
-		}
-	}
-
-	// Return default help for this dialect
-	if defaultHelp, ok := helpMap["default"]; ok {
-		return defaultHelp
-	}
-	return nil
-}
-
 // setupCommandHelp sets up custom help for a specific command.
 func setupCommandHelp(cmd *cobra.Command) {
 	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
@@ -240,13 +157,6 @@ type CommandCategory struct {
 type CommandInfo struct {
 	Name string
 	Desc string
-}
-
-// setupCategoryHelp sets up help that displays commands organized by categories.
-func setupCategoryHelp(cmd *cobra.Command, title, subtitle string, categories []CommandCategory, flags []struct{ flag, desc string }) {
-	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
-		renderCategoryHelp(title, subtitle, categories, flags)
-	})
 }
 
 // renderCategoryHelp renders help with commands organized by categories.
