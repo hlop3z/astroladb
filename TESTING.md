@@ -23,7 +23,7 @@ Understanding the architecture is crucial for effective testing:
 
 ```
 ┌─────────────────────────────────────────────────┐
-│           User Layer (JavaScript/TypeScript)     │
+│        User Layer (JavaScript/TypeScript)       │
 │  • Schema definitions (table(), col.*)          │
 │  • Custom generators (gen(), render())          │
 └─────────────────────┬───────────────────────────┘
@@ -47,7 +47,7 @@ Understanding the architecture is crucial for effective testing:
                       ▼
 ┌─────────────────────────────────────────────────┐
 │              Database Layer                     │
-│  • PostgreSQL, SQLite, MySQL                    │
+│  • PostgreSQL, SQLite                           │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -681,14 +681,11 @@ go install github.com/vektra/mockery/v2@latest
 # PostgreSQL
 docker run --name alab-test-postgres -e POSTGRES_PASSWORD=test -p 5432:5432 -d postgres:15
 
-# MySQL
-docker run --name alab-test-mysql -e MYSQL_ROOT_PASSWORD=test -p 3306:3306 -d mysql:8
 ```
 
 **Or install locally:**
 
 - PostgreSQL 15+
-- MySQL 8+
 - SQLite (included in Go)
 
 ### 3. Configure Test Database
@@ -697,7 +694,6 @@ Create a `.env.test` file:
 
 ```bash
 DATABASE_URL_POSTGRES=postgresql://postgres:test@localhost:5432/alab_test
-DATABASE_URL_MYSQL=root:test@tcp(localhost:3306)/alab_test
 DATABASE_URL_SQLITE=file::memory:?cache=shared
 ```
 
@@ -807,7 +803,6 @@ func TestColumnTypeMapping(t *testing.T) {
         {"uuid-postgres", "uuid", "postgres", "UUID"},
         {"uuid-sqlite", "uuid", "sqlite", "TEXT"},
         {"integer-postgres", "integer", "postgres", "INTEGER"},
-        {"integer-mysql", "integer", "mysql", "INT"},
     }
 
     for _, tt := range tests {
@@ -1117,19 +1112,6 @@ jobs:
         ports:
           - 5432:5432
 
-      mysql:
-        image: mysql:8
-        env:
-          MYSQL_ROOT_PASSWORD: test
-          MYSQL_DATABASE: alab_test
-        options: >-
-          --health-cmd "mysqladmin ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 3306:3306
-
     steps:
       - uses: actions/checkout@v3
 
@@ -1142,7 +1124,6 @@ jobs:
         run: go test -tags=integration -race ./...
         env:
           DATABASE_URL_POSTGRES: postgresql://postgres:test@localhost:5432/alab_test?sslmode=disable
-          DATABASE_URL_MYSQL: root:test@tcp(localhost:3306)/alab_test
 
   e2e-tests:
     name: E2E Tests
