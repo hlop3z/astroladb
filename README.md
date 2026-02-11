@@ -65,6 +65,16 @@ export default table({
 
 ## Many Outputs
 
+```mermaid
+graph TD
+    A[Schema Files<br/>model.js] --> B[AstrolaDB Engine]
+
+    B --> C[Type Exports<br/>Rust • Go • Python • TypeScript]
+    B --> D[SQL Migrations<br/>PostgreSQL • SQLite]
+    B --> E[API Specifications<br/>OpenAPI • GraphQL]
+    B --> F[Custom Generators<br/>APIs • Infrastructure • SDKs • Tooling]
+```
+
 AstrolaDB turns a single schema into multiple artifacts through two approaches:
 
 **Core Engine** (built-in, versioned with AstrolaDB)
@@ -153,9 +163,9 @@ These are **reference implementations** you can use or modify. Or [write your ow
 
 ## How Generators Work
 
-**Sandboxed Runtime:** Generators run isolated with no network, eval, or filesystem access. Deterministic output guaranteed. [Full constraints →](https://hlop3z.github.io/astroladb/advanced_users/generators/#sandbox-constraints)
+**Sandboxed Runtime:** Generators run isolated with no network, eval, or filesystem access. [Full constraints →](https://hlop3z.github.io/astroladb/advanced_users/generators/#sandbox-constraints)
 
-**Migration Safety:** Reversible up/down migrations with interactive prompts. [Migration guide →](https://hlop3z.github.io/astroladb/migrations/overview/)
+**Migrations:** Reversible up/down migrations with interactive prompts. [Migration guide →](https://hlop3z.github.io/astroladb/migrations/overview/)
 
 ---
 
@@ -174,19 +184,6 @@ The platform provides built-in schema orchestration and a generator runtime:
 | **Live Development**      | Built-in HTTP server (`alab live`) with hot reload.              |
 | **OpenAPI Ready**         | Exports `openapi.json` for integration with 25+ languages.       |
 | **Namespace Support**     | Logical grouping (e.g., `auth.user`) prevents naming collisions. |
-
----
-
-## AstrolaDB vs. Writing It Manually
-
-| Task                    | Manual Approach                     | With AstrolaDB             |
-| ----------------------- | ----------------------------------- | -------------------------- |
-| **Define models**       | Write in each language separately   | Once, in schema            |
-| **API endpoints**       | ~500 lines of boilerplate per model | Via generators             |
-| **Database migrations** | Handwrite SQL                       | Auto-generated (core)      |
-| **OpenAPI docs**        | Manual annotations                  | Included (core)            |
-| **Type safety**         | Manually keep languages in sync     | Always synchronized (core) |
-| **Validation**          | Write validators in each language   | Generated from schema      |
 
 ---
 
