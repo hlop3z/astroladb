@@ -163,11 +163,30 @@ func formatAlabError(err *alerr.Error) string {
 		b.WriteString("\n")
 		b.WriteString(Note("cause"))
 		b.WriteString(": ")
-		b.WriteString(cause.Error())
+		b.WriteString(cleanCauseMessage(cause.Error()))
 		b.WriteString("\n")
 	}
 
 	return b.String()
+}
+
+// cleanCauseMessage removes Goja stack trace from error messages and styles help text.
+// Strips " at github.com/.../func (native)" patterns for cleaner output.
+// Parses structured errors in "CAUSE|HELP" format for proper styling.
+func cleanCauseMessage(msg string) string {
+	// Find Goja stack trace pattern " at github.com/..." and truncate there
+	if idx := strings.Index(msg, " at github.com"); idx != -1 {
+		msg = strings.TrimSpace(msg[:idx])
+	}
+
+	// Parse structured error format "CAUSE|HELP"
+	if idx := strings.Index(msg, "|"); idx != -1 {
+		cause := strings.TrimSpace(msg[:idx])
+		help := strings.TrimSpace(msg[idx+1:])
+		return cause + "\n " + Help("help") + ": " + help
+	}
+
+	return msg
 }
 
 // formatSourceContext renders source code with line numbers and highlighting.
