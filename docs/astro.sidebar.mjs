@@ -40,10 +40,10 @@ const SIDEBAR = [
                 items: [
                     { label: "Overview", slug: "advanced_users/overview" },
                     { label: "Design Philosophy", slug: "advanced_users/philosophy" },
+                    { label: "Code Generators", slug: "advanced_users/generators" },
                     { label: "Why & When: Generators", slug: "advanced_users/generators-intro" },
                     { label: "Reference", slug: "advanced_users/reference" },
                     { label: "Usage", slug: "advanced_users/usage" },
-                    { label: "Code Generators", slug: "advanced_users/generators" },
                 ],
             },
         ],
