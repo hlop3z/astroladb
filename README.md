@@ -17,7 +17,7 @@
 
 ---
 
-**Stop writing boilerplate.** Define your data model once in JavaScript. Use **custom generators** to produce REST APIs in **FastAPI**, **Go Chi**, **Rust Axum**, or **tRPC**. Export types, SQL migrations, and OpenAPI specs directly from the core engine.
+**Stop writing boilerplate.** Define your data model once. Use **custom generators** to produce REST APIs in **FastAPI**, **Go Chi**, **Rust Axum**, or **tRPC**. Export types, SQL migrations, and OpenAPI specs directly from the core engine.
 
 ---
 
