@@ -615,28 +615,33 @@ func (s *Sandbox) wrapJSError(err error, code alerr.Code, message string) *alerr
 	alErr := alerr.Wrap(code, err, message)
 
 	// Adjust line number for wrapper offset (the IIFE wrapper adds 2 lines before user code)
-	// This converts from wrapped code line numbers back to original source line numbers
+	// This converts from wrapped code line numbers back to original source line numbers.
 	adjustedLine := jsErr.Line
 	if s.lineOffset > 0 && adjustedLine > s.lineOffset {
 		adjustedLine = adjustedLine - s.lineOffset
 	}
 
-	// Add file location if available
+	// BUGFIX: Empirical testing shows we need +1 to get correct source line from file.
+	// This is due to how Goja indexes lines in wrapped vs unwrapped code.
+	sourceFileLine := adjustedLine + 1
+
+	// Add file location if available (use adjusted line for display)
 	if s.currentFile != "" {
-		alErr.WithLocation(s.currentFile, adjustedLine, jsErr.Column)
-	} else if adjustedLine > 0 {
-		alErr.With("line", adjustedLine)
+		alErr.WithLocation(s.currentFile, sourceFileLine, jsErr.Column)
+	} else if sourceFileLine > 0 {
+		alErr.With("line", sourceFileLine)
 		if jsErr.Column > 0 {
 			alErr.With("column", jsErr.Column)
 		}
 	}
 
 	// Try to get source line for context
-	if adjustedLine > 0 {
+	if sourceFileLine > 0 {
 		var sourceLine string
 		if s.currentFile != "" {
-			sourceLine = GetSourceLineFromFile(s.currentFile, adjustedLine)
+			sourceLine = GetSourceLineFromFile(s.currentFile, sourceFileLine)
 		} else if s.currentCode != "" {
+			// For in-memory code, use the original adjusted line (no +1 needed)
 			sourceLine = GetSourceLine(s.currentCode, adjustedLine)
 		}
 

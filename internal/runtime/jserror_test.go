@@ -207,4 +207,60 @@ let unicode = "Hello 世界 🌍"`
 			t.Error("GetSourceLineFromFile(line 4) should return unicode line")
 		}
 	})
+
+	// CRITICAL TEST: Validates that line numbers match Goja's error reporting.
+	// This test replicates the exact scenario from user bug reports where
+	// error messages showed the wrong source line.
+	//
+	// Background: Goja uses 1-indexed line numbers (first line is 1).
+	// GetSourceLineFromFile must maintain this convention to avoid off-by-one errors.
+	// If this test fails, errors will display incorrect source lines.
+	t.Run("goja_error_line_accuracy", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		testFile := filepath.Join(tmpDir, "user.js")
+
+		// Exact content from bug report that triggered wrong line display
+		content := `export default table({
+  id: col.id(),
+  email: col.email().unique(),
+  username: col.username().unique(),
+  password: col.password_hash(),
+  is_active: col.flag(true),
+  note: col.string(),
+}).timestamps();`
+
+		err := os.WriteFile(testFile, []byte(content), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+
+		// CRITICAL: When Goja reports line 7, we MUST return line 7's content.
+		// Bug was: line 7 request returned line 6's content ("is_active...")
+		// Correct: line 7 should return "  note: col.string(),"
+		result := GetSourceLineFromFile(testFile, 7)
+		expected := "  note: col.string(),"
+		if result != expected {
+			t.Errorf("CRITICAL BUG: GetSourceLineFromFile(line 7)\n  got:  %q\n  want: %q\nThis will cause error messages to show wrong source lines!",
+				result, expected)
+		}
+
+		// Verify line 6 for comparison
+		result6 := GetSourceLineFromFile(testFile, 6)
+		expected6 := "  is_active: col.flag(true),"
+		if result6 != expected6 {
+			t.Errorf("GetSourceLineFromFile(line 6) = %q, want %q", result6, expected6)
+		}
+
+		// Verify line 1
+		result1 := GetSourceLineFromFile(testFile, 1)
+		if result1 != "export default table({" {
+			t.Errorf("GetSourceLineFromFile(line 1) = %q, want %q", result1, "export default table({")
+		}
+
+		// Verify last line
+		result8 := GetSourceLineFromFile(testFile, 8)
+		if result8 != "}).timestamps();" {
+			t.Errorf("GetSourceLineFromFile(line 8) = %q, want %q", result8, "}).timestamps();")
+		}
+	})
 }

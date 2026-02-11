@@ -3,6 +3,7 @@ package runtime
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"regexp"
 	"strconv"
@@ -115,6 +116,19 @@ func parseStackTrace(info *JSErrorInfo) {
 }
 
 // GetSourceLine reads a specific line from a string of code.
+//
+// IMPORTANT: Line numbers are 1-indexed (first line is 1, not 0).
+// This matches Goja's error reporting convention. Do NOT adjust line numbers
+// before calling this function, as it will cause off-by-one errors in error messages.
+//
+// Example:
+//
+//	code := "line 1\nline 2\nline 3"
+//	GetSourceLine(code, 1)  // Returns "line 1"
+//	GetSourceLine(code, 2)  // Returns "line 2"
+//	GetSourceLine(code, 3)  // Returns "line 3"
+//
+// See TestGetSourceLine in jserror_test.go for validation.
 func GetSourceLine(code string, lineNum int) string {
 	if lineNum <= 0 || code == "" {
 		return ""
@@ -132,6 +146,18 @@ func GetSourceLine(code string, lineNum int) string {
 }
 
 // GetSourceLineFromFile reads a specific line from a file.
+//
+// IMPORTANT: Line numbers are 1-indexed (first line is 1, not 0).
+// This matches Goja's error reporting convention. The implementation MUST maintain
+// this convention to avoid off-by-one errors that cause error messages to display
+// incorrect source lines.
+//
+// NOTE: This function has caused bugs in the past where error messages showed
+// line N-1 instead of line N. The test suite includes a specific test case
+// (goja_error_line_accuracy) that validates this behavior. If that test fails,
+// error messages will show wrong source lines to users.
+//
+// See TestGetSourceLineFromFile in jserror_test.go for validation.
 func GetSourceLineFromFile(path string, lineNum int) string {
 	if lineNum <= 0 || path == "" {
 		return ""
@@ -152,6 +178,26 @@ func GetSourceLineFromFile(path string, lineNum int) string {
 		}
 	}
 	return ""
+}
+
+// ValidateSourceLineExtraction is a helper for debugging line extraction issues.
+// Call this during development to verify that line numbers from Goja match
+// the actual file content. Returns an error if the extraction doesn't match expected.
+//
+// Example usage in error handling:
+//
+//	if os.Getenv("ALAB_DEBUG_LINES") == "1" {
+//	    if err := ValidateSourceLineExtraction(filePath, gojaLine, expectedContent); err != nil {
+//	        log.Printf("WARNING: %v", err)
+//	    }
+//	}
+func ValidateSourceLineExtraction(filePath string, lineNum int, expectedContent string) error {
+	actual := GetSourceLineFromFile(filePath, lineNum)
+	if actual != expectedContent {
+		return fmt.Errorf("line extraction mismatch at %s:%d\n  got:  %q\n  want: %q\n  This indicates an off-by-one error in line number handling",
+			filePath, lineNum, actual, expectedContent)
+	}
+	return nil
 }
 
 // wrapJSError creates a rich error with source location and context.
