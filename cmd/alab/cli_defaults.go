@@ -16,8 +16,8 @@ const (
 )
 
 const (
-	MainTitle   = "⏳ Astroladb"
-	MainSummary = "★  One schema: many languages."
+	MainTitle   = "⏳ Astroladb (alab)"
+	MainSummary = "★  One schema: many outputs"
 )
 
 // Default directory and file names.

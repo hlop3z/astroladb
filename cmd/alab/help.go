@@ -217,18 +217,23 @@ func padStr(s string, width int) string {
 
 // renderFlagGrid renders a grid of flags with their descriptions.
 func renderFlagGrid(flags *pflag.FlagSet, title string, dividerWidth int) {
-	fmt.Println(ui.Header(title, ui.Success))
-	grid := ui.NewGrid("Flag", "Description", dividerWidth, 24)
+	divider := ui.Dim(strings.Repeat("─", dividerWidth))
+
+	fmt.Println(ui.SectionTitle(title))
+	fmt.Println(divider)
+
 	flags.VisitAll(func(flag *pflag.Flag) {
 		if !flag.Hidden {
 			flagName := fmt.Sprintf("--%s", flag.Name)
 			if flag.Shorthand != "" {
 				flagName = fmt.Sprintf("-%s, --%s", flag.Shorthand, flag.Name)
 			}
-			grid.AddRow(flagName, flag.Usage)
+			fmt.Printf(" %s %s\n", ui.Cyan(padStr(flagName, 24)), flag.Usage)
 		}
 	})
-	fmt.Print(grid.String())
+
+	fmt.Println(divider)
+	fmt.Println() // Add spacing after section
 }
 
 // renderCommandHelp renders help for a specific command.
@@ -236,30 +241,12 @@ func renderCommandHelp(cmd *cobra.Command) {
 	dividerWidth := 80
 
 	fmt.Println()
-	fmt.Println(ui.Header(fmt.Sprintf("⏳ alab %s", cmd.Name()), ui.Success))
+	fmt.Println(ui.SectionTitle(fmt.Sprintf("⏳ alab %s", cmd.Name())))
 	fmt.Println()
 
-	// Description
+	// Short description
 	if cmd.Short != "" {
 		fmt.Println(ui.Dim(cmd.Short))
-		fmt.Println()
-	}
-
-	// Usage
-	if cmd.Use != "" {
-		fmt.Println(ui.Header("Usage", ui.Success))
-		fmt.Println(ui.Dim(strings.Repeat("─", dividerWidth)))
-		fmt.Printf("  alab %s\n", cmd.Use)
-		fmt.Println(ui.Dim(strings.Repeat("─", dividerWidth)))
-		fmt.Println()
-	}
-
-	// Long description
-	if cmd.Long != "" {
-		fmt.Println(ui.Header("Description", ui.Success))
-		fmt.Println(ui.Dim(strings.Repeat("─", dividerWidth)))
-		fmt.Println(wrapText(cmd.Long, dividerWidth-4))
-		fmt.Println(ui.Dim(strings.Repeat("─", dividerWidth)))
 		fmt.Println()
 	}
 
@@ -275,7 +262,7 @@ func renderCommandHelp(cmd *cobra.Command) {
 
 	// Examples
 	if cmd.Example != "" {
-		fmt.Println(ui.Header("Examples", ui.Success))
+		fmt.Println(ui.SectionTitle("Examples"))
 		fmt.Println(ui.Dim(strings.Repeat("─", dividerWidth)))
 		fmt.Println(cmd.Example)
 		fmt.Println(ui.Dim(strings.Repeat("─", dividerWidth)))
