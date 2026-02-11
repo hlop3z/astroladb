@@ -92,7 +92,10 @@ func formatDSLValue(method string, value any) string {
 	case int64: // Internal: JavaScript numbers from Goja
 		return fmt.Sprintf(".%s(%d)", method, v)
 	case float64: // Internal: JavaScript numbers from Goja
-		// Check if it's actually an integer (write without decimal point)
+		// Goja represents all JavaScript numbers as float64 in Go.
+		// Check if the value is mathematically an integer (no fractional part).
+		// If so, format as integer without decimal point for cleaner DSL output.
+		// Example: 42.0 → ".default(42)" instead of ".default(42.0)"
 		if v == float64(int64(v)) {
 			return fmt.Sprintf(".%s(%d)", method, int64(v))
 		}
