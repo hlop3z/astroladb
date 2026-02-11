@@ -17,6 +17,10 @@
 
 ---
 
+**Stop writing boilerplate.** Define your data model once in JavaScript. Use **custom generators** to produce REST APIs in **FastAPI**, **Go Chi**, **Rust Axum**, or **tRPC**. Export types, SQL migrations, and OpenAPI specs directly from the core engine.
+
+---
+
 ## Documentation
 
 - **[Quick Start Guide](https://hlop3z.github.io/astroladb/quick-start/)** — Get started in 5 minutes
@@ -43,8 +47,6 @@ curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh | 
 ```
 
 ---
-
-**Stop writing boilerplate.** Define your data model once in JavaScript. Use **custom generators** to produce REST APIs in **FastAPI**, **Go Chi**, **Rust Axum**, or **tRPC**. Export types, SQL migrations, and OpenAPI specs directly from the core engine.
 
 ## One Schema
 
