@@ -240,6 +240,12 @@ func wrapJSError(err error, code alerr.Code, message string, ctx *ErrorContext) 
 				if end > len(sourceLine) {
 					end = len(sourceLine)
 				}
+				// Don't include trailing punctuation (comma, semicolon, etc)
+				if end > jsErr.Column && end <= len(sourceLine) {
+					if ch := sourceLine[end-1]; ch == ',' || ch == ';' || ch == ')' {
+						end--
+					}
+				}
 				alErr.WithSpan(jsErr.Column, end)
 			}
 		}

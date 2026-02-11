@@ -92,8 +92,12 @@ func formatAlabError(err *alerr.Error) string {
 
 	// Source context if available
 	source, hasSource := ctx["source"].(string)
+	var linePadding string
 	if hasSource && line > 0 {
 		b.WriteString(formatSourceContext(line, source, col, ctx))
+		// Calculate padding for consistent pipe alignment
+		lineStr := fmt.Sprintf("%d", line)
+		linePadding = strings.Repeat(" ", len(lineStr)) + " "
 	}
 
 	// Context details (excluding already shown items)
@@ -149,7 +153,12 @@ func formatAlabError(err *alerr.Error) string {
 
 	// Cause if present
 	if cause := err.GetCause(); cause != nil {
-		b.WriteString("   ")
+		// Use line padding if available, otherwise default to 3 spaces
+		if linePadding != "" {
+			b.WriteString(linePadding)
+		} else {
+			b.WriteString("   ")
+		}
 		b.WriteString(Pipe())
 		b.WriteString("\n")
 		b.WriteString(Note("cause"))
@@ -209,7 +218,7 @@ func formatSourceContext(line int, source string, col int, ctx map[string]any) s
 		}
 
 		// Add the pointer characters
-		pointerLen := end - start
+		pointerLen := end - start + 1
 		if pointerLen < 1 {
 			pointerLen = 1
 		}
@@ -220,6 +229,12 @@ func formatSourceContext(line int, source string, col int, ctx map[string]any) s
 			b.WriteString(" ")
 			b.WriteString(label)
 		}
+		b.WriteString("\n")
+
+		// Closing pipe line
+		b.WriteString(padding)
+		b.WriteString(" ")
+		b.WriteString(Pipe())
 		b.WriteString("\n")
 	}
 

@@ -205,6 +205,9 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 
 	// decimal(name, precision, scale)
 	_ = obj.Set("decimal", func(name string, precision, scale int) *goja.Object {
+		if precision <= 0 || scale < 0 {
+			panic(tb.vm.ToValue("decimal() requires positive precision and non-negative scale"))
+		}
 		return tb.addColumn(name, "decimal", withArgs(precision, scale))
 	})
 
@@ -753,6 +756,9 @@ func (cb *ColBuilder) ToObject() *goja.Object {
 
 	// decimal(precision, scale)
 	_ = obj.Set("decimal", func(precision, scale int) *goja.Object {
+		if precision <= 0 || scale < 0 {
+			panic(cb.vm.ToValue("decimal() requires positive precision and non-negative scale"))
+		}
 		return cb.createColDef("decimal", colWithArgs(precision, scale))
 	})
 

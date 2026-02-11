@@ -6,7 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hlop3z/astroladb/internal/ui"
+	"github.com/hlop3z/astroladb/internal/alerr"
+	"github.com/hlop3z/astroladb/internal/cli"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
 )
 
@@ -119,12 +120,21 @@ func handleClientError(err error) bool {
 	// Check for schema errors
 	var schemaErr *astroladb.SchemaError
 	if errors.As(err, &schemaErr) {
-		fmt.Fprintln(os.Stderr, ui.Error("error")+": schema validation failed")
-		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintf(os.Stderr, "  %v\n", err)
-		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, ui.Note("note")+": check the syntax of your schema file")
-		fmt.Fprintln(os.Stderr, ui.Help("help")+": run `alab check` to validate schemas")
+		// Try to find an alerr.Error in the chain for rich formatting
+		var alerror *alerr.Error
+		if errors.As(err, &alerror) {
+			fmt.Fprint(os.Stderr, cli.FormatError(alerror))
+			return true
+		}
+		// Fallback to generic formatting if no alerr.Error found
+		fmt.Fprint(os.Stderr, cli.FormatError(schemaErr))
+		return true
+	}
+
+	// Check if it's already an alerr.Error for rich formatting
+	var alerror *alerr.Error
+	if errors.As(err, &alerror) {
+		fmt.Fprint(os.Stderr, cli.FormatError(alerror))
 		return true
 	}
 
