@@ -17,62 +17,6 @@
 
 ---
 
-**Stop writing boilerplate.** Define your data model once in JavaScript. Use **custom generators** to produce REST APIs in **FastAPI**, **Go Chi**, **Rust Axum**, or **tRPC**. Export types, SQL migrations, and OpenAPI specs directly from the core engine.
-
-## One Schema
-
-```js
-// schemas/auth/user.js
-export default table({
-  id: col.id(),
-  username: col.username().unique(),
-  email: col.email().unique(),
-  password: col.password_hash(),
-  is_active: col.flag(true),
-}).timestamps();
-```
-
-## Many Outputs
-
-AstrolaDB turns a single schema into multiple artifacts. Some built-in, others produced via custom generators.
-
----
-
-### Built-in Outputs (Core Engine)
-
-Deterministic outputs provided natively by AstrolaDB.
-
-| Output             | Languages / Formats          |
-| ------------------ | ---------------------------- |
-| **Type Exports**   | Rust, Go, Python, TypeScript |
-| **SQL Migrations** | PostgreSQL, SQLite           |
-| **API Specs**      | OpenAPI, GraphQL             |
-
-These features are **first-party** and maintained as part of the **core engine**.
-
----
-
-### Generator-Powered Outputs
-
-Produced via sandboxed JavaScript generators you write or share.
-
-| What You Can Generate   | Examples / Targets                          |
-| ----------------------- | ------------------------------------------- |
-| **Complete APIs**       | FastAPI, Chi, Axum, tRPC                    |
-| **Infra Configs**       | Terraform, Docker, Helm                     |
-| **SDKs & Clients**      | Language SDKs, RPC clients                  |
-| **Tooling**             | CLIs, test suites, documentation            |
-| **Anything Text-Based** | Any framework or format expressible as code |
-
-Generators transform the schema object into files: giving you full control over structure, frameworks, and conventions.
-
----
-
-> **Core outputs** are built-in and versioned with AstrolaDB.
-> **Generator outputs** are user-extensible and defined as JavaScript functions.
-
----
-
 ## Documentation
 
 - **[Quick Start Guide](https://hlop3z.github.io/astroladb/quick-start/)** — Get started in 5 minutes
@@ -97,6 +41,55 @@ Generators transform the schema object into files: giving you full control over 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/hlop3z/astroladb/main/install.sh | sh
 ```
+
+---
+
+**Stop writing boilerplate.** Define your data model once in JavaScript. Use **custom generators** to produce REST APIs in **FastAPI**, **Go Chi**, **Rust Axum**, or **tRPC**. Export types, SQL migrations, and OpenAPI specs directly from the core engine.
+
+## One Schema
+
+```js
+// schemas/blog/post.js
+export default table({
+  id: col.id(),
+  title: col.title(),
+  body: col.text(),
+  author: col.belongs_to("auth.user"), // Foreign key
+  published: col.flag(),
+})
+  .timestamps()
+  .many_to_many("blog.tags"); // Auto-creates join table
+```
+
+## Many Outputs
+
+AstrolaDB turns a single schema into multiple artifacts through two approaches:
+
+**Core Engine** (built-in, versioned with AstrolaDB)
+
+- **Type Exports:** Rust, Go, Python, TypeScript
+- **SQL Migrations:** PostgreSQL, SQLite
+- **API Specs:** OpenAPI, GraphQL
+
+**Generators** (extensible, user-defined JavaScript functions)
+
+- **Complete APIs:** FastAPI, Chi, Axum, tRPC, Express
+- **Infrastructure:** Terraform, Docker, Kubernetes, Helm
+- **SDKs & Clients:** Language SDKs, RPC clients
+- **Tooling:** CLIs, test suites, documentation sites
+- **Any structured text** expressible from your schema
+
+```js
+// Example generator
+export default gen((schema) =>
+  render({
+    "models.py": buildModels(schema),
+    "router.py": buildRouter(schema),
+  }),
+);
+```
+
+[View generator guide →](https://hlop3z.github.io/astroladb/advanced_users/generators/)
 
 ---
 
@@ -156,6 +149,14 @@ These are **reference implementations** you can use or modify. Or [write your ow
 
 ---
 
+## How Generators Work
+
+**Sandboxed Runtime:** Generators run isolated with no network, eval, or filesystem access. Deterministic output guaranteed. [Full constraints →](https://hlop3z.github.io/astroladb/advanced_users/generators/#sandbox-constraints)
+
+**Migration Safety:** Reversible up/down migrations with interactive prompts. [Migration guide →](https://hlop3z.github.io/astroladb/migrations/overview/)
+
+---
+
 ## ⚡ Core Features
 
 The platform provides built-in schema orchestration and a generator runtime:
@@ -171,37 +172,6 @@ The platform provides built-in schema orchestration and a generator runtime:
 | **Live Development**      | Built-in HTTP server (`alab live`) with hot reload.              |
 | **OpenAPI Ready**         | Exports `openapi.json` for integration with 25+ languages.       |
 | **Namespace Support**     | Logical grouping (e.g., `auth.user`) prevents naming collisions. |
-
----
-
-## Generator Platform = Extensibility
-
-AstrolaDB is **not just** a schema tool. It's a meta-programming platform:
-
-```
-Schema Engine
-   ↓
-Normalized Schema Object
-   ↓
-Generator Runtime (sandboxed JS)
-   ↓
-Arbitrary Text Outputs
-```
-
-**You can generate:**
-
-- REST APIs (FastAPI, Chi, Axum, Express)
-- GraphQL servers
-- tRPC routers
-- SDK clients
-- Terraform configs
-- Docker Compose files
-- Kubernetes manifests
-- Test suites
-- Documentation sites
-- CLI tools
-
-Anything that can be derived from your schema structure.
 
 ---
 
@@ -293,17 +263,6 @@ alab gen run generators/fastapi -o ./backend
 
 ---
 
-## Who Is This For?
-
-- **Platform engineers** building code generation pipelines
-- **Polyglot developers** maintaining services in multiple languages
-- **Meta-programmers** who want deterministic code generation
-- **Startups** needing to move fast without sacrificing type safety
-- **Solo developers** prototyping full-stack applications
-- **API-first teams** who want to skip repetitive boilerplate
-
----
-
 ## Live Development Mode
 
 Instant schema exploration with automatic hot reloading:
@@ -324,9 +283,14 @@ Opens an interactive HTTP server where you can explore your schema, test the nor
 
 ---
 
-## License
+## Who Is This For?
 
-BSD-3-Clause
+- **Platform engineers** building code generation pipelines
+- **Polyglot developers** maintaining services in multiple languages
+- **Meta-programmers** who want deterministic code generation
+- **Startups** needing to move fast without sacrificing type safety
+- **Solo developers** prototyping full-stack applications
+- **API-first teams** who want to skip repetitive boilerplate
 
 ---
 
@@ -345,6 +309,12 @@ BSD-3-Clause
 - Migration engine is **actively evolving**
 - APIs may introduce breaking changes
 - **Recommendation**: Always test thoroughly in staging before production
+
+---
+
+## License
+
+BSD-3-Clause
 
 ---
 
