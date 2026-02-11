@@ -35,10 +35,7 @@ func buildRelationFields(table *ast.TableDef, allTables []*ast.TableDef, cfg *ex
 		// Find the referenced table name
 		refTable := col.Reference.Table
 		// Strip suffix like "_id" from column name for field name
-		fieldName := col.Name
-		if strings.HasSuffix(fieldName, "_id") {
-			fieldName = fieldName[:len(fieldName)-3]
-		}
+		fieldName := strings.TrimSuffix(col.Name, "_id")
 		// Find the referenced table type name
 		typeName := ""
 		for _, t := range allTables {
@@ -123,12 +120,12 @@ func generateWithRelationsTypeScript(sb *strings.Builder, table *ast.TableDef, a
 	}
 
 	baseName := strutil.ToPascalCase(table.FullName())
-	sb.WriteString(fmt.Sprintf("export interface %sWithRelations extends %s {\n", baseName, baseName))
+	fmt.Fprintf(sb, "export interface %sWithRelations extends %s {\n", baseName, baseName)
 	for _, f := range fields {
 		if f.IsMany {
-			sb.WriteString(fmt.Sprintf("  %s?: %s[];\n", f.FieldName, f.TypeName))
+			fmt.Fprintf(sb, "  %s?: %s[];\n", f.FieldName, f.TypeName)
 		} else {
-			sb.WriteString(fmt.Sprintf("  %s?: %s;\n", f.FieldName, f.TypeName))
+			fmt.Fprintf(sb, "  %s?: %s;\n", f.FieldName, f.TypeName)
 		}
 	}
 	sb.WriteString("}\n\n")
@@ -164,12 +161,12 @@ func generateWithRelationsPython(sb *strings.Builder, table *ast.TableDef, allTa
 
 	baseName := strutil.ToPascalCase(table.FullName())
 	sb.WriteString("@dataclass\n")
-	sb.WriteString(fmt.Sprintf("class %sWithRelations(%s):\n", baseName, baseName))
+	fmt.Fprintf(sb, "class %sWithRelations(%s):\n", baseName, baseName)
 	for _, f := range fields {
 		if f.IsMany {
-			sb.WriteString(fmt.Sprintf("    %s: Optional[list[%s]] = None\n", f.FieldName, f.TypeName))
+			fmt.Fprintf(sb, "    %s: Optional[list[%s]] = None\n", f.FieldName, f.TypeName)
 		} else {
-			sb.WriteString(fmt.Sprintf("    %s: Optional[%s] = None\n", f.FieldName, f.TypeName))
+			fmt.Fprintf(sb, "    %s: Optional[%s] = None\n", f.FieldName, f.TypeName)
 		}
 	}
 	sb.WriteString("\n")
@@ -183,20 +180,20 @@ func generateWithRelationsGraphQL(sb *strings.Builder, table *ast.TableDef, allT
 	}
 
 	baseName := strutil.ToPascalCase(table.FullName())
-	sb.WriteString(fmt.Sprintf("type %sWithRelations {\n", baseName))
+	fmt.Fprintf(sb, "type %sWithRelations {\n", baseName)
 
 	// Include all base fields
 	for _, col := range table.Columns {
 		gqlType := columnToGraphQLType(col, table, cfg)
-		sb.WriteString(fmt.Sprintf("  %s: %s\n", strutil.ToCamelCase(col.Name), gqlType))
+		fmt.Fprintf(sb, "  %s: %s\n", strutil.ToCamelCase(col.Name), gqlType)
 	}
 
 	// Add relationship fields
 	for _, f := range fields {
 		if f.IsMany {
-			sb.WriteString(fmt.Sprintf("  %s: [%s!]\n", f.FieldName, f.TypeName))
+			fmt.Fprintf(sb, "  %s: [%s!]\n", f.FieldName, f.TypeName)
 		} else {
-			sb.WriteString(fmt.Sprintf("  %s: %s\n", f.FieldName, f.TypeName))
+			fmt.Fprintf(sb, "  %s: %s\n", f.FieldName, f.TypeName)
 		}
 	}
 	sb.WriteString("}\n\n")
@@ -216,14 +213,14 @@ func generateWithRelationsRust(sb *strings.Builder, table *ast.TableDef, allTabl
 		sb.WriteString("#[derive(Debug, Clone, Serialize, Deserialize)]\n")
 		sb.WriteString("#[serde(rename_all = \"snake_case\")]\n")
 	}
-	sb.WriteString(fmt.Sprintf("pub struct %sWithRelations {\n", baseName))
-	sb.WriteString(fmt.Sprintf("    #[serde(flatten)]\n"))
-	sb.WriteString(fmt.Sprintf("    pub base: %s,\n", baseName))
+	fmt.Fprintf(sb, "pub struct %sWithRelations {\n", baseName)
+	sb.WriteString("    #[serde(flatten)]\n")
+	fmt.Fprintf(sb, "    pub base: %s,\n", baseName)
 	for _, f := range fields {
 		if f.IsMany {
-			sb.WriteString(fmt.Sprintf("    pub %s: Option<Vec<%s>>,\n", strutil.ToSnakeCase(f.FieldName), f.TypeName))
+			fmt.Fprintf(sb, "    pub %s: Option<Vec<%s>>,\n", strutil.ToSnakeCase(f.FieldName), f.TypeName)
 		} else {
-			sb.WriteString(fmt.Sprintf("    pub %s: Option<%s>,\n", strutil.ToSnakeCase(f.FieldName), f.TypeName))
+			fmt.Fprintf(sb, "    pub %s: Option<%s>,\n", strutil.ToSnakeCase(f.FieldName), f.TypeName)
 		}
 	}
 	sb.WriteString("}\n\n")
@@ -235,20 +232,20 @@ func generateGraphQLType(sb *strings.Builder, table *ast.TableDef, cfg *exportCo
 
 	// Add doc comment if present
 	if table.Docs != "" {
-		sb.WriteString(fmt.Sprintf("\"\"\"%s\"\"\"\n", table.Docs))
+		fmt.Fprintf(sb, "\"\"\"%s\"\"\"\n", table.Docs)
 	}
 
-	sb.WriteString(fmt.Sprintf("type %s {\n", name))
+	fmt.Fprintf(sb, "type %s {\n", name)
 
 	for _, col := range table.Columns {
 		gqlType := columnToGraphQLType(col, table, cfg)
 
 		// Add doc comment if present
 		if col.Docs != "" {
-			sb.WriteString(fmt.Sprintf("  \"\"\"%s\"\"\"\n", col.Docs))
+			fmt.Fprintf(sb, "  \"\"\"%s\"\"\"\n", col.Docs)
 		}
 
-		sb.WriteString(fmt.Sprintf("  %s: %s\n", strutil.ToCamelCase(col.Name), gqlType))
+		fmt.Fprintf(sb, "  %s: %s\n", strutil.ToCamelCase(col.Name), gqlType)
 	}
 
 	sb.WriteString("}\n\n")

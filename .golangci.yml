@@ -12,8 +12,8 @@ linters:
   enable:
     - govet         # Suspicious constructs
     - errcheck      # Unchecked errors
+    - staticcheck   # Code quality suggestions
     # TODO: Enable after cleanup
-    # - staticcheck # Code quality suggestions
     # - unused      # Unused code
 
   settings:

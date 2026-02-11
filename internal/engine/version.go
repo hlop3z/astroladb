@@ -469,10 +469,9 @@ func (v *VersionManager) EnsureLockTable(ctx context.Context) error {
 	// Ensure the single lock row exists
 	insertSQL := v.insertLockRowSQL()
 	_, err = v.db.ExecContext(ctx, insertSQL)
-	if err != nil {
-		// Ignore duplicate key errors - row already exists
-		// This is expected on subsequent calls
-	}
+	// Intentionally ignoring error: duplicate key errors are expected on subsequent calls
+	// when the lock row already exists. Other errors are non-critical here.
+	_ = err
 
 	return nil
 }

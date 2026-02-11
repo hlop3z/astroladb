@@ -82,61 +82,61 @@ func FormatDrift(result *Result) string {
 func formatTableDiff(b *strings.Builder, diff *TableDiff, indent string) {
 	// Columns
 	if len(diff.MissingColumns) > 0 {
-		b.WriteString(fmt.Sprintf("%sColumns missing from DB:\n", indent))
+		fmt.Fprintf(b, "%sColumns missing from DB:\n", indent)
 		for _, col := range diff.MissingColumns {
-			b.WriteString(fmt.Sprintf("%s  - %s\n", indent, col))
+			fmt.Fprintf(b, "%s  - %s\n", indent, col)
 		}
 	}
 	if len(diff.ExtraColumns) > 0 {
-		b.WriteString(fmt.Sprintf("%sColumns only in DB:\n", indent))
+		fmt.Fprintf(b, "%sColumns only in DB:\n", indent)
 		for _, col := range diff.ExtraColumns {
-			b.WriteString(fmt.Sprintf("%s  + %s\n", indent, col))
+			fmt.Fprintf(b, "%s  + %s\n", indent, col)
 		}
 	}
 	if len(diff.ModifiedColumns) > 0 {
-		b.WriteString(fmt.Sprintf("%sColumns with different definitions:\n", indent))
+		fmt.Fprintf(b, "%sColumns with different definitions:\n", indent)
 		for _, col := range diff.ModifiedColumns {
-			b.WriteString(fmt.Sprintf("%s  ~ %s\n", indent, col))
+			fmt.Fprintf(b, "%s  ~ %s\n", indent, col)
 		}
 	}
 
 	// Indexes
 	if len(diff.MissingIndexes) > 0 {
-		b.WriteString(fmt.Sprintf("%sIndexes missing from DB:\n", indent))
+		fmt.Fprintf(b, "%sIndexes missing from DB:\n", indent)
 		for _, idx := range diff.MissingIndexes {
-			b.WriteString(fmt.Sprintf("%s  - %s\n", indent, idx))
+			fmt.Fprintf(b, "%s  - %s\n", indent, idx)
 		}
 	}
 	if len(diff.ExtraIndexes) > 0 {
-		b.WriteString(fmt.Sprintf("%sIndexes only in DB:\n", indent))
+		fmt.Fprintf(b, "%sIndexes only in DB:\n", indent)
 		for _, idx := range diff.ExtraIndexes {
-			b.WriteString(fmt.Sprintf("%s  + %s\n", indent, idx))
+			fmt.Fprintf(b, "%s  + %s\n", indent, idx)
 		}
 	}
 	if len(diff.ModifiedIndexes) > 0 {
-		b.WriteString(fmt.Sprintf("%sIndexes with different definitions:\n", indent))
+		fmt.Fprintf(b, "%sIndexes with different definitions:\n", indent)
 		for _, idx := range diff.ModifiedIndexes {
-			b.WriteString(fmt.Sprintf("%s  ~ %s\n", indent, idx))
+			fmt.Fprintf(b, "%s  ~ %s\n", indent, idx)
 		}
 	}
 
 	// Foreign keys
 	if len(diff.MissingFKs) > 0 {
-		b.WriteString(fmt.Sprintf("%sForeign keys missing from DB:\n", indent))
+		fmt.Fprintf(b, "%sForeign keys missing from DB:\n", indent)
 		for _, fk := range diff.MissingFKs {
-			b.WriteString(fmt.Sprintf("%s  - %s\n", indent, fk))
+			fmt.Fprintf(b, "%s  - %s\n", indent, fk)
 		}
 	}
 	if len(diff.ExtraFKs) > 0 {
-		b.WriteString(fmt.Sprintf("%sForeign keys only in DB:\n", indent))
+		fmt.Fprintf(b, "%sForeign keys only in DB:\n", indent)
 		for _, fk := range diff.ExtraFKs {
-			b.WriteString(fmt.Sprintf("%s  + %s\n", indent, fk))
+			fmt.Fprintf(b, "%s  + %s\n", indent, fk)
 		}
 	}
 	if len(diff.ModifiedFKs) > 0 {
-		b.WriteString(fmt.Sprintf("%sForeign keys with different definitions:\n", indent))
+		fmt.Fprintf(b, "%sForeign keys with different definitions:\n", indent)
 		for _, fk := range diff.ModifiedFKs {
-			b.WriteString(fmt.Sprintf("%s  ~ %s\n", indent, fk))
+			fmt.Fprintf(b, "%s  ~ %s\n", indent, fk)
 		}
 	}
 }

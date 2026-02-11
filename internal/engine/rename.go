@@ -230,10 +230,11 @@ func ApplyRenames(ops []ast.Operation, confirmed []RenameCandidate) []ast.Operat
 	tableRenames := make(map[string]RenameCandidate)  // "ns.oldtable" -> rename
 
 	for _, r := range confirmed {
-		if r.Type == "column" {
+		switch r.Type {
+		case "column":
 			key := r.Namespace + "." + r.Table + "." + r.OldName
 			columnRenames[key] = r
-		} else if r.Type == "table" {
+		case "table":
 			key := r.Namespace + "." + r.OldName
 			tableRenames[key] = r
 		}

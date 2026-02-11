@@ -147,11 +147,11 @@ func generatePythonDataclass(sb *strings.Builder, table *ast.TableDef, cfg *expo
 
 	// Add docstring if present
 	if table.Docs != "" {
-		sb.WriteString(fmt.Sprintf("\"\"\"%s\"\"\"\n", escapePyDoc(table.Docs)))
+		fmt.Fprintf(sb, "\"\"\"%s\"\"\"\n", escapePyDoc(table.Docs))
 	}
 
 	sb.WriteString("@dataclass\n")
-	sb.WriteString(fmt.Sprintf("class %s:\n", name))
+	fmt.Fprintf(sb, "class %s:\n", name)
 
 	// Python dataclass requires fields with defaults (Optional) to come after required fields
 	// First pass: required fields
@@ -163,10 +163,10 @@ func generatePythonDataclass(sb *strings.Builder, table *ast.TableDef, cfg *expo
 
 		// Add comment if present
 		if col.Docs != "" {
-			sb.WriteString(fmt.Sprintf("    # %s\n", col.Docs))
+			fmt.Fprintf(sb, "    # %s\n", col.Docs)
 		}
 
-		sb.WriteString(fmt.Sprintf("    %s: %s\n", col.Name, pyType))
+		fmt.Fprintf(sb, "    %s: %s\n", col.Name, pyType)
 	}
 
 	// Second pass: optional fields (with = None default)
@@ -179,10 +179,10 @@ func generatePythonDataclass(sb *strings.Builder, table *ast.TableDef, cfg *expo
 
 		// Add comment if present
 		if col.Docs != "" {
-			sb.WriteString(fmt.Sprintf("    # %s\n", col.Docs))
+			fmt.Fprintf(sb, "    # %s\n", col.Docs)
 		}
 
-		sb.WriteString(fmt.Sprintf("    %s: %s = None\n", col.Name, pyType))
+		fmt.Fprintf(sb, "    %s: %s = None\n", col.Name, pyType)
 	}
 
 	sb.WriteString("\n")

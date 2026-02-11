@@ -17,8 +17,8 @@ func (c *Client) writeCreateTable(sb *strings.Builder, op *ast.CreateTable) {
 	}
 
 	// Add table comment
-	sb.WriteString(fmt.Sprintf("\n    // Table: %s\n", ref))
-	sb.WriteString(fmt.Sprintf("    m.create_table(\"%s\", t => {\n", ref))
+	fmt.Fprintf(sb, "\n    // Table: %s\n", ref)
+	fmt.Fprintf(sb, "    m.create_table(\"%s\", t => {\n", ref)
 
 	// Sort columns: id first, timestamps last, others alphabetically
 	sortedColumns := c.sortColumnsForDatabase(op.Columns)
@@ -218,7 +218,7 @@ func (c *Client) writeDropTable(sb *strings.Builder, op *ast.DropTable) {
 	if op.Namespace != "" {
 		ref = op.Namespace + "." + op.Name
 	}
-	sb.WriteString(fmt.Sprintf("    m.drop_table(\"%s\")\n", ref))
+	fmt.Fprintf(sb, "    m.drop_table(\"%s\")\n", ref)
 }
 
 // writeRenameTable writes a rename_table DSL call.
@@ -229,7 +229,7 @@ func (c *Client) writeRenameTable(sb *strings.Builder, op *ast.RenameTable) {
 		oldRef = op.Namespace + "." + op.OldName
 		newRef = op.Namespace + "." + op.NewName
 	}
-	sb.WriteString(fmt.Sprintf("    m.rename_table(\"%s\", \"%s\")\n", oldRef, newRef))
+	fmt.Fprintf(sb, "    m.rename_table(\"%s\", \"%s\")\n", oldRef, newRef)
 }
 
 // writeRenameColumn writes a rename_column DSL call.
@@ -238,7 +238,7 @@ func (c *Client) writeRenameColumn(sb *strings.Builder, op *ast.RenameColumn) {
 	if op.Namespace != "" {
 		ref = op.Namespace + "." + op.Table_
 	}
-	sb.WriteString(fmt.Sprintf("    m.rename_column(\"%s\", \"%s\", \"%s\")\n", ref, op.OldName, op.NewName))
+	fmt.Fprintf(sb, "    m.rename_column(\"%s\", \"%s\", \"%s\")\n", ref, op.OldName, op.NewName)
 }
 
 // writeAddColumn writes an add_column DSL call.
@@ -249,17 +249,17 @@ func (c *Client) writeAddColumn(sb *strings.Builder, op *ast.AddColumn) {
 	}
 
 	dslMethod := typeToDSLMethod(op.Column.Type)
-	sb.WriteString(fmt.Sprintf("    m.add_column(\"%s\", c => c.%s(\"%s\"", ref, dslMethod, op.Column.Name))
+	fmt.Fprintf(sb, "    m.add_column(\"%s\", c => c.%s(\"%s\"", ref, dslMethod, op.Column.Name)
 
 	// Add type args
 	for _, arg := range op.Column.TypeArgs {
 		switch v := arg.(type) {
 		case int:
-			sb.WriteString(fmt.Sprintf(", %d", v))
+			fmt.Fprintf(sb, ", %d", v)
 		case float64:
-			sb.WriteString(fmt.Sprintf(", %v", v))
+			fmt.Fprintf(sb, ", %v", v)
 		case string:
-			sb.WriteString(fmt.Sprintf(", \"%s\"", v))
+			fmt.Fprintf(sb, ", \"%s\"", v)
 		}
 	}
 	sb.WriteString(")")
@@ -288,7 +288,7 @@ func (c *Client) writeDropColumn(sb *strings.Builder, op *ast.DropColumn) {
 	if op.Namespace != "" {
 		ref = op.Namespace + "." + op.Table_
 	}
-	sb.WriteString(fmt.Sprintf("    m.drop_column(\"%s\", \"%s\")\n", ref, op.Name))
+	fmt.Fprintf(sb, "    m.drop_column(\"%s\", \"%s\")\n", ref, op.Name)
 }
 
 // writeCreateIndex writes a create_index DSL call.
@@ -303,8 +303,8 @@ func (c *Client) writeCreateIndex(sb *strings.Builder, op *ast.CreateIndex) {
 		cols[i] = fmt.Sprintf("\"%s\"", col)
 	}
 
-	sb.WriteString(fmt.Sprintf("    // Index: %s\n", ref))
-	sb.WriteString(fmt.Sprintf("    m.create_index(\"%s\", [%s]", ref, strings.Join(cols, ", ")))
+	fmt.Fprintf(sb, "    // Index: %s\n", ref)
+	fmt.Fprintf(sb, "    m.create_index(\"%s\", [%s]", ref, strings.Join(cols, ", "))
 
 	if op.Unique || op.Name != "" {
 		sb.WriteString(", {")
@@ -324,7 +324,7 @@ func (c *Client) writeCreateIndex(sb *strings.Builder, op *ast.CreateIndex) {
 
 // writeDropIndex writes a drop_index DSL call.
 func (c *Client) writeDropIndex(sb *strings.Builder, op *ast.DropIndex) {
-	sb.WriteString(fmt.Sprintf("    m.drop_index(\"%s\")\n", op.Name))
+	fmt.Fprintf(sb, "    m.drop_index(\"%s\")\n", op.Name)
 }
 
 // writeAlterColumn writes an alter_column DSL call.
@@ -334,17 +334,17 @@ func (c *Client) writeAlterColumn(sb *strings.Builder, op *ast.AlterColumn) {
 		ref = op.Namespace + "." + op.Table_
 	}
 
-	sb.WriteString(fmt.Sprintf("    m.alter_column(\"%s\", \"%s\", c => c", ref, op.Name))
+	fmt.Fprintf(sb, "    m.alter_column(\"%s\", \"%s\", c => c", ref, op.Name)
 
 	if op.NewType != "" {
 		dslMethod := typeToDSLMethod(op.NewType)
-		sb.WriteString(fmt.Sprintf(".set_type(\"%s\"", dslMethod))
+		fmt.Fprintf(sb, ".set_type(\"%s\"", dslMethod)
 		for _, arg := range op.NewTypeArgs {
 			switch v := arg.(type) {
 			case int:
-				sb.WriteString(fmt.Sprintf(", %d", v))
+				fmt.Fprintf(sb, ", %d", v)
 			case float64:
-				sb.WriteString(fmt.Sprintf(", %v", v))
+				fmt.Fprintf(sb, ", %v", v)
 			}
 		}
 		sb.WriteString(")")
@@ -361,17 +361,17 @@ func (c *Client) writeAlterColumn(sb *strings.Builder, op *ast.AlterColumn) {
 	} else if op.SetDefault != nil {
 		switch v := op.SetDefault.(type) {
 		case bool:
-			sb.WriteString(fmt.Sprintf(".set_default(%t)", v))
+			fmt.Fprintf(sb, ".set_default(%t)", v)
 		case int:
-			sb.WriteString(fmt.Sprintf(".set_default(%d)", v))
+			fmt.Fprintf(sb, ".set_default(%d)", v)
 		case float64:
-			sb.WriteString(fmt.Sprintf(".set_default(%v)", v))
+			fmt.Fprintf(sb, ".set_default(%v)", v)
 		case string:
-			sb.WriteString(fmt.Sprintf(".set_default(\"%s\")", v))
+			fmt.Fprintf(sb, ".set_default(\"%s\")", v)
 		}
 	}
 	if op.ServerDefault != "" {
-		sb.WriteString(fmt.Sprintf(".set_server_default(\"%s\")", op.ServerDefault))
+		fmt.Fprintf(sb, ".set_server_default(\"%s\")", op.ServerDefault)
 	}
 
 	sb.WriteString(")\n")
@@ -396,8 +396,8 @@ func (c *Client) writeAddForeignKey(sb *strings.Builder, op *ast.AddForeignKey) 
 		refCols[i] = fmt.Sprintf("\"%s\"", col)
 	}
 
-	sb.WriteString(fmt.Sprintf("    m.add_foreign_key(\"%s\", [%s], \"%s\", [%s]",
-		ref, strings.Join(cols, ", "), op.RefTable, strings.Join(refCols, ", ")))
+	fmt.Fprintf(sb, "    m.add_foreign_key(\"%s\", [%s], \"%s\", [%s]",
+		ref, strings.Join(cols, ", "), op.RefTable, strings.Join(refCols, ", "))
 
 	// Add options if present
 	opts := []string{}
@@ -411,7 +411,7 @@ func (c *Client) writeAddForeignKey(sb *strings.Builder, op *ast.AddForeignKey) 
 		opts = append(opts, fmt.Sprintf("on_update: \"%s\"", strings.ToLower(op.OnUpdate)))
 	}
 	if len(opts) > 0 {
-		sb.WriteString(fmt.Sprintf(", {%s}", strings.Join(opts, ", ")))
+		fmt.Fprintf(sb, ", {%s}", strings.Join(opts, ", "))
 	}
 
 	sb.WriteString(")\n")
@@ -423,5 +423,5 @@ func (c *Client) writeDropForeignKey(sb *strings.Builder, op *ast.DropForeignKey
 	if op.Namespace != "" {
 		ref = op.Namespace + "." + op.Table_
 	}
-	sb.WriteString(fmt.Sprintf("    m.drop_foreign_key(\"%s\", \"%s\")\n", ref, op.Name))
+	fmt.Fprintf(sb, "    m.drop_foreign_key(\"%s\", \"%s\")\n", ref, op.Name)
 }

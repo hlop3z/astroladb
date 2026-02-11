@@ -122,18 +122,18 @@ func generateGoStruct(buf *bytes.Buffer, table *ast.TableDef, cfg *exportContext
 
 	// Add struct comment
 	if table.Docs != "" {
-		buf.WriteString(fmt.Sprintf("// %s %s\n", name, table.Docs))
+		fmt.Fprintf(buf, "// %s %s\n", name, table.Docs)
 		if table.Deprecated != "" {
-			buf.WriteString(fmt.Sprintf("// Deprecated: %s\n", table.Deprecated))
+			fmt.Fprintf(buf, "// Deprecated: %s\n", table.Deprecated)
 		}
 	}
 
-	buf.WriteString(fmt.Sprintf("type %s struct {\n", name))
+	fmt.Fprintf(buf, "type %s struct {\n", name)
 
 	for _, col := range table.Columns {
 		// Add field comment
 		if col.Docs != "" {
-			buf.WriteString(fmt.Sprintf("\t// %s\n", col.Docs))
+			fmt.Fprintf(buf, "\t// %s\n", col.Docs)
 		}
 
 		fieldName := strutil.ToPascalCase(col.Name)
@@ -145,7 +145,7 @@ func generateGoStruct(buf *bytes.Buffer, table *ast.TableDef, cfg *exportContext
 			jsonTag += ",omitempty"
 		}
 
-		buf.WriteString(fmt.Sprintf("\t%s %s `json:\"%s\"`\n", fieldName, goType, jsonTag))
+		fmt.Fprintf(buf, "\t%s %s `json:\"%s\"`\n", fieldName, goType, jsonTag)
 	}
 
 	buf.WriteString("}\n")

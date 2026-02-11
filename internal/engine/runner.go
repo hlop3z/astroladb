@@ -859,7 +859,7 @@ func (r *Runner) splitStatements(sql string) []string {
 				// Validate tag content (alphanumeric/underscore only)
 				validTag := true
 				for _, r := range tag[1 : len(tag)-1] {
-					if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
+					if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' {
 						validTag = false
 						break
 					}

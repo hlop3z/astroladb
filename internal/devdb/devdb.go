@@ -299,7 +299,7 @@ func (d *DevDatabase) mapTypeToSQL(alabType string, args []any) string {
 		return "BIGINT"
 	case "string":
 		if len(args) > 0 {
-			return fmt.Sprintf("TEXT")
+			return "TEXT"
 		}
 		return "TEXT"
 	case "text":

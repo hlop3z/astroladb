@@ -440,7 +440,7 @@ func generateOpenAPISchemas(tables []*ast.TableDef, cfg *exportContext) map[stri
 	}
 
 	// Generate WithRelations variants if enabled
-	if cfg.ExportConfig.Relations {
+	if cfg.Relations {
 		for _, table := range tables {
 			if table.Namespace == "" {
 				continue

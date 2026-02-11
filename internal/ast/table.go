@@ -540,10 +540,7 @@ func (r *Reference) Validate() error {
 		return alerr.New(alerr.ErrSchemaInvalid, "reference must specify a table")
 	}
 	// Reference.Table can be "ns.table", ".table", or "table"
-	refTable := r.Table
-	if strings.HasPrefix(refTable, ".") {
-		refTable = refTable[1:]
-	}
+	refTable := strings.TrimPrefix(r.Table, ".")
 	if err := ValidateQualifiedName(refTable); err != nil {
 		return err
 	}

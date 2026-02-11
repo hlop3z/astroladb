@@ -160,7 +160,7 @@ func generateRustStruct(sb *strings.Builder, table *ast.TableDef, cfg *exportCon
 
 	// Add doc comment if present
 	if table.Docs != "" {
-		sb.WriteString(fmt.Sprintf("/// %s\n", table.Docs))
+		fmt.Fprintf(sb, "/// %s\n", table.Docs)
 	}
 
 	if cfg.UseMik {
@@ -169,26 +169,26 @@ func generateRustStruct(sb *strings.Builder, table *ast.TableDef, cfg *exportCon
 		sb.WriteString("#[derive(Debug, Clone, Serialize, Deserialize)]\n")
 		sb.WriteString("#[serde(rename_all = \"snake_case\")]\n")
 	}
-	sb.WriteString(fmt.Sprintf("pub struct %s {\n", name))
+	fmt.Fprintf(sb, "pub struct %s {\n", name)
 
 	for _, col := range table.Columns {
 		rustType := columnToRustType(col, table, cfg)
 
 		// Add doc comment if present
 		if col.Docs != "" {
-			sb.WriteString(fmt.Sprintf("    /// %s\n", col.Docs))
+			fmt.Fprintf(sb, "    /// %s\n", col.Docs)
 		}
 
 		// Handle Rust reserved keywords
 		fieldName := col.Name
 		if isRustKeyword(col.Name) {
 			if !cfg.UseMik {
-				sb.WriteString(fmt.Sprintf("    #[serde(rename = \"%s\")]\n", col.Name))
+				fmt.Fprintf(sb, "    #[serde(rename = \"%s\")]\n", col.Name)
 			}
 			fieldName = col.Name + "_"
 		}
 
-		sb.WriteString(fmt.Sprintf("    pub %s: %s,\n", fieldName, rustType))
+		fmt.Fprintf(sb, "    pub %s: %s,\n", fieldName, rustType)
 	}
 
 	sb.WriteString("}\n\n")

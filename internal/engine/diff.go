@@ -261,7 +261,7 @@ func diffColumnDef(table *ast.TableDef, oldCol, newCol *ast.ColumnDef) []ast.Ope
 	// Default changed
 	if !defaultsEqual(oldCol.Default, newCol.Default) {
 		needsAlter = true
-		if newCol.Default == nil && newCol.DefaultSet == false {
+		if newCol.Default == nil && !newCol.DefaultSet {
 			alterOp.DropDefault = true
 		} else {
 			alterOp.SetDefault = newCol.Default

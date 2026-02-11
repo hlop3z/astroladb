@@ -339,7 +339,7 @@ func promptForBackfills(candidates []engine.BackfillCandidate) map[string]string
 
 		// Prompt for value
 		input, err := ui.Prompt(ui.PromptConfig{
-			Message:      fmt.Sprintf("Backfill value (or 'skip')"),
+			Message:      "Backfill value (or 'skip')",
 			DefaultValue: suggested,
 			Required:     false,
 		})

@@ -638,10 +638,11 @@ func createStatusDriftTab(app *tview.Application, data StatusData) tview.Primiti
 			// Type with color
 			typeColor := Theme.Warning
 			typeIcon := DriftIconModified
-			if d.Type == DriftMissing {
+			switch d.Type {
+			case DriftMissing:
 				typeColor = Theme.Error
 				typeIcon = DriftIconMissing
-			} else if d.Type == DriftExtra {
+			case DriftExtra:
 				typeColor = Theme.Warning
 				typeIcon = DriftIconExtra
 			}
@@ -857,9 +858,10 @@ func ShowStatusText(data StatusData) {
 	} else {
 		for _, d := range data.DriftItems {
 			icon := DriftIconModified
-			if d.Type == DriftMissing {
+			switch d.Type {
+			case DriftMissing:
 				icon = DriftIconMissing
-			} else if d.Type == DriftExtra {
+			case DriftExtra:
 				icon = DriftIconExtra
 			}
 			fmt.Printf("  %s %s  %s\n", icon, d.Type, d.Object)

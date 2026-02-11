@@ -122,7 +122,7 @@ func exportGraphQL(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	}
 
 	// Generate WithRelations variants if enabled
-	if cfg.ExportConfig.Relations {
+	if cfg.Relations {
 		sb.WriteString("# WithRelations variants (includes relationship fields)\n\n")
 		for _, table := range sortedTables {
 			if table.Namespace == "" {
