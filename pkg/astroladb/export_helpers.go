@@ -69,8 +69,10 @@ func buildRelationFields(table *ast.TableDef, allTables []*ast.TableDef, cfg *ex
 			}
 			ref := col.Reference.Table
 			if ref == thisQualified || ref == thisSQL || ref == table.Namespace+"."+table.Name || ref == table.Namespace+"_"+table.Name {
+				// Use FK column name without "_id" suffix, ensure snake_case (no pluralization)
+				fieldName := strutil.ToSnakeCase(strings.TrimSuffix(col.Name, "_id"))
 				fields = append(fields, relationField{
-					FieldName: strutil.ToSnakeCase(other.Name) + "s",
+					FieldName: fieldName,
 					TypeName:  strutil.ToPascalCase(other.FullName()),
 					IsMany:    true,
 				})
@@ -86,8 +88,10 @@ func buildRelationFields(table *ast.TableDef, allTables []*ast.TableDef, cfg *ex
 				// Find target type
 				for _, t := range allTables {
 					if t.QualifiedName() == m2m.Target {
+						// Use TargetFK without "_id" suffix, ensure snake_case (no pluralization)
+						fieldName := strutil.ToSnakeCase(strings.TrimSuffix(m2m.TargetFK, "_id"))
 						fields = append(fields, relationField{
-							FieldName: strutil.ToSnakeCase(t.Name) + "s",
+							FieldName: fieldName,
 							TypeName:  strutil.ToPascalCase(t.FullName()),
 							IsMany:    true,
 						})
@@ -97,8 +101,10 @@ func buildRelationFields(table *ast.TableDef, allTables []*ast.TableDef, cfg *ex
 			} else if m2m.Target == table.QualifiedName() {
 				for _, t := range allTables {
 					if t.QualifiedName() == m2m.Source {
+						// Use SourceFK without "_id" suffix, ensure snake_case (no pluralization)
+						fieldName := strutil.ToSnakeCase(strings.TrimSuffix(m2m.SourceFK, "_id"))
 						fields = append(fields, relationField{
-							FieldName: strutil.ToSnakeCase(t.Name) + "s",
+							FieldName: fieldName,
 							TypeName:  strutil.ToPascalCase(t.FullName()),
 							IsMany:    true,
 						})

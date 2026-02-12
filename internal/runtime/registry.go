@@ -92,6 +92,11 @@ func (r *SchemaRegistry) AddPolymorphic(namespace, tableName, alias string, targ
 	r.meta.AddPolymorphic(namespace, tableName, alias, targets)
 }
 
+// AddExplicitJunction registers an explicit junction table in metadata.
+func (r *SchemaRegistry) AddExplicitJunction(sourceRef, targetRef, sourceFK, targetFK string) {
+	r.meta.AddExplicitJunction(sourceRef, targetRef, sourceFK, targetFK)
+}
+
 // GetJoinTables returns all auto-generated join table definitions.
 func (r *SchemaRegistry) GetJoinTables() []*ast.TableDef {
 	return r.meta.GetJoinTables()
@@ -187,6 +192,54 @@ func (r *SchemaRegistry) parseColumnsWithRelationships(namespace, tableName stri
 				alias, _ := poly["as"].(string)
 				targets := r.parser.ParseStringSlice(poly["targets"])
 				r.AddPolymorphic(namespace, tableName, alias, targets)
+			}
+			continue
+		}
+
+		// Check for junction marker
+		if t, ok := m["_type"].(string); ok && t == "junction" {
+			if junc, ok := m["junction"].(map[string]any); ok {
+				// Collect FK columns from the table
+				var fkCols []*ast.ColumnDef
+				for _, col := range cols {
+					if colMap, ok := col.(map[string]any); ok {
+						if colDef := r.parser.ParseColumnDef(colMap); colDef != nil {
+							if colDef.Reference != nil {
+								fkCols = append(fkCols, colDef)
+							}
+						}
+					}
+				}
+
+				// Check for explicit refs
+				sourceRef, hasSource := junc["source"].(string)
+				targetRef, hasTarget := junc["target"].(string)
+
+				if hasSource && hasTarget {
+					// Explicit refs provided - find matching FK columns
+					var sourceFK, targetFK string
+					for _, fk := range fkCols {
+						if fk.Reference.Table == sourceRef {
+							sourceFK = fk.Name
+						}
+						if fk.Reference.Table == targetRef {
+							targetFK = fk.Name
+						}
+					}
+					if sourceFK != "" && targetFK != "" {
+						r.AddExplicitJunction(sourceRef, targetRef, sourceFK, targetFK)
+					}
+				} else {
+					// Auto-detect: require exactly 2 FKs
+					if len(fkCols) == 2 {
+						r.AddExplicitJunction(
+							fkCols[0].Reference.Table,
+							fkCols[1].Reference.Table,
+							fkCols[0].Name,
+							fkCols[1].Name,
+						)
+					}
+				}
 			}
 			continue
 		}

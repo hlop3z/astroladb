@@ -220,6 +220,34 @@ func (m *Metadata) AddPolymorphic(tableNS, tableName, alias string, targets []st
 	})
 }
 
+// AddExplicitJunction registers an explicit junction table in metadata.
+// Unlike AddManyToMany (which creates the junction table), this registers
+// an existing user-defined table as a junction for many-to-many relationships.
+func (m *Metadata) AddExplicitJunction(sourceRef, targetRef, sourceFK, targetFK string) {
+	// Parse references
+	sourceNS, sourceTable := parseRef(sourceRef)
+	targetNS, targetTable := parseRef(targetRef)
+
+	// Generate join table name (same logic as AddManyToMany for consistency)
+	sourceSQLName := strutil.SQLName(sourceNS, sourceTable)
+	targetSQLName := strutil.SQLName(targetNS, targetTable)
+
+	// Sort alphabetically for consistent naming
+	names := []string{sourceSQLName, targetSQLName}
+	sort.Strings(names)
+	joinTableName := names[0] + "_" + names[1]
+
+	// Record the relationship (same structure as magic many_to_many)
+	rel := &ManyToManyMeta{
+		Source:    sourceRef,
+		Target:    targetRef,
+		JoinTable: joinTableName,
+		SourceFK:  sourceFK,
+		TargetFK:  targetFK,
+	}
+	m.ManyToMany = append(m.ManyToMany, rel)
+}
+
 // GetJoinTables returns all generated join table definitions.
 func (m *Metadata) GetJoinTables() []*ast.TableDef {
 	tables := make([]*ast.TableDef, 0, len(m.JoinTables))

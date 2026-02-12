@@ -416,6 +416,50 @@ func (s *Sandbox) parseTableDef(namespace, name string, defObj any) *ast.TableDe
 				continue
 			}
 
+			// Check for junction marker
+			if t, ok := m["_type"].(string); ok && t == "junction" {
+				if junc, ok := m["junction"].(map[string]any); ok {
+					// Collect FK columns from already-parsed columns
+					var fkCols []*ast.ColumnDef
+					for _, col := range tableDef.Columns {
+						if col.Reference != nil {
+							fkCols = append(fkCols, col)
+						}
+					}
+
+					// Check for explicit refs
+					sourceRef, hasSource := junc["source"].(string)
+					targetRef, hasTarget := junc["target"].(string)
+
+					if hasSource && hasTarget {
+						// Explicit refs provided - find matching FK columns
+						var sourceFK, targetFK string
+						for _, fk := range fkCols {
+							if fk.Reference.Table == sourceRef {
+								sourceFK = fk.Name
+							}
+							if fk.Reference.Table == targetRef {
+								targetFK = fk.Name
+							}
+						}
+						if sourceFK != "" && targetFK != "" {
+							s.meta.AddExplicitJunction(sourceRef, targetRef, sourceFK, targetFK)
+						}
+					} else {
+						// Auto-detect: require exactly 2 FKs
+						if len(fkCols) == 2 {
+							s.meta.AddExplicitJunction(
+								fkCols[0].Reference.Table,
+								fkCols[1].Reference.Table,
+								fkCols[0].Name,
+								fkCols[1].Name,
+							)
+						}
+					}
+				}
+				continue
+			}
+
 			// Parse regular column
 			if colDef := s.parseColumnDef(c); colDef != nil {
 				tableDef.Columns = append(tableDef.Columns, colDef)

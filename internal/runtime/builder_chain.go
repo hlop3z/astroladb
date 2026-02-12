@@ -116,6 +116,26 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 		return obj
 	})
 
+	// junction(refs...) - marks table as M2M junction
+	// Accepts 0 or 2 parameters:
+	//   junction() - auto-detect from FKs (2 FKs only)
+	//   junction("blog.post", "blog.tag") - explicit refs
+	_ = obj.Set("junction", func(refs ...string) *goja.Object {
+		if len(refs) != 0 && len(refs) != 2 {
+			panic(tc.vm.ToValue("junction() requires 0 or 2 parameters, got " + string(rune(len(refs)))))
+		}
+
+		rel := &RelationshipDef{
+			Type: "junction",
+		}
+		if len(refs) == 2 {
+			rel.JunctionSource = refs[0]
+			rel.JunctionTarget = refs[1]
+		}
+		tc.relationships = append(tc.relationships, rel)
+		return obj
+	})
+
 	// belongs_to_any(refs, opts)
 	_ = obj.Set("belongs_to_any", func(refs []string, opts ...map[string]any) *goja.Object {
 		var as string

@@ -96,11 +96,12 @@ extension for downstream consumers (generators, custom tooling).
 
 ### Constraint modifiers
 
-| Modifier                       | What it does                                          |
-| ------------------------------ | ----------------------------------------------------- |
-| `.unique("col1", "col2")`      | Composite unique constraint across columns            |
-| `.index("col1", "col2")`       | Composite index across columns                        |
-| `.many_to_many("other.table")` | Many-to-many relationship (auto-creates a join table) |
+| Modifier                       | What it does                                               |
+| ------------------------------ | ---------------------------------------------------------- |
+| `.unique("col1", "col2")`      | Composite unique constraint across columns                 |
+| `.index("col1", "col2")`       | Composite index across columns                             |
+| `.many_to_many("other.table")` | Many-to-many relationship (auto-creates a join table)      |
+| `.junction(...refs)`           | Marks explicit junction table for M2M (allows custom cols) |
 
 ## Putting It Together
 

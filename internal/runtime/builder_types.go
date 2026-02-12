@@ -49,12 +49,14 @@ type IndexDef struct {
 	Where   string
 }
 
-// RelationshipDef represents a many-to-many or polymorphic relationship.
+// RelationshipDef represents a many-to-many, polymorphic, or junction relationship.
 type RelationshipDef struct {
-	Type    string   // "many_to_many" or "polymorphic"
-	Target  string   // Target table for many_to_many
-	Targets []string // Target tables for polymorphic
-	As      string   // Alias
+	Type           string   // "many_to_many", "polymorphic", or "junction"
+	Target         string   // Target table for many_to_many
+	Targets        []string // Target tables for polymorphic
+	As             string   // Alias
+	JunctionSource string   // Source table ref for junction (optional)
+	JunctionTarget string   // Target table ref for junction (optional)
 }
 
 func columnDefToMap(col *ColumnDef) map[string]any {
@@ -163,6 +165,20 @@ func relationshipDefToMap(rel *RelationshipDef) map[string]any {
 		return map[string]any{
 			"_type":        "relationship",
 			"relationship": relMap,
+		}
+	case "junction":
+		junctionMap := map[string]any{
+			"type": "junction",
+		}
+		if rel.JunctionSource != "" {
+			junctionMap["source"] = rel.JunctionSource
+		}
+		if rel.JunctionTarget != "" {
+			junctionMap["target"] = rel.JunctionTarget
+		}
+		return map[string]any{
+			"_type":    "junction",
+			"junction": junctionMap,
 		}
 	case "polymorphic":
 		return map[string]any{
