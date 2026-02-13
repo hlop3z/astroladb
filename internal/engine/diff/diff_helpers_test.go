@@ -6,7 +6,7 @@ import (
 	"github.com/hlop3z/astroladb/internal/ast"
 )
 
-// TestOpName tests the opName helper function.
+// TestOpName tests the OpName interface method on operations.
 func TestOpName(t *testing.T) {
 	tests := []struct {
 		name string
@@ -24,7 +24,7 @@ func TestOpName(t *testing.T) {
 			want: "users",
 		},
 		{
-			name: "AddColumn operation - no Name field",
+			name: "AddColumn operation - returns Column.Name",
 			op: &ast.AddColumn{
 				TableRef: ast.TableRef{
 					Namespace: "public",
@@ -32,7 +32,7 @@ func TestOpName(t *testing.T) {
 				},
 				Column: &ast.ColumnDef{Name: "price"},
 			},
-			want: "", // AddColumn doesn't have a Name field, only a Column field
+			want: "price",
 		},
 		{
 			name: "CreateIndex operation",
@@ -66,7 +66,7 @@ func TestOpName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := opName(tt.op)
+			got := tt.op.OpName()
 			if got != tt.want {
 				t.Errorf("opName() = %q, want %q", got, tt.want)
 			}
@@ -155,7 +155,7 @@ func TestSortOpsByTypeAndName(t *testing.T) {
 
 			// Additional check: verify same-type operations are sorted by name
 			if tt.name == "same type different names" {
-				names := []string{opName(ops[0]), opName(ops[1]), opName(ops[2])}
+				names := []string{ops[0].OpName(), ops[1].OpName(), ops[2].OpName()}
 				if !(names[0] <= names[1] && names[1] <= names[2]) {
 					t.Errorf("operations not sorted by name: %v", names)
 				}

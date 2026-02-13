@@ -29,6 +29,12 @@ var FixedTime = time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 // FixedSeed is the deterministic seed for random number generation.
 const FixedSeed = 12345
 
+// maxCallStackSize limits the JavaScript VM call stack depth to prevent stack overflow attacks.
+const maxCallStackSize = 500
+
+// defaultTimeout is the maximum execution time for a single schema/migration evaluation.
+const defaultTimeout = 5 * time.Second
+
 // exportRe matches ES6 "export " at the start of a line (statement boundary).
 var exportRe = regexp.MustCompile(`(?m)^export `)
 
@@ -80,7 +86,7 @@ func NewSandbox(reg *registry.ModelRegistry) *Sandbox {
 	vm := goja.New()
 
 	// 1. Resource limits - prevent stack overflow attacks
-	vm.SetMaxCallStackSize(500)
+	vm.SetMaxCallStackSize(maxCallStackSize)
 
 	// 2. Deterministic execution - fixed random source and time
 	seedRand := rand.New(rand.NewSource(FixedSeed))
@@ -92,7 +98,7 @@ func NewSandbox(reg *registry.ModelRegistry) *Sandbox {
 	s := &Sandbox{
 		vm:       vm,
 		registry: reg,
-		timeout:  5 * time.Second,
+		timeout:  defaultTimeout,
 		tables:   make([]*ast.TableDef, 0),
 		meta:     metadata.New(),
 	}
@@ -107,7 +113,7 @@ func NewSandbox(reg *registry.ModelRegistry) *Sandbox {
 // This is called automatically when the sandbox is tainted (e.g., after a timeout interrupt).
 func (s *Sandbox) Reset() {
 	vm := goja.New()
-	vm.SetMaxCallStackSize(500)
+	vm.SetMaxCallStackSize(maxCallStackSize)
 
 	seedRand := rand.New(rand.NewSource(FixedSeed))
 	vm.SetRandSource(func() float64 { return seedRand.Float64() })

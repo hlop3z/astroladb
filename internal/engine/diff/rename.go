@@ -7,6 +7,21 @@ import (
 	"github.com/hlop3z/astroladb/internal/ast"
 )
 
+// Rename scoring weights for column rename detection.
+// These control how much each factor contributes to the confidence score.
+const (
+	weightTypeMatch   = 0.4 // Type compatibility is the strongest signal
+	weightNameSim     = 0.3 // Name similarity via Jaro-Winkler
+	weightConstraints = 0.2 // Constraint similarity (same table guaranteed)
+	weightPosition    = 0.1 // Position proximity in column order
+)
+
+// jaroWinklerPrefixLen is the max common prefix length for the Winkler boost.
+const jaroWinklerPrefixLen = 4
+
+// winklerPrefixWeight is the scaling factor for the Jaro-Winkler prefix boost.
+const winklerPrefixWeight = 0.1
+
 // RenameCandidate represents a potential rename operation detected from diff.
 type RenameCandidate struct {
 	Type      string  // "column" or "table"
@@ -319,33 +334,32 @@ func ApplyRenames(ops []ast.Operation, confirmed []RenameCandidate) []ast.Operat
 }
 
 // scoreColumnRename computes a weighted rename confidence score for a column pair.
-// Weights: type match (0.4), name similarity (0.3), constraints (0.2), position (0.1).
 func scoreColumnRename(drop, add colInfo, totalDrops int) float64 {
 	var score float64
 
-	// Type match (0.4) - if we have type info from the add side
+	// Type match - if we have type info from the add side
 	if add.colType != "" && drop.colType != "" {
 		if strings.EqualFold(drop.colType, add.colType) {
-			score += 0.4
+			score += weightTypeMatch
 		}
 	} else if add.colType != "" {
 		// Drop columns don't always carry type info; give partial credit
-		score += 0.2
+		score += weightTypeMatch / 2
 	}
 
-	// Name similarity (0.3) via Jaro-Winkler
+	// Name similarity via Jaro-Winkler
 	nameSim := JaroWinkler(drop.name, add.name)
-	score += 0.3 * nameSim
+	score += weightNameSim * nameSim
 
-	// Constraint similarity (0.2) - basic: same table is already guaranteed
-	score += 0.2
+	// Constraint similarity - basic: same table is already guaranteed
+	score += weightConstraints
 
-	// Position proximity (0.1)
+	// Position proximity
 	if totalDrops > 0 {
 		dist := math.Abs(float64(drop.index - add.index))
 		maxDist := float64(totalDrops)
 		if maxDist > 0 {
-			score += 0.1 * (1.0 - dist/maxDist)
+			score += weightPosition * (1.0 - dist/maxDist)
 		}
 	}
 
@@ -421,9 +435,9 @@ func JaroWinkler(s1, s2 string) float64 {
 		float64(matches)/float64(len(s2)) +
 		float64(matches-transpositions/2)/float64(matches)) / 3.0
 
-	// Winkler modification: boost for common prefix (up to 4 chars)
+	// Winkler modification: boost for common prefix
 	prefix := 0
-	for i := 0; i < len(s1) && i < len(s2) && i < 4; i++ {
+	for i := 0; i < len(s1) && i < len(s2) && i < jaroWinklerPrefixLen; i++ {
 		if s1[i] == s2[i] {
 			prefix++
 		} else {
@@ -431,5 +445,5 @@ func JaroWinkler(s1, s2 string) float64 {
 		}
 	}
 
-	return jaro + float64(prefix)*0.1*(1.0-jaro)
+	return jaro + float64(prefix)*winklerPrefixWeight*(1.0-jaro)
 }

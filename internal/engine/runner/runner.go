@@ -16,6 +16,9 @@ import (
 	"github.com/hlop3z/astroladb/internal/engine"
 )
 
+// lockReleaseTimeout is the maximum time to wait when releasing a migration lock.
+const lockReleaseTimeout = 5 * time.Second
+
 // Runner executes migration plans against a database.
 type Runner struct {
 	db       *sql.DB
@@ -82,7 +85,7 @@ func (r *Runner) RunWithLock(ctx context.Context, plan *engine.Plan, lockTimeout
 	// Ensure lock is released when done (success or failure)
 	defer func() {
 		// Use background context for release in case ctx is cancelled
-		releaseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		releaseCtx, cancel := context.WithTimeout(context.Background(), lockReleaseTimeout)
 		defer cancel()
 		if err := r.versions.ReleaseLock(releaseCtx); err != nil {
 			slog.Warn("failed to release migration lock", "error", err)

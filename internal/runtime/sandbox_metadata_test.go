@@ -204,20 +204,20 @@ func TestEvalSchemaFile_InvalidJS(t *testing.T) {
 }
 
 // TestRunFile tests running a migration file
-// TODO: Fix migration API - currently failing due to migration format
 func TestRunFile(t *testing.T) {
-	t.Skip("TODO: Fix migration API format")
 	sb := NewSandbox(nil)
 
 	tempDir := t.TempDir()
 	migrationFile := filepath.Join(tempDir, "001_create_users.js")
 
 	migrationCode := `
-	migration(m => {
-		m.create_table("auth.users", t => {
-			t.id()
-			t.email().unique()
-		})
+	migration({
+		up(m) {
+			m.create_table("auth.users", t => {
+				t.id()
+				t.string("email", 255).unique()
+			})
+		}
 	})
 	`
 
@@ -239,17 +239,17 @@ func TestRunFile(t *testing.T) {
 }
 
 // TestRunFile_WithExport tests migration with ES6 export
-// TODO: Fix migration API - currently failing due to migration format
 func TestRunFile_WithExport(t *testing.T) {
-	t.Skip("TODO: Fix migration API format")
 	sb := NewSandbox(nil)
 
 	tempDir := t.TempDir()
 	migrationFile := filepath.Join(tempDir, "002_add_column.js")
 
 	migrationCode := `
-	export default migration(m => {
-		m.add_column("auth.users", c => c.integer("age"))
+	export default migration({
+		up(m) {
+			m.add_column("auth.users", c => c.integer("age"))
+		}
 	})
 	`
 
@@ -384,9 +384,7 @@ func TestSandboxMetadata_CompleteWorkflow(t *testing.T) {
 }
 
 // TestSandboxFileOperations_CompleteWorkflow tests complete file operation workflow
-// TODO: Fix migration API - currently failing due to migration format
 func TestSandboxFileOperations_CompleteWorkflow(t *testing.T) {
-	t.Skip("TODO: Fix migration API format")
 	sb := NewSandbox(nil)
 	tempDir := t.TempDir()
 
@@ -409,8 +407,10 @@ func TestSandboxFileOperations_CompleteWorkflow(t *testing.T) {
 	// 2. Create and run migration file
 	migrationFile := filepath.Join(tempDir, "001_migration.js")
 	migrationCode := `
-	migration(m => {
-		m.create_table("test.table", t => { t.id() })
+	migration({
+		up(m) {
+			m.create_table("test.table", t => { t.id() })
+		}
 	})
 	`
 	err = os.WriteFile(migrationFile, []byte(migrationCode), 0644)

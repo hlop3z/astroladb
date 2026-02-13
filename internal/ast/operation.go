@@ -11,6 +11,11 @@ type Operation interface {
 	// Type returns the operation type (OpCreateTable, OpAddColumn, etc.)
 	Type() OpType
 
+	// OpName returns the primary name associated with this operation.
+	// For table operations this is the table name; for column operations,
+	// the column name. Returns "" for operations without a meaningful name (e.g., RawSQL).
+	OpName() string
+
 	// Table returns the full table name (namespace_tablename format).
 	// For operations that don't target a specific table (e.g., RawSQL),
 	// this returns an empty string.
@@ -68,7 +73,8 @@ type CreateTable struct {
 	IfNotExists bool // If true, generates CREATE TABLE IF NOT EXISTS
 }
 
-func (op *CreateTable) Type() OpType { return OpCreateTable }
+func (op *CreateTable) Type() OpType   { return OpCreateTable }
+func (op *CreateTable) OpName() string { return op.Name }
 
 func (op *CreateTable) Validate() error {
 	if op.Name == "" {
@@ -113,7 +119,8 @@ type DropTable struct {
 	IfExists bool
 }
 
-func (op *DropTable) Type() OpType { return OpDropTable }
+func (op *DropTable) Type() OpType   { return OpDropTable }
+func (op *DropTable) OpName() string { return op.Name }
 
 func (op *DropTable) Validate() error {
 	if op.Name == "" {
@@ -133,7 +140,8 @@ type RenameTable struct {
 	NewName   string
 }
 
-func (op *RenameTable) Type() OpType { return OpRenameTable }
+func (op *RenameTable) Type() OpType   { return OpRenameTable }
+func (op *RenameTable) OpName() string { return op.OldName }
 
 func (op *RenameTable) Table() string {
 	if op.Namespace != "" {
@@ -167,6 +175,12 @@ type AddColumn struct {
 }
 
 func (op *AddColumn) Type() OpType { return OpAddColumn }
+func (op *AddColumn) OpName() string {
+	if op.Column != nil {
+		return op.Column.Name
+	}
+	return ""
+}
 
 func (op *AddColumn) Validate() error {
 	if op.Table_ == "" {
@@ -194,7 +208,8 @@ type DropColumn struct {
 	Name string
 }
 
-func (op *DropColumn) Type() OpType { return OpDropColumn }
+func (op *DropColumn) Type() OpType   { return OpDropColumn }
+func (op *DropColumn) OpName() string { return op.Name }
 
 func (op *DropColumn) Validate() error {
 	if op.Table_ == "" {
@@ -218,7 +233,8 @@ type RenameColumn struct {
 	NewName string
 }
 
-func (op *RenameColumn) Type() OpType { return OpRenameColumn }
+func (op *RenameColumn) Type() OpType   { return OpRenameColumn }
+func (op *RenameColumn) OpName() string { return op.OldName }
 
 func (op *RenameColumn) Validate() error {
 	if op.Table_ == "" {
@@ -264,7 +280,8 @@ type AlterColumn struct {
 	OldColumn *ColumnDef
 }
 
-func (op *AlterColumn) Type() OpType { return OpAlterColumn }
+func (op *AlterColumn) Type() OpType   { return OpAlterColumn }
+func (op *AlterColumn) OpName() string { return op.Name }
 
 func (op *AlterColumn) Validate() error {
 	if op.Table_ == "" {
@@ -302,7 +319,8 @@ type CreateIndex struct {
 	Where       string // Partial index condition (optional)
 }
 
-func (op *CreateIndex) Type() OpType { return OpCreateIndex }
+func (op *CreateIndex) Type() OpType   { return OpCreateIndex }
+func (op *CreateIndex) OpName() string { return op.Name }
 
 func (op *CreateIndex) Validate() error {
 	if op.Table_ == "" {
@@ -326,7 +344,8 @@ type DropIndex struct {
 	IfExists bool
 }
 
-func (op *DropIndex) Type() OpType { return OpDropIndex }
+func (op *DropIndex) Type() OpType   { return OpDropIndex }
+func (op *DropIndex) OpName() string { return op.Name }
 
 func (op *DropIndex) Validate() error {
 	if op.Name == "" {
@@ -350,7 +369,8 @@ type AddForeignKey struct {
 	OnUpdate   string   // CASCADE, SET NULL, RESTRICT, etc.
 }
 
-func (op *AddForeignKey) Type() OpType { return OpAddForeignKey }
+func (op *AddForeignKey) Type() OpType   { return OpAddForeignKey }
+func (op *AddForeignKey) OpName() string { return op.Name }
 
 func (op *AddForeignKey) Validate() error {
 	if op.Table_ == "" {
@@ -393,7 +413,8 @@ type DropForeignKey struct {
 	Name string // Constraint name
 }
 
-func (op *DropForeignKey) Type() OpType { return OpDropForeignKey }
+func (op *DropForeignKey) Type() OpType   { return OpDropForeignKey }
+func (op *DropForeignKey) OpName() string { return op.Name }
 
 func (op *DropForeignKey) Validate() error {
 	if op.Table_ == "" {
@@ -417,7 +438,8 @@ type AddCheck struct {
 	Expression string // SQL expression for the check (e.g., "age >= 0")
 }
 
-func (op *AddCheck) Type() OpType { return OpAddCheck }
+func (op *AddCheck) Type() OpType   { return OpAddCheck }
+func (op *AddCheck) OpName() string { return op.Name }
 
 func (op *AddCheck) Validate() error {
 	if op.Table_ == "" {
@@ -447,7 +469,8 @@ type DropCheck struct {
 	Name string // Constraint name
 }
 
-func (op *DropCheck) Type() OpType { return OpDropCheck }
+func (op *DropCheck) Type() OpType   { return OpDropCheck }
+func (op *DropCheck) OpName() string { return op.Name }
 
 func (op *DropCheck) Validate() error {
 	if op.Table_ == "" {
@@ -473,7 +496,8 @@ type RawSQL struct {
 	SQLite   string
 }
 
-func (op *RawSQL) Type() OpType { return OpRawSQL }
+func (op *RawSQL) Type() OpType   { return OpRawSQL }
+func (op *RawSQL) OpName() string { return "" }
 
 func (op *RawSQL) Table() string {
 	return "" // Raw SQL doesn't target a specific table

@@ -9,26 +9,14 @@ import (
 	"github.com/hlop3z/astroladb/internal/engine"
 )
 
-// opName extracts the Name field from an operation using reflection.
-func opName(op ast.Operation) string {
-	v := reflect.ValueOf(op)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	if f := v.FieldByName("Name"); f.IsValid() && f.Kind() == reflect.String {
-		return f.String()
-	}
-	return ""
-}
-
-// sortOpsByTypeAndName sorts operations first by Type(), then by name for deterministic output.
+// sortOpsByTypeAndName sorts operations first by Type(), then by OpName() for deterministic output.
 func sortOpsByTypeAndName(ops []ast.Operation) {
 	sort.SliceStable(ops, func(i, j int) bool {
 		ti, tj := ops[i].Type(), ops[j].Type()
 		if ti != tj {
 			return ti < tj
 		}
-		return opName(ops[i]) < opName(ops[j])
+		return ops[i].OpName() < ops[j].OpName()
 	})
 }
 
@@ -530,11 +518,14 @@ func checkKey(c *ast.CheckDef) string {
 	return c.Expression
 }
 
+// maxCheckNameLen is the maximum length for auto-generated CHECK constraint name suffixes.
+// Kept short to avoid exceeding database identifier limits when combined with table prefix.
+const maxCheckNameLen = 20
+
 // sanitizeCheckName creates a safe constraint name suffix from an expression.
 func sanitizeCheckName(expr string) string {
-	// Simple sanitization - take first 20 chars, replace non-alphanumeric with underscore
-	result := make([]byte, 0, 20)
-	for i := 0; i < len(expr) && len(result) < 20; i++ {
+	result := make([]byte, 0, maxCheckNameLen)
+	for i := 0; i < len(expr) && len(result) < maxCheckNameLen; i++ {
 		c := expr[i]
 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
 			result = append(result, c)

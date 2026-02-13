@@ -11,6 +11,19 @@ import (
 	"github.com/hlop3z/astroladb/internal/ast"
 )
 
+const (
+	// MaxIdentifierLen is the maximum length for generated identifiers (index names,
+	// constraint names, etc.). Set to 63 to match PostgreSQL's NAMEDATALEN limit.
+	MaxIdentifierLen = 63
+
+	// DefaultStringLen is the default VARCHAR length when no explicit length is provided.
+	DefaultStringLen = 255
+
+	// hashSuffixBytes is the number of SHA256 bytes used for truncated identifier suffixes.
+	// 4 bytes = 8 hex characters, providing sufficient uniqueness for name collisions.
+	hashSuffixBytes = 4
+)
+
 // QuoteIdentFunc is a function that quotes an identifier.
 type QuoteIdentFunc func(name string) string
 
@@ -51,7 +64,7 @@ func buildColumnTypeSQL(typeName string, typeArgs []any, mapper TypeMapper) stri
 	case "id":
 		return mapper.IDType()
 	case "string":
-		length := 255
+		length := DefaultStringLen
 		if len(typeArgs) > 0 {
 			if l, ok := typeArgs[0].(int); ok {
 				length = l
@@ -479,7 +492,7 @@ func indexNameFunc(table string, unique bool, cols ...string) string {
 	} else {
 		name = "idx_" + table + "_" + joinCols(cols)
 	}
-	return truncateIdentifier(name, 63)
+	return truncateIdentifier(name, MaxIdentifierLen)
 }
 
 // truncateIdentifier ensures a generated identifier fits within maxBytes.
@@ -489,7 +502,7 @@ func truncateIdentifier(name string, maxBytes int) string {
 		return name
 	}
 	hash := sha256.Sum256([]byte(name))
-	suffix := "_" + hex.EncodeToString(hash[:4]) // 8 hex chars
+	suffix := "_" + hex.EncodeToString(hash[:hashSuffixBytes])
 	return name[:maxBytes-len(suffix)] + suffix
 }
 
@@ -511,7 +524,7 @@ func uniqueConstraintName(table string, cols ...string) string {
 	for _, col := range cols {
 		result += "_" + col
 	}
-	return truncateIdentifier(result, 63)
+	return truncateIdentifier(result, MaxIdentifierLen)
 }
 
 // checkConstraintName generates a check constraint name: chk_table_name
