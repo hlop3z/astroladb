@@ -1,5 +1,5 @@
-// Package runtime provides schema parsing from JavaScript objects to AST.
-package runtime
+// Package schema provides schema parsing from JavaScript objects to AST.
+package schema
 
 import (
 	"github.com/hlop3z/astroladb/internal/ast"
@@ -100,16 +100,16 @@ func (p *SchemaParser) ParseColumnDef(obj any) *ast.ColumnDef {
 
 // ParseReference converts a JS object to an ast.Reference.
 func (p *SchemaParser) ParseReference(m map[string]any) *ast.Reference {
-	return parseReference(m)
+	return ParseReferenceMap(m)
 }
 
 // ParseIndexDef converts a JS object to an ast.IndexDef.
 func (p *SchemaParser) ParseIndexDef(obj any) *ast.IndexDef {
-	return parseIndexDef(obj)
+	return ParseIndexDefMap(obj)
 }
 
-// parseReference converts a JS object to an ast.Reference (shared implementation).
-func parseReference(m map[string]any) *ast.Reference {
+// ParseReferenceMap converts a JS object to an ast.Reference (standalone function).
+func ParseReferenceMap(m map[string]any) *ast.Reference {
 	ref := &ast.Reference{}
 
 	if table, ok := m["table"].(string); ok {
@@ -132,8 +132,8 @@ func parseReference(m map[string]any) *ast.Reference {
 	return ref
 }
 
-// parseIndexDef converts a JS object to an ast.IndexDef (shared implementation).
-func parseIndexDef(obj any) *ast.IndexDef {
+// ParseIndexDefMap converts a JS object to an ast.IndexDef (standalone function).
+func ParseIndexDefMap(obj any) *ast.IndexDef {
 	m, ok := obj.(map[string]any)
 	if !ok {
 		return nil

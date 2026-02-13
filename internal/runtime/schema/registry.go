@@ -1,5 +1,5 @@
-// Package runtime provides schema registry for collecting table definitions.
-package runtime
+// Package schema provides schema registry for collecting table definitions.
+package schema
 
 import (
 	"github.com/hlop3z/astroladb/internal/ast"

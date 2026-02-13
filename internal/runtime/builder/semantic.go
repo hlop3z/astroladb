@@ -1,6 +1,6 @@
 // Package runtime provides the semantic type registry for high-level column types.
 // These types have baked-in defaults for common patterns.
-package runtime
+package builder
 
 // SemanticType defines a semantic column type with all its default properties.
 type SemanticType struct {

@@ -1,4 +1,4 @@
-package runtime
+package builder
 
 import (
 	"testing"
@@ -54,16 +54,16 @@ func TestTableBuilder_toBaseObject(t *testing.T) {
 		}
 
 		// Check that column was added
-		if len(tb.columns) != 1 {
-			t.Fatalf("Expected 1 column, got %d", len(tb.columns))
+		if len(tb.Columns) != 1 {
+			t.Fatalf("Expected 1 column, got %d", len(tb.Columns))
 		}
-		if tb.columns[0].Name != "id" {
-			t.Errorf("Column name = %s, want 'id'", tb.columns[0].Name)
+		if tb.Columns[0].Name != "id" {
+			t.Errorf("Column name = %s, want 'id'", tb.Columns[0].Name)
 		}
-		if tb.columns[0].Type != "uuid" {
-			t.Errorf("Column type = %s, want 'uuid'", tb.columns[0].Type)
+		if tb.Columns[0].Type != "uuid" {
+			t.Errorf("Column type = %s, want 'uuid'", tb.Columns[0].Type)
 		}
-		if !tb.columns[0].PrimaryKey {
+		if !tb.Columns[0].PrimaryKey {
 			t.Error("id column should be primary key")
 		}
 	})
@@ -88,16 +88,16 @@ func TestTableBuilder_toBaseObject(t *testing.T) {
 		}
 
 		// Check that column was added
-		if len(tb.columns) != 1 {
-			t.Fatalf("Expected 1 column, got %d", len(tb.columns))
+		if len(tb.Columns) != 1 {
+			t.Fatalf("Expected 1 column, got %d", len(tb.Columns))
 		}
-		if tb.columns[0].Name != "email" {
-			t.Errorf("Column name = %s, want 'email'", tb.columns[0].Name)
+		if tb.Columns[0].Name != "email" {
+			t.Errorf("Column name = %s, want 'email'", tb.Columns[0].Name)
 		}
-		if tb.columns[0].Type != "string" {
-			t.Errorf("Column type = %s, want 'string'", tb.columns[0].Type)
+		if tb.Columns[0].Type != "string" {
+			t.Errorf("Column type = %s, want 'string'", tb.Columns[0].Type)
 		}
-		if tb.columns[0].TypeArgs == nil || len(tb.columns[0].TypeArgs) == 0 {
+		if tb.Columns[0].TypeArgs == nil || len(tb.Columns[0].TypeArgs) == 0 {
 			t.Error("string column should have length in TypeArgs")
 		}
 	})
@@ -156,11 +156,11 @@ func TestTableBuilder_toBaseObject(t *testing.T) {
 		}
 
 		// Check column
-		if len(tb.columns) != 1 {
-			t.Fatalf("Expected 1 column, got %d", len(tb.columns))
+		if len(tb.Columns) != 1 {
+			t.Fatalf("Expected 1 column, got %d", len(tb.Columns))
 		}
-		if tb.columns[0].Name != "content" || tb.columns[0].Type != "text" {
-			t.Errorf("Column = {name: %s, type: %s}, want {name: 'content', type: 'text'}", tb.columns[0].Name, tb.columns[0].Type)
+		if tb.Columns[0].Name != "content" || tb.Columns[0].Type != "text" {
+			t.Errorf("Column = {name: %s, type: %s}, want {name: 'content', type: 'text'}", tb.Columns[0].Name, tb.Columns[0].Type)
 		}
 	})
 
@@ -183,7 +183,7 @@ func TestTableBuilder_toBaseObject(t *testing.T) {
 			t.Error("integer() should return a chainable object")
 		}
 
-		if len(tb.columns) != 1 || tb.columns[0].Type != "integer" {
+		if len(tb.Columns) != 1 || tb.Columns[0].Type != "integer" {
 			t.Error("integer() should add an integer column")
 		}
 	})
@@ -208,13 +208,13 @@ func TestTableBuilder_toBaseObject(t *testing.T) {
 		}
 
 		// Check column
-		if len(tb.columns) != 1 {
-			t.Fatalf("Expected 1 column, got %d", len(tb.columns))
+		if len(tb.Columns) != 1 {
+			t.Fatalf("Expected 1 column, got %d", len(tb.Columns))
 		}
-		if tb.columns[0].Type != "decimal" {
-			t.Errorf("Column type = %s, want 'decimal'", tb.columns[0].Type)
+		if tb.Columns[0].Type != "decimal" {
+			t.Errorf("Column type = %s, want 'decimal'", tb.Columns[0].Type)
 		}
-		if tb.columns[0].TypeArgs == nil || len(tb.columns[0].TypeArgs) != 2 {
+		if tb.Columns[0].TypeArgs == nil || len(tb.Columns[0].TypeArgs) != 2 {
 			t.Error("decimal column should have precision and scale in TypeArgs")
 		}
 	})
@@ -239,7 +239,7 @@ func TestTableBuilder_toBaseObject(t *testing.T) {
 		}
 
 		for _, tt := range types {
-			tb.columns = nil // Reset columns
+			tb.Columns = nil // Reset columns
 
 			fn, ok := goja.AssertFunction(obj.Get(tt.method))
 			if !ok {
@@ -257,8 +257,8 @@ func TestTableBuilder_toBaseObject(t *testing.T) {
 				t.Errorf("%s() should return a chainable object", tt.method)
 			}
 
-			if len(tb.columns) != 1 || tb.columns[0].Type != tt.colType {
-				t.Errorf("%s() should add a %s column, got type: %s", tt.method, tt.colType, tb.columns[0].Type)
+			if len(tb.Columns) != 1 || tb.Columns[0].Type != tt.colType {
+				t.Errorf("%s() should add a %s column, got type: %s", tt.method, tt.colType, tb.Columns[0].Type)
 			}
 		}
 	})
@@ -284,13 +284,13 @@ func TestTableBuilder_toBaseObject(t *testing.T) {
 		}
 
 		// Check column
-		if len(tb.columns) != 1 {
-			t.Fatalf("Expected 1 column, got %d", len(tb.columns))
+		if len(tb.Columns) != 1 {
+			t.Fatalf("Expected 1 column, got %d", len(tb.Columns))
 		}
-		if tb.columns[0].Type != "enum" {
-			t.Errorf("Column type = %s, want 'enum'", tb.columns[0].Type)
+		if tb.Columns[0].Type != "enum" {
+			t.Errorf("Column type = %s, want 'enum'", tb.Columns[0].Type)
 		}
-		if tb.columns[0].TypeArgs == nil || len(tb.columns[0].TypeArgs) == 0 {
+		if tb.Columns[0].TypeArgs == nil || len(tb.Columns[0].TypeArgs) == 0 {
 			t.Error("enum column should have values in TypeArgs")
 		}
 	})
@@ -311,19 +311,19 @@ func TestTableBuilder_toBaseObject(t *testing.T) {
 		}
 
 		// Should add created_at and updated_at
-		if len(tb.columns) != 2 {
-			t.Fatalf("Expected 2 columns (created_at, updated_at), got %d", len(tb.columns))
+		if len(tb.Columns) != 2 {
+			t.Fatalf("Expected 2 columns (created_at, updated_at), got %d", len(tb.Columns))
 		}
 
-		if tb.columns[0].Name != "created_at" {
-			t.Errorf("First column name = %s, want 'created_at'", tb.columns[0].Name)
+		if tb.Columns[0].Name != "created_at" {
+			t.Errorf("First column name = %s, want 'created_at'", tb.Columns[0].Name)
 		}
-		if tb.columns[1].Name != "updated_at" {
-			t.Errorf("Second column name = %s, want 'updated_at'", tb.columns[1].Name)
+		if tb.Columns[1].Name != "updated_at" {
+			t.Errorf("Second column name = %s, want 'updated_at'", tb.Columns[1].Name)
 		}
 
 		// Both should be datetime with NOW() default
-		for i, col := range tb.columns {
+		for i, col := range tb.Columns {
 			if col.Type != "datetime" {
 				t.Errorf("Column %d type = %s, want 'datetime'", i, col.Type)
 			}
@@ -349,11 +349,11 @@ func TestTableBuilder_toBaseObject(t *testing.T) {
 		}
 
 		// Should add deleted_at column
-		if len(tb.columns) != 1 {
-			t.Fatalf("Expected 1 column (deleted_at), got %d", len(tb.columns))
+		if len(tb.Columns) != 1 {
+			t.Fatalf("Expected 1 column (deleted_at), got %d", len(tb.Columns))
 		}
 
-		col := tb.columns[0]
+		col := tb.Columns[0]
 		if col.Name != "deleted_at" {
 			t.Errorf("Column name = %s, want 'deleted_at'", col.Name)
 		}
@@ -381,11 +381,11 @@ func TestTableBuilder_toBaseObject(t *testing.T) {
 		}
 
 		// Should add position column
-		if len(tb.columns) != 1 {
-			t.Fatalf("Expected 1 column (position), got %d", len(tb.columns))
+		if len(tb.Columns) != 1 {
+			t.Fatalf("Expected 1 column (position), got %d", len(tb.Columns))
 		}
 
-		col := tb.columns[0]
+		col := tb.Columns[0]
 		if col.Name != "position" {
 			t.Errorf("Column name = %s, want 'position'", col.Name)
 		}
@@ -454,8 +454,8 @@ func TestTableBuilder_toBaseObject(t *testing.T) {
 		_, _ = timestampsFn(goja.Undefined())
 
 		// Should have: id, name, quantity, created_at, updated_at
-		if len(tb.columns) != 5 {
-			t.Errorf("Expected 5 columns, got %d", len(tb.columns))
+		if len(tb.Columns) != 5 {
+			t.Errorf("Expected 5 columns, got %d", len(tb.Columns))
 		}
 	})
 }

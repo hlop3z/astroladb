@@ -1,4 +1,4 @@
-package runtime
+package builder
 
 import (
 	"strings"
@@ -13,26 +13,26 @@ import (
 // TableChain provides chainable table-level operations after column definitions.
 type TableChain struct {
 	vm            *goja.Runtime
-	columns       []*ColumnDef
-	indexes       []*IndexDef
-	relationships []*RelationshipDef
-	docs          string
-	deprecated    string
+	Columns       []*ColumnDef
+	Indexes       []*IndexDef
+	Relationships []*RelationshipDef
+	Docs          string
+	Deprecated    string
 
 	// Table-level metadata for x-db extensions
-	auditable  bool     // Add created_by, updated_by columns
-	sortBy     []string // Default ordering (e.g., ["-created_at", "name"])
-	searchable []string // Columns for fulltext search
-	filterable []string // Columns allowed in WHERE clauses
+	Auditable  bool     // Add created_by, updated_by columns
+	SortBy     []string // Default ordering (e.g., ["-created_at", "name"])
+	Searchable []string // Columns for fulltext search
+	Filterable []string // Columns allowed in WHERE clauses
 }
 
 // NewTableChain creates a TableChain from collected column definitions.
 func NewTableChain(vm *goja.Runtime, columns []*ColumnDef, indexes []*IndexDef) *TableChain {
 	return &TableChain{
 		vm:            vm,
-		columns:       columns,
-		indexes:       indexes,
-		relationships: make([]*RelationshipDef, 0),
+		Columns:       columns,
+		Indexes:       indexes,
+		Relationships: make([]*RelationshipDef, 0),
 	}
 }
 
@@ -42,12 +42,12 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 
 	// timestamps() - adds created_at and updated_at
 	_ = obj.Set("timestamps", func() *goja.Object {
-		tc.columns = append(tc.columns, &ColumnDef{
+		tc.Columns = append(tc.Columns, &ColumnDef{
 			Name:    "created_at",
 			Type:    "datetime",
 			Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
 		})
-		tc.columns = append(tc.columns, &ColumnDef{
+		tc.Columns = append(tc.Columns, &ColumnDef{
 			Name:    "updated_at",
 			Type:    "datetime",
 			Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
@@ -57,7 +57,7 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 
 	// soft_delete() - adds deleted_at
 	_ = obj.Set("soft_delete", func() *goja.Object {
-		tc.columns = append(tc.columns, &ColumnDef{
+		tc.Columns = append(tc.Columns, &ColumnDef{
 			Name:     "deleted_at",
 			Type:     "datetime",
 			Nullable: true,
@@ -67,7 +67,7 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 
 	// sortable() - adds position
 	_ = obj.Set("sortable", func() *goja.Object {
-		tc.columns = append(tc.columns, &ColumnDef{
+		tc.Columns = append(tc.Columns, &ColumnDef{
 			Name:    "position",
 			Type:    "integer",
 			Default: 0,
@@ -77,7 +77,7 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 
 	// index(...columns) - composite index
 	_ = obj.Set("index", func(columns ...string) *goja.Object {
-		tc.indexes = append(tc.indexes, &IndexDef{
+		tc.Indexes = append(tc.Indexes, &IndexDef{
 			Columns: columns,
 		})
 		return obj
@@ -86,7 +86,7 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 	// unique(...columns) - composite uniqueness
 	_ = obj.Set("unique", func(columns ...string) *goja.Object {
 		existingCols := make(map[string]bool)
-		for _, c := range tc.columns {
+		for _, c := range tc.Columns {
 			existingCols[c.Name] = true
 		}
 
@@ -100,7 +100,7 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 				cols[i] = col
 			}
 		}
-		tc.indexes = append(tc.indexes, &IndexDef{
+		tc.Indexes = append(tc.Indexes, &IndexDef{
 			Columns: cols,
 			Unique:  true,
 		})
@@ -109,7 +109,7 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 
 	// many_to_many(ref)
 	_ = obj.Set("many_to_many", func(ref string) *goja.Object {
-		tc.relationships = append(tc.relationships, &RelationshipDef{
+		tc.Relationships = append(tc.Relationships, &RelationshipDef{
 			Type:   "many_to_many",
 			Target: ref,
 		})
@@ -132,7 +132,7 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 			rel.JunctionSource = refs[0]
 			rel.JunctionTarget = refs[1]
 		}
-		tc.relationships = append(tc.relationships, rel)
+		tc.Relationships = append(tc.Relationships, rel)
 		return obj
 	})
 
@@ -151,19 +151,19 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 		typeCol := as + "_type"
 		idCol := as + "_id"
 
-		tc.columns = append(tc.columns, &ColumnDef{
+		tc.Columns = append(tc.Columns, &ColumnDef{
 			Name:     typeCol,
 			Type:     "string",
 			TypeArgs: []any{100},
 		})
-		tc.columns = append(tc.columns, &ColumnDef{
+		tc.Columns = append(tc.Columns, &ColumnDef{
 			Name: idCol,
 			Type: "uuid",
 		})
-		tc.indexes = append(tc.indexes, &IndexDef{
+		tc.Indexes = append(tc.Indexes, &IndexDef{
 			Columns: []string{typeCol, idCol},
 		})
-		tc.relationships = append(tc.relationships, &RelationshipDef{
+		tc.Relationships = append(tc.Relationships, &RelationshipDef{
 			Type:    "polymorphic",
 			Targets: refs,
 			As:      as,
@@ -173,25 +173,25 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 
 	// docs(description) - table documentation
 	_ = obj.Set("docs", func(description string) *goja.Object {
-		tc.docs = description
+		tc.Docs = description
 		return obj
 	})
 
 	// deprecated(reason) - mark table as deprecated
 	_ = obj.Set("deprecated", func(reason string) *goja.Object {
-		tc.deprecated = reason
+		tc.Deprecated = reason
 		return obj
 	})
 
 	// auditable() - adds created_by and updated_by columns
 	_ = obj.Set("auditable", func() *goja.Object {
-		tc.auditable = true
-		tc.columns = append(tc.columns, &ColumnDef{
+		tc.Auditable = true
+		tc.Columns = append(tc.Columns, &ColumnDef{
 			Name:     "created_by",
 			Type:     "uuid",
 			Nullable: true,
 		})
-		tc.columns = append(tc.columns, &ColumnDef{
+		tc.Columns = append(tc.Columns, &ColumnDef{
 			Name:     "updated_by",
 			Type:     "uuid",
 			Nullable: true,
@@ -201,19 +201,19 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 
 	// sort_by(...columns) - default ordering (e.g., ["-created_at", "name"])
 	_ = obj.Set("sort_by", func(columns ...string) *goja.Object {
-		tc.sortBy = columns
+		tc.SortBy = columns
 		return obj
 	})
 
 	// searchable(...columns) - columns for fulltext search
 	_ = obj.Set("searchable", func(columns ...string) *goja.Object {
-		tc.searchable = columns
+		tc.Searchable = columns
 		return obj
 	})
 
 	// filterable(...columns) - columns allowed in WHERE clauses
 	_ = obj.Set("filterable", func(columns ...string) *goja.Object {
-		tc.filterable = columns
+		tc.Filterable = columns
 		return obj
 	})
 
@@ -230,43 +230,43 @@ func (tc *TableChain) ToResult() goja.Value {
 	result := tc.vm.NewObject()
 
 	// Convert columns to maps
-	columns := make([]map[string]any, 0, len(tc.columns)+len(tc.relationships))
-	for _, col := range tc.columns {
+	columns := make([]map[string]any, 0, len(tc.Columns)+len(tc.Relationships))
+	for _, col := range tc.Columns {
 		columns = append(columns, columnDefToMap(col))
 	}
 
 	// Add relationship markers
-	for _, rel := range tc.relationships {
+	for _, rel := range tc.Relationships {
 		columns = append(columns, relationshipDefToMap(rel))
 	}
 
 	// Convert indexes to maps
-	indexes := make([]map[string]any, 0, len(tc.indexes))
-	for _, idx := range tc.indexes {
+	indexes := make([]map[string]any, 0, len(tc.Indexes))
+	for _, idx := range tc.Indexes {
 		indexes = append(indexes, indexDefToMap(idx))
 	}
 
 	_ = result.Set("columns", columns)
 	_ = result.Set("indexes", indexes)
-	if tc.docs != "" {
-		_ = result.Set("docs", tc.docs)
+	if tc.Docs != "" {
+		_ = result.Set("docs", tc.Docs)
 	}
-	if tc.deprecated != "" {
-		_ = result.Set("deprecated", tc.deprecated)
+	if tc.Deprecated != "" {
+		_ = result.Set("deprecated", tc.Deprecated)
 	}
 
 	// Table-level metadata for x-db extensions
-	if tc.auditable {
+	if tc.Auditable {
 		_ = result.Set("auditable", true)
 	}
-	if len(tc.sortBy) > 0 {
-		_ = result.Set("sort_by", tc.sortBy)
+	if len(tc.SortBy) > 0 {
+		_ = result.Set("sort_by", tc.SortBy)
 	}
-	if len(tc.searchable) > 0 {
-		_ = result.Set("searchable", tc.searchable)
+	if len(tc.Searchable) > 0 {
+		_ = result.Set("searchable", tc.Searchable)
 	}
-	if len(tc.filterable) > 0 {
-		_ = result.Set("filterable", tc.filterable)
+	if len(tc.Filterable) > 0 {
+		_ = result.Set("filterable", tc.Filterable)
 	}
 
 	return result

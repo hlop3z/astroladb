@@ -7,6 +7,7 @@ import (
 	"github.com/dop251/goja"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/runtime/schema"
 )
 
 func TestBindSQL(t *testing.T) {
@@ -493,7 +494,7 @@ func TestObjectAPI_TableChain(t *testing.T) {
 
 func TestExtractTableName(t *testing.T) {
 	// Note: Convention is singular table names (user, not users)
-	// extractTableName just extracts the table part, no singularization needed
+	// ExtractTableName just extracts the table part, no singularization needed
 	tests := []struct {
 		ref  string
 		want string
@@ -508,9 +509,9 @@ func TestExtractTableName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.ref, func(t *testing.T) {
-			got := extractTableName(tt.ref)
+			got := schema.ExtractTableName(tt.ref)
 			if got != tt.want {
-				t.Errorf("extractTableName(%q) = %q, want %q", tt.ref, got, tt.want)
+				t.Errorf("schema.ExtractTableName(%q) = %q, want %q", tt.ref, got, tt.want)
 			}
 		})
 	}

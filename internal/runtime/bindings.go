@@ -8,6 +8,7 @@ import (
 	"github.com/dop251/goja"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/runtime/builder"
 )
 
 // BindingsContext provides context for DSL bindings during evaluation.
@@ -208,7 +209,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 		}
 
 		ns, table := mustParseRef(ref, s.vm)
-		tb := NewTableBuilder(s.vm)
+		tb := builder.NewTableBuilder(s.vm)
 		tbObj := tb.ToMigrationObject()
 
 		_, err := builderFn(goja.Undefined(), tbObj)

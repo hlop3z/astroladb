@@ -1,9 +1,10 @@
-package runtime
+package schema
 
 import (
 	"testing"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/runtime/builder"
 )
 
 // TestNewColumnConverter tests the constructor
@@ -26,7 +27,7 @@ func TestToAST(t *testing.T) {
 	})
 
 	t.Run("basic column", func(t *testing.T) {
-		col := &ColumnDef{
+		col := &builder.ColumnDef{
 			Name:     "username",
 			Type:     "string",
 			TypeArgs: []any{255},
@@ -54,7 +55,7 @@ func TestToAST(t *testing.T) {
 
 	t.Run("column with default value", func(t *testing.T) {
 		defaultValue := "active"
-		col := &ColumnDef{
+		col := &builder.ColumnDef{
 			Name:    "status",
 			Type:    "string",
 			Default: defaultValue,
@@ -71,7 +72,7 @@ func TestToAST(t *testing.T) {
 
 	t.Run("column with backfill", func(t *testing.T) {
 		backfillValue := "unknown"
-		col := &ColumnDef{
+		col := &builder.ColumnDef{
 			Name:     "category",
 			Type:     "string",
 			Backfill: backfillValue,
@@ -89,7 +90,7 @@ func TestToAST(t *testing.T) {
 	t.Run("column with min and max", func(t *testing.T) {
 		min := 18.0
 		max := 100.0
-		col := &ColumnDef{
+		col := &builder.ColumnDef{
 			Name: "age",
 			Type: "integer",
 			Min:  &min,
@@ -112,10 +113,10 @@ func TestToAST(t *testing.T) {
 	})
 
 	t.Run("column with reference", func(t *testing.T) {
-		col := &ColumnDef{
+		col := &builder.ColumnDef{
 			Name: "user_id",
 			Type: "uuid",
-			Reference: &RefDef{
+			Reference: &builder.RefDef{
 				Table:    "users",
 				Column:   "id",
 				OnDelete: "CASCADE",
@@ -139,7 +140,7 @@ func TestToAST(t *testing.T) {
 
 	t.Run("column with computed expression", func(t *testing.T) {
 		computed := "UPPER(name)"
-		col := &ColumnDef{
+		col := &builder.ColumnDef{
 			Name:     "name_upper",
 			Type:     "string",
 			Computed: &computed,
@@ -156,7 +157,7 @@ func TestToAST(t *testing.T) {
 	})
 
 	t.Run("column with metadata", func(t *testing.T) {
-		col := &ColumnDef{
+		col := &builder.ColumnDef{
 			Name:       "email",
 			Type:       "string",
 			Format:     "email",
@@ -193,7 +194,7 @@ func TestRefToAST(t *testing.T) {
 	})
 
 	t.Run("reference with column", func(t *testing.T) {
-		ref := &RefDef{
+		ref := &builder.RefDef{
 			Table:    "users",
 			Column:   "id",
 			OnDelete: "CASCADE",
@@ -219,7 +220,7 @@ func TestRefToAST(t *testing.T) {
 	})
 
 	t.Run("reference without column defaults to id", func(t *testing.T) {
-		ref := &RefDef{
+		ref := &builder.RefDef{
 			Table:    "posts",
 			OnDelete: "SET NULL",
 		}
@@ -243,7 +244,7 @@ func TestIndexToAST(t *testing.T) {
 	})
 
 	t.Run("basic index", func(t *testing.T) {
-		idx := &IndexDef{
+		idx := &builder.IndexDef{
 			Name:    "idx_email",
 			Columns: []string{"email"},
 			Unique:  true,
@@ -266,7 +267,7 @@ func TestIndexToAST(t *testing.T) {
 
 	t.Run("composite index with where clause", func(t *testing.T) {
 		where := "deleted_at IS NULL"
-		idx := &IndexDef{
+		idx := &builder.IndexDef{
 			Name:    "idx_active_users",
 			Columns: []string{"email", "created_at"},
 			Unique:  false,
@@ -291,14 +292,14 @@ func TestColumnsToAST(t *testing.T) {
 	converter := NewColumnConverter()
 
 	t.Run("empty slice", func(t *testing.T) {
-		result := converter.ColumnsToAST([]*ColumnDef{})
+		result := converter.ColumnsToAST([]*builder.ColumnDef{})
 		if len(result) != 0 {
 			t.Errorf("Expected empty slice, got length %d", len(result))
 		}
 	})
 
 	t.Run("multiple columns", func(t *testing.T) {
-		cols := []*ColumnDef{
+		cols := []*builder.ColumnDef{
 			{Name: "id", Type: "uuid", PrimaryKey: true},
 			{Name: "email", Type: "string", Unique: true},
 			{Name: "created_at", Type: "datetime"},
@@ -320,7 +321,7 @@ func TestColumnsToAST(t *testing.T) {
 	})
 
 	t.Run("filters nil columns", func(t *testing.T) {
-		cols := []*ColumnDef{
+		cols := []*builder.ColumnDef{
 			{Name: "id", Type: "uuid"},
 			nil,
 			{Name: "name", Type: "string"},
@@ -339,14 +340,14 @@ func TestIndexesToAST(t *testing.T) {
 	converter := NewColumnConverter()
 
 	t.Run("empty slice", func(t *testing.T) {
-		result := converter.IndexesToAST([]*IndexDef{})
+		result := converter.IndexesToAST([]*builder.IndexDef{})
 		if len(result) != 0 {
 			t.Errorf("Expected empty slice, got length %d", len(result))
 		}
 	})
 
 	t.Run("multiple indexes", func(t *testing.T) {
-		idxs := []*IndexDef{
+		idxs := []*builder.IndexDef{
 			{Name: "idx_email", Columns: []string{"email"}, Unique: true},
 			{Name: "idx_created", Columns: []string{"created_at"}},
 		}
@@ -364,7 +365,7 @@ func TestIndexesToAST(t *testing.T) {
 	})
 
 	t.Run("filters nil indexes", func(t *testing.T) {
-		idxs := []*IndexDef{
+		idxs := []*builder.IndexDef{
 			{Name: "idx_1", Columns: []string{"col1"}},
 			nil,
 			{Name: "idx_2", Columns: []string{"col2"}},
@@ -450,16 +451,16 @@ func TestTableBuilderToAST(t *testing.T) {
 	converter := NewColumnConverter()
 
 	t.Run("basic table builder", func(t *testing.T) {
-		tb := &TableBuilder{
-			columns: []*ColumnDef{
+		tb := &builder.TableBuilder{
+			Columns: []*builder.ColumnDef{
 				{Name: "id", Type: "uuid", PrimaryKey: true},
 				{Name: "name", Type: "string"},
 			},
-			indexes: []*IndexDef{
+			Indexes: []*builder.IndexDef{
 				{Name: "idx_name", Columns: []string{"name"}},
 			},
-			docs:       "User table",
-			deprecated: "",
+			Docs:       "User table",
+			Deprecated: "",
 		}
 
 		result := converter.TableBuilderToAST(tb, "auth", "user")
@@ -481,9 +482,9 @@ func TestTableBuilderToAST(t *testing.T) {
 	})
 
 	t.Run("empty table builder", func(t *testing.T) {
-		tb := &TableBuilder{
-			columns: []*ColumnDef{},
-			indexes: []*IndexDef{},
+		tb := &builder.TableBuilder{
+			Columns: []*builder.ColumnDef{},
+			Indexes: []*builder.IndexDef{},
 		}
 
 		result := converter.TableBuilderToAST(tb, "app", "settings")
@@ -504,20 +505,20 @@ func TestTableChainToAST(t *testing.T) {
 	converter := NewColumnConverter()
 
 	t.Run("table chain with all features", func(t *testing.T) {
-		tc := &TableChain{
-			columns: []*ColumnDef{
+		tc := &builder.TableChain{
+			Columns: []*builder.ColumnDef{
 				{Name: "id", Type: "uuid", PrimaryKey: true},
 				{Name: "title", Type: "string"},
 			},
-			indexes: []*IndexDef{
+			Indexes: []*builder.IndexDef{
 				{Name: "idx_title", Columns: []string{"title"}},
 			},
-			docs:       "Blog post",
-			deprecated: "Use v2 API",
-			auditable:  true,
-			sortBy:     []string{"created_at"},
-			searchable: []string{"title", "content"},
-			filterable: []string{"status"},
+			Docs:       "Blog post",
+			Deprecated: "Use v2 API",
+			Auditable:  true,
+			SortBy:     []string{"created_at"},
+			Searchable: []string{"title", "content"},
+			Filterable: []string{"status"},
 		}
 
 		result := converter.TableChainToAST(tc, "blog", "post")
@@ -545,13 +546,13 @@ func TestTableChainToAST(t *testing.T) {
 	})
 
 	t.Run("minimal table chain", func(t *testing.T) {
-		tc := &TableChain{
-			columns:    []*ColumnDef{{Name: "id", Type: "uuid"}},
-			indexes:    []*IndexDef{},
-			auditable:  false,
-			sortBy:     nil,
-			searchable: nil,
-			filterable: nil,
+		tc := &builder.TableChain{
+			Columns:    []*builder.ColumnDef{{Name: "id", Type: "uuid"}},
+			Indexes:    []*builder.IndexDef{},
+			Auditable:  false,
+			SortBy:     nil,
+			Searchable: nil,
+			Filterable: nil,
 		}
 
 		result := converter.TableChainToAST(tc, "test", "table")

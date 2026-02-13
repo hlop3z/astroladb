@@ -1,9 +1,9 @@
-package runtime
+package builder
 
 import (
 	"testing"
 
-	"github.com/hlop3z/astroladb/internal/registry"
+	"github.com/dop251/goja"
 )
 
 // TestColumnModifiers tests the column modifier functions that had 0% coverage
@@ -197,9 +197,8 @@ func TestColumnModifiersCombined(t *testing.T) {
 
 // TestTableBuilderAddColumn tests the addColumn method
 func TestTableBuilderAddColumn(t *testing.T) {
-	sb := NewSandbox(registry.NewModelRegistry())
-
-	tb := NewTableBuilder(sb.vm)
+	vm := goja.New()
+	tb := NewTableBuilder(vm)
 
 	// Add a column using addColumn with modifiers
 	obj := tb.addColumn("email", "string",
@@ -213,11 +212,11 @@ func TestTableBuilderAddColumn(t *testing.T) {
 	}
 
 	// Verify column was added
-	if len(tb.columns) != 1 {
-		t.Fatalf("Expected 1 column, got %d", len(tb.columns))
+	if len(tb.Columns) != 1 {
+		t.Fatalf("Expected 1 column, got %d", len(tb.Columns))
 	}
 
-	col := tb.columns[0]
+	col := tb.Columns[0]
 	if col.Name != "email" {
 		t.Errorf("Expected name 'email', got %q", col.Name)
 	}

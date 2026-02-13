@@ -1,4 +1,4 @@
-package runtime
+package builder
 
 import (
 	"github.com/dop251/goja"

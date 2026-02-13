@@ -1,5 +1,7 @@
-// Package runtime provides centralized FK and reference building.
-package runtime
+// Package schema provides centralized FK and reference building.
+package schema
+
+import "github.com/hlop3z/astroladb/internal/runtime/builder"
 
 // ReferenceBuilder provides methods for creating foreign key columns and indexes.
 // It centralizes the logic for belongs_to, one_to_one, and polymorphic relationships.
@@ -20,15 +22,15 @@ type ReferenceOpts struct {
 
 // BuildFK creates a column and index for a belongs_to relationship.
 // The columnName should be the alias (e.g., "author"), and _id will be appended.
-func (rb *ReferenceBuilder) BuildFK(ref string, columnName string, opts ReferenceOpts) (*ColumnDef, *IndexDef) {
+func (rb *ReferenceBuilder) BuildFK(ref string, columnName string, opts ReferenceOpts) (*builder.ColumnDef, *builder.IndexDef) {
 	fkName := columnName + "_id"
 
-	col := &ColumnDef{
+	col := &builder.ColumnDef{
 		Name:     fkName,
 		Type:     "uuid",
 		Nullable: opts.Nullable,
 		Unique:   opts.Unique,
-		Reference: &RefDef{
+		Reference: &builder.RefDef{
 			Table:    ref,
 			Column:   "id",
 			OnDelete: opts.OnDelete,
@@ -38,7 +40,7 @@ func (rb *ReferenceBuilder) BuildFK(ref string, columnName string, opts Referenc
 		IsRelationship: true,
 	}
 
-	idx := &IndexDef{
+	idx := &builder.IndexDef{
 		Columns: []string{fkName},
 		Unique:  opts.Unique,
 	}
@@ -47,20 +49,20 @@ func (rb *ReferenceBuilder) BuildFK(ref string, columnName string, opts Referenc
 }
 
 // BuildBelongsTo creates a standard belongs_to FK column and index.
-func (rb *ReferenceBuilder) BuildBelongsTo(ref string, columnName string) (*ColumnDef, *IndexDef) {
+func (rb *ReferenceBuilder) BuildBelongsTo(ref string, columnName string) (*builder.ColumnDef, *builder.IndexDef) {
 	return rb.BuildFK(ref, columnName, ReferenceOpts{})
 }
 
 // BuildOneToOne creates a unique FK column and index for one_to_one relationships.
-func (rb *ReferenceBuilder) BuildOneToOne(ref string, columnName string) (*ColumnDef, *IndexDef) {
+func (rb *ReferenceBuilder) BuildOneToOne(ref string, columnName string) (*builder.ColumnDef, *builder.IndexDef) {
 	return rb.BuildFK(ref, columnName, ReferenceOpts{Unique: true})
 }
 
 // PolymorphicResult contains the columns and index for a polymorphic relationship.
 type PolymorphicResult struct {
-	TypeColumn *ColumnDef
-	IDColumn   *ColumnDef
-	Index      *IndexDef
+	TypeColumn *builder.ColumnDef
+	IDColumn   *builder.ColumnDef
+	Index      *builder.IndexDef
 }
 
 // BuildPolymorphic creates type + id columns for polymorphic relationships.
@@ -69,20 +71,20 @@ func (rb *ReferenceBuilder) BuildPolymorphic(targets []string, alias string, nul
 	typeColName := alias + "_type"
 	idColName := alias + "_id"
 
-	typeCol := &ColumnDef{
+	typeCol := &builder.ColumnDef{
 		Name:     typeColName,
 		Type:     "string",
 		TypeArgs: []any{100}, // Max 100 chars for type names
 		Nullable: nullable,
 	}
 
-	idCol := &ColumnDef{
+	idCol := &builder.ColumnDef{
 		Name:     idColName,
 		Type:     "uuid",
 		Nullable: nullable,
 	}
 
-	idx := &IndexDef{
+	idx := &builder.IndexDef{
 		Columns: []string{typeColName, idColName},
 		Unique:  false,
 	}

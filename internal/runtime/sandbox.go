@@ -18,6 +18,8 @@ import (
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/metadata"
 	"github.com/hlop3z/astroladb/internal/registry"
+	"github.com/hlop3z/astroladb/internal/runtime/builder"
+	"github.com/hlop3z/astroladb/internal/runtime/schema"
 )
 
 // FixedTime is the deterministic time used for all schema evaluations.
@@ -190,11 +192,11 @@ func (s *Sandbox) bindDSL() {
 	})
 
 	// col global - column factory for object-based table definitions
-	colBuilder := NewColBuilder(s.vm)
+	colBuilder := builder.NewColBuilder(s.vm)
 	s.vm.Set("col", colBuilder.ToObject())
 
 	// fn global - expression builder for computed columns
-	fnBuilder := NewFnBuilder(s.vm)
+	fnBuilder := builder.NewFnBuilder(s.vm)
 	s.vm.Set("fn", fnBuilder.ToObject())
 
 	// table() function - defines a table using object API: table({ id: col.id() })
@@ -224,8 +226,8 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 		}
 
 		// Extract column definitions from the object
-		columns := make([]*ColumnDef, 0)
-		indexes := make([]*IndexDef, 0)
+		columns := make([]*builder.ColumnDef, 0)
+		indexes := make([]*builder.IndexDef, 0)
 
 		// Get keys and sort them for deterministic column order
 		keys := columnsObj.Keys()
@@ -249,13 +251,13 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 			}
 
 			// Extract the ColDef pointer
-			colDef, ok := colDefVal.Export().(*ColDef)
+			colDef, ok := colDefVal.Export().(*builder.ColDef)
 			if !ok {
 				continue
 			}
 
 			// Convert ColDef to ColumnDef with the name from the object key
-			columnDef := &ColumnDef{
+			columnDef := &builder.ColumnDef{
 				Type:       colDef.Type,
 				TypeArgs:   colDef.TypeArgs,
 				Nullable:   colDef.Nullable,
@@ -278,7 +280,7 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 			// Handle polymorphic relationships specially - they create two columns
 			if colDef.Type == "polymorphic" {
 				// Create {key}_type column
-				typeCol := &ColumnDef{
+				typeCol := &builder.ColumnDef{
 					Name:     key + "_type",
 					Type:     "string",
 					TypeArgs: []any{100},
@@ -287,7 +289,7 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 				columns = append(columns, typeCol)
 
 				// Create {key}_id column
-				idCol := &ColumnDef{
+				idCol := &builder.ColumnDef{
 					Name:     key + "_id",
 					Type:     "uuid",
 					Nullable: colDef.Nullable,
@@ -295,7 +297,7 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 				columns = append(columns, idCol)
 
 				// Create composite index on type + id
-				indexes = append(indexes, &IndexDef{
+				indexes = append(indexes, &builder.IndexDef{
 					Columns: []string{key + "_type", key + "_id"},
 					Unique:  false,
 				})
@@ -314,7 +316,7 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 				columnDef.Reference = colDef.Reference
 
 				// Auto-create index on foreign key
-				indexes = append(indexes, &IndexDef{
+				indexes = append(indexes, &builder.IndexDef{
 					Columns: []string{columnDef.Name},
 					Unique:  colDef.Unique,
 				})
@@ -327,7 +329,7 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 		}
 
 		// Return a chainable TableChain object
-		tc := NewTableChain(s.vm, columns, indexes)
+		tc := builder.NewTableChain(s.vm, columns, indexes)
 		return tc.ToChainableObject()
 	}
 }
@@ -470,14 +472,14 @@ func (s *Sandbox) parseTableDef(namespace, name string, defObj any) *ast.TableDe
 	// Parse indexes (handle both []any and []map[string]any from Goja)
 	if idxsAny, ok := def["indexes"].([]any); ok {
 		for _, i := range idxsAny {
-			if idxDef := parseIndexDef(i); idxDef != nil {
+			if idxDef := schema.ParseIndexDefMap(i); idxDef != nil {
 				tableDef.Indexes = append(tableDef.Indexes, idxDef)
 			}
 		}
 	} else if idxsMap, ok := def["indexes"].([]map[string]any); ok {
 		// Handle direct []map[string]any from Go slices passed through Goja
 		for _, i := range idxsMap {
-			if idxDef := parseIndexDef(i); idxDef != nil {
+			if idxDef := schema.ParseIndexDefMap(i); idxDef != nil {
 				tableDef.Indexes = append(tableDef.Indexes, idxDef)
 			}
 		}
@@ -584,7 +586,7 @@ func (s *Sandbox) parseColumnDef(obj any) *ast.ColumnDef {
 
 	// Parse reference
 	if ref, ok := m["reference"].(map[string]any); ok {
-		col.Reference = parseReference(ref)
+		col.Reference = schema.ParseReferenceMap(ref)
 	}
 
 	// Parse validation

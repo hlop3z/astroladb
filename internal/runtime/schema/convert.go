@@ -1,10 +1,11 @@
-// Package runtime provides direct conversion between runtime types and AST.
-package runtime
+// Package schema provides direct conversion between runtime types and AST.
+package schema
 
 import (
 	"log/slog"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/runtime/builder"
 )
 
 // ColumnConverter converts runtime ColumnDef directly to ast.ColumnDef.
@@ -19,7 +20,7 @@ func NewColumnConverter() *ColumnConverter {
 
 // ToAST converts a runtime ColumnDef to an ast.ColumnDef.
 // This bypasses the map intermediate step for direct, efficient conversion.
-func (c *ColumnConverter) ToAST(col *ColumnDef) *ast.ColumnDef {
+func (c *ColumnConverter) ToAST(col *builder.ColumnDef) *ast.ColumnDef {
 	if col == nil {
 		return nil
 	}
@@ -79,7 +80,7 @@ func (c *ColumnConverter) ToAST(col *ColumnDef) *ast.ColumnDef {
 }
 
 // RefToAST converts a runtime RefDef to an ast.Reference.
-func (c *ColumnConverter) RefToAST(ref *RefDef) *ast.Reference {
+func (c *ColumnConverter) RefToAST(ref *builder.RefDef) *ast.Reference {
 	if ref == nil {
 		return nil
 	}
@@ -98,7 +99,7 @@ func (c *ColumnConverter) RefToAST(ref *RefDef) *ast.Reference {
 }
 
 // IndexToAST converts a runtime IndexDef to an ast.IndexDef.
-func (c *ColumnConverter) IndexToAST(idx *IndexDef) *ast.IndexDef {
+func (c *ColumnConverter) IndexToAST(idx *builder.IndexDef) *ast.IndexDef {
 	if idx == nil {
 		return nil
 	}
@@ -112,7 +113,7 @@ func (c *ColumnConverter) IndexToAST(idx *IndexDef) *ast.IndexDef {
 }
 
 // ColumnsToAST converts a slice of runtime ColumnDefs to ast.ColumnDefs.
-func (c *ColumnConverter) ColumnsToAST(cols []*ColumnDef) []*ast.ColumnDef {
+func (c *ColumnConverter) ColumnsToAST(cols []*builder.ColumnDef) []*ast.ColumnDef {
 	result := make([]*ast.ColumnDef, 0, len(cols))
 	for _, col := range cols {
 		if astCol := c.ToAST(col); astCol != nil {
@@ -123,7 +124,7 @@ func (c *ColumnConverter) ColumnsToAST(cols []*ColumnDef) []*ast.ColumnDef {
 }
 
 // IndexesToAST converts a slice of runtime IndexDefs to ast.IndexDefs.
-func (c *ColumnConverter) IndexesToAST(idxs []*IndexDef) []*ast.IndexDef {
+func (c *ColumnConverter) IndexesToAST(idxs []*builder.IndexDef) []*ast.IndexDef {
 	result := make([]*ast.IndexDef, 0, len(idxs))
 	for _, idx := range idxs {
 		if astIdx := c.IndexToAST(idx); astIdx != nil {
@@ -151,31 +152,31 @@ func (c *ColumnConverter) convertValue(v any) any {
 
 // TableBuilderToAST converts a TableBuilder directly to an ast.TableDef.
 // This provides a complete conversion path without map intermediaries.
-func (c *ColumnConverter) TableBuilderToAST(tb *TableBuilder, namespace, name string) *ast.TableDef {
+func (c *ColumnConverter) TableBuilderToAST(tb *builder.TableBuilder, namespace, name string) *ast.TableDef {
 	return &ast.TableDef{
 		Namespace:  namespace,
 		Name:       name,
-		Columns:    c.ColumnsToAST(tb.columns),
-		Indexes:    c.IndexesToAST(tb.indexes),
+		Columns:    c.ColumnsToAST(tb.Columns),
+		Indexes:    c.IndexesToAST(tb.Indexes),
 		Checks:     make([]*ast.CheckDef, 0),
-		Docs:       tb.docs,
-		Deprecated: tb.deprecated,
+		Docs:       tb.Docs,
+		Deprecated: tb.Deprecated,
 	}
 }
 
 // TableChainToAST converts a TableChain directly to an ast.TableDef.
-func (c *ColumnConverter) TableChainToAST(tc *TableChain, namespace, name string) *ast.TableDef {
+func (c *ColumnConverter) TableChainToAST(tc *builder.TableChain, namespace, name string) *ast.TableDef {
 	return &ast.TableDef{
 		Namespace:  namespace,
 		Name:       name,
-		Columns:    c.ColumnsToAST(tc.columns),
-		Indexes:    c.IndexesToAST(tc.indexes),
+		Columns:    c.ColumnsToAST(tc.Columns),
+		Indexes:    c.IndexesToAST(tc.Indexes),
 		Checks:     make([]*ast.CheckDef, 0),
-		Docs:       tc.docs,
-		Deprecated: tc.deprecated,
-		Auditable:  tc.auditable,
-		SortBy:     tc.sortBy,
-		Searchable: tc.searchable,
-		Filterable: tc.filterable,
+		Docs:       tc.Docs,
+		Deprecated: tc.Deprecated,
+		Auditable:  tc.Auditable,
+		SortBy:     tc.SortBy,
+		Searchable: tc.Searchable,
+		Filterable: tc.Filterable,
 	}
 }
