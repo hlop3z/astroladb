@@ -293,17 +293,7 @@ Opens an interactive HTTP server where you can explore your schema, test the nor
 
 ---
 
-## Stability Status
-
-### Core Engine — Stable
-
-- **Schema DSL**
-- **Type Exports** (Rust, Go, Python, TypeScript)
-- **OpenAPI Export**
-- **Generator Runtime**
-- Does **not** modify your database directly
-
-### Migrations — Preview Status
+## Migrations — Preview Status
 
 - Migration engine is **actively evolving**
 - APIs may introduce breaking changes
