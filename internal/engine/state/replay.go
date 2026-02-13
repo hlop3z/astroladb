@@ -7,6 +7,39 @@ import (
 	"github.com/hlop3z/astroladb/internal/ast"
 )
 
+// tableNotFoundErr creates a standard "table does not exist" error with fuzzy suggestions.
+func tableNotFoundErr(schema *Schema, ns, name string) *alerr.Error {
+	err := alerr.New(alerr.ErrSchemaNotFound, "table does not exist").
+		WithTable(ns, name)
+	names := make([]string, 0, len(schema.Tables))
+	for k := range schema.Tables {
+		names = append(names, k)
+	}
+	qualifiedName := name
+	if ns != "" {
+		qualifiedName = ns + "." + name
+	}
+	if suggestion := alerr.SuggestSimilar(qualifiedName, names); suggestion != "" {
+		err.WithHelp(suggestion)
+	}
+	return err
+}
+
+// columnNotFoundErr creates a standard "column does not exist" error with fuzzy suggestions.
+func columnNotFoundErr(table *ast.TableDef, ns, tableName, colName string) *alerr.Error {
+	err := alerr.New(alerr.ErrSchemaNotFound, "column does not exist").
+		WithTable(ns, tableName).
+		WithColumn(colName)
+	names := make([]string, 0, len(table.Columns))
+	for _, col := range table.Columns {
+		names = append(names, col.Name)
+	}
+	if suggestion := alerr.SuggestSimilar(colName, names); suggestion != "" {
+		err.WithHelp(suggestion)
+	}
+	return err
+}
+
 // ReplayOperations applies a sequence of operations to build the resulting schema state.
 // This is used for computing what the schema looks like at a specific migration revision.
 func ReplayOperations(ops []ast.Operation) (*Schema, error) {
@@ -117,8 +150,7 @@ func applyDropTable(schema *Schema, op *ast.DropTable) error {
 	}
 
 	if _, exists := schema.Tables[qualifiedName]; !exists && !op.IfExists {
-		return alerr.New(alerr.ErrSchemaNotFound, "table does not exist").
-			WithTable(op.Namespace, op.Name)
+		return tableNotFoundErr(schema, op.Namespace, op.Name)
 	}
 
 	delete(schema.Tables, qualifiedName)
@@ -136,8 +168,7 @@ func applyRenameTable(schema *Schema, op *ast.RenameTable) error {
 
 	table, exists := schema.Tables[oldQualified]
 	if !exists {
-		return alerr.New(alerr.ErrSchemaNotFound, "table does not exist").
-			WithTable(op.Namespace, op.OldName)
+		return tableNotFoundErr(schema, op.Namespace, op.OldName)
 	}
 
 	if _, exists := schema.Tables[newQualified]; exists {
@@ -162,8 +193,7 @@ func applyAddColumn(schema *Schema, op *ast.AddColumn) error {
 
 	table, exists := schema.Tables[qualifiedName]
 	if !exists {
-		return alerr.New(alerr.ErrSchemaNotFound, "table does not exist").
-			WithTable(op.Namespace, op.Table_)
+		return tableNotFoundErr(schema, op.Namespace, op.Table_)
 	}
 
 	// Check if column already exists
@@ -191,8 +221,7 @@ func applyDropColumn(schema *Schema, op *ast.DropColumn) error {
 
 	table, exists := schema.Tables[qualifiedName]
 	if !exists {
-		return alerr.New(alerr.ErrSchemaNotFound, "table does not exist").
-			WithTable(op.Namespace, op.Table_)
+		return tableNotFoundErr(schema, op.Namespace, op.Table_)
 	}
 
 	// Find and remove the column
@@ -207,9 +236,7 @@ func applyDropColumn(schema *Schema, op *ast.DropColumn) error {
 	}
 
 	if !found {
-		return alerr.New(alerr.ErrSchemaNotFound, "column does not exist").
-			WithTable(op.Namespace, op.Table_).
-			WithColumn(op.Name)
+		return columnNotFoundErr(table, op.Namespace, op.Table_, op.Name)
 	}
 
 	table.Columns = newColumns
@@ -225,8 +252,7 @@ func applyRenameColumn(schema *Schema, op *ast.RenameColumn) error {
 
 	table, exists := schema.Tables[qualifiedName]
 	if !exists {
-		return alerr.New(alerr.ErrSchemaNotFound, "table does not exist").
-			WithTable(op.Namespace, op.Table_)
+		return tableNotFoundErr(schema, op.Namespace, op.Table_)
 	}
 
 	// Find the column and rename it
@@ -240,9 +266,7 @@ func applyRenameColumn(schema *Schema, op *ast.RenameColumn) error {
 	}
 
 	if !found {
-		return alerr.New(alerr.ErrSchemaNotFound, "column does not exist").
-			WithTable(op.Namespace, op.Table_).
-			WithColumn(op.OldName)
+		return columnNotFoundErr(table, op.Namespace, op.Table_, op.OldName)
 	}
 
 	// Also update any indexes that reference this column
@@ -266,8 +290,7 @@ func applyAlterColumn(schema *Schema, op *ast.AlterColumn) error {
 
 	table, exists := schema.Tables[qualifiedName]
 	if !exists {
-		return alerr.New(alerr.ErrSchemaNotFound, "table does not exist").
-			WithTable(op.Namespace, op.Table_)
+		return tableNotFoundErr(schema, op.Namespace, op.Table_)
 	}
 
 	// Find the column
@@ -280,9 +303,7 @@ func applyAlterColumn(schema *Schema, op *ast.AlterColumn) error {
 	}
 
 	if col == nil {
-		return alerr.New(alerr.ErrSchemaNotFound, "column does not exist").
-			WithTable(op.Namespace, op.Table_).
-			WithColumn(op.Name)
+		return columnNotFoundErr(table, op.Namespace, op.Table_, op.Name)
 	}
 
 	// Apply changes
@@ -314,8 +335,7 @@ func applyCreateIndex(schema *Schema, op *ast.CreateIndex) error {
 
 	table, exists := schema.Tables[qualifiedName]
 	if !exists {
-		return alerr.New(alerr.ErrSchemaNotFound, "table does not exist").
-			WithTable(op.Namespace, op.Table_)
+		return tableNotFoundErr(schema, op.Namespace, op.Table_)
 	}
 
 	// Auto-generate name if not provided (do this first to enable duplicate detection)
@@ -383,8 +403,7 @@ func applyDropIndex(schema *Schema, op *ast.DropIndex) error {
 		var exists bool
 		table, exists = schema.Tables[qualifiedName]
 		if !exists && !op.IfExists {
-			return alerr.New(alerr.ErrSchemaNotFound, "table does not exist").
-				WithTable(op.Namespace, op.Table_)
+			return tableNotFoundErr(schema, op.Namespace, op.Table_)
 		}
 	} else {
 		// Search all tables for the index
@@ -438,8 +457,7 @@ func applyAddForeignKey(schema *Schema, op *ast.AddForeignKey) error {
 
 	table, exists := schema.Tables[qualifiedName]
 	if !exists {
-		return alerr.New(alerr.ErrSchemaNotFound, "table does not exist").
-			WithTable(op.Namespace, op.Table_)
+		return tableNotFoundErr(schema, op.Namespace, op.Table_)
 	}
 
 	// Add the foreign key
@@ -467,8 +485,7 @@ func applyDropForeignKey(schema *Schema, op *ast.DropForeignKey) error {
 
 	table, exists := schema.Tables[qualifiedName]
 	if !exists {
-		return alerr.New(alerr.ErrSchemaNotFound, "table does not exist").
-			WithTable(op.Namespace, op.Table_)
+		return tableNotFoundErr(schema, op.Namespace, op.Table_)
 	}
 
 	// Remove the foreign key

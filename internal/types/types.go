@@ -82,15 +82,33 @@ func All() []*TypeDef {
 func Validate(typeName string, args []any) error {
 	// Check forbidden types first
 	if forbidden, reason := IsForbidden(typeName); forbidden {
-		return alerr.New(alerr.ErrInvalidType, "type is not allowed (JS-unsafe)").
+		err := alerr.New(alerr.ErrInvalidType, "type is not allowed (JS-unsafe)").
 			With("type", typeName).
 			With("reason", reason)
+		switch typeName {
+		case "bigint":
+			err.WithHelp("use 'integer' (32-bit) or 'decimal' (arbitrary precision) instead")
+		case "double":
+			err.WithHelp("use 'float' (32-bit) or 'decimal' (arbitrary precision) instead")
+		case "serial", "bigserial":
+			err.WithHelp("use 'id' (UUID) for primary keys")
+		}
+		return err
 	}
 
 	t := Get(typeName)
 	if t == nil {
-		return alerr.New(alerr.ErrInvalidType, "unknown type").
+		err := alerr.New(alerr.ErrInvalidType, "unknown type").
 			With("type", typeName)
+		// Suggest similar type names
+		names := make([]string, 0, len(registry))
+		for name := range registry {
+			names = append(names, name)
+		}
+		if suggestion := alerr.SuggestSimilar(typeName, names); suggestion != "" {
+			err.WithHelp(suggestion)
+		}
+		return err
 	}
 
 	// Validate argument count

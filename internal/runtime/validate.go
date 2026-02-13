@@ -344,11 +344,14 @@ func DetectForbiddenTypes(ops []ast.Operation) error {
 func checkForbiddenType(typeName string) error {
 	switch typeName {
 	case "int64", "bigint":
-		return alerr.New(alerr.ErrInvalidType, "int64/bigint loses precision in JavaScript (> 2^53)")
+		return alerr.New(alerr.ErrInvalidType, "int64/bigint loses precision in JavaScript (> 2^53)").
+			WithHelp("use 'integer' (32-bit) or 'decimal' instead")
 	case "float64", "double":
-		return alerr.New(alerr.ErrInvalidType, "float64/double has precision issues in JavaScript")
+		return alerr.New(alerr.ErrInvalidType, "float64/double has precision issues in JavaScript").
+			WithHelp("use 'float' (32-bit) or 'decimal' instead")
 	case "auto_increment", "serial", "bigserial":
-		return alerr.New(alerr.ErrInvalidType, "auto-increment IDs are forbidden; use UUID instead")
+		return alerr.New(alerr.ErrInvalidType, "auto-increment IDs are forbidden; use UUID instead").
+			WithHelp("use 'id' (UUID) for primary keys")
 	}
 	return nil
 }
