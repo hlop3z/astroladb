@@ -1,12 +1,27 @@
 package ast
 
 import (
+	"cmp"
 	"fmt"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
+	"github.com/hlop3z/astroladb/internal/strutil"
+)
+
+// Validation messages shared across TableDef, ColumnDef, IndexDef, ForeignKeyDef,
+// and their corresponding Operation types (operation.go).
+const (
+	msgTableNameRequired  = "table name is required"
+	msgColumnNameRequired = "column name is required"
+	msgTableNeedsColumn   = "table must have at least one column"
+	msgIndexNeedsColumn   = "index must have at least one column"
+	msgFKNeedsColumn      = "foreign key must have at least one column"
+	msgFKNeedsRefTable    = "foreign key must reference a table"
+	msgFKNeedsRefColumn   = "foreign key must reference at least one column"
+	msgFKColumnCountMatch = "foreign key column count must match referenced column count"
 )
 
 // validIdentifierPattern matches safe SQL identifiers (lowercase snake_case).
@@ -132,18 +147,12 @@ type TableDef struct {
 
 // FullName returns the full table name in namespace_tablename format.
 func (t *TableDef) FullName() string {
-	if t.Namespace != "" {
-		return t.Namespace + "_" + t.Name
-	}
-	return t.Name
+	return strutil.SQLName(t.Namespace, t.Name)
 }
 
 // QualifiedName returns the fully qualified reference (namespace.table).
 func (t *TableDef) QualifiedName() string {
-	if t.Namespace == "" {
-		return t.Name
-	}
-	return t.Namespace + "." + t.Name
+	return strutil.QualifiedName(t.Namespace, t.Name)
 }
 
 // MatchesReference returns true if ref matches any of the table's name forms:
@@ -200,15 +209,15 @@ func (t *TableDef) checkDuplicateColumns() error {
 // column types, indexes, or foreign keys — use Validate() for that.
 func (t *TableDef) ValidateBasic() error {
 	if t.Name == "" {
-		return alerr.New(alerr.ErrSchemaInvalid, "table name is required")
+		return alerr.New(alerr.ErrSchemaInvalid, msgTableNameRequired)
 	}
 	if len(t.Columns) == 0 {
-		return alerr.New(alerr.ErrSchemaInvalid, "table must have at least one column").
+		return alerr.New(alerr.ErrSchemaInvalid, msgTableNeedsColumn).
 			WithTable(t.Namespace, t.Name)
 	}
 	for _, col := range t.Columns {
 		if col.Name == "" {
-			return alerr.New(alerr.ErrSchemaInvalid, "column name is required").
+			return alerr.New(alerr.ErrSchemaInvalid, msgColumnNameRequired).
 				WithTable(t.Namespace, t.Name)
 		}
 	}
@@ -218,7 +227,7 @@ func (t *TableDef) ValidateBasic() error {
 // Validate checks that the table definition is well-formed.
 func (t *TableDef) Validate() error {
 	if t.Name == "" {
-		return alerr.New(alerr.ErrSchemaInvalid, "table name is required")
+		return alerr.New(alerr.ErrSchemaInvalid, msgTableNameRequired)
 	}
 	if err := ValidateIdentifier(t.Name); err != nil {
 		return err
@@ -229,7 +238,7 @@ func (t *TableDef) Validate() error {
 		}
 	}
 	if len(t.Columns) == 0 {
-		return alerr.New(alerr.ErrSchemaInvalid, "table must have at least one column").
+		return alerr.New(alerr.ErrSchemaInvalid, msgTableNeedsColumn).
 			WithTable(t.Namespace, t.Name)
 	}
 	// Check for duplicate column names
@@ -264,15 +273,12 @@ func (t *TableDef) Validate() error {
 // export output: primary key first, then required fields alphabetically, then
 // optional fields (nullable or has default) alphabetically.
 func SortColumnsForExport(cols []*ColumnDef) []*ColumnDef {
-	sorted := make([]*ColumnDef, len(cols))
-	copy(sorted, cols)
-	sort.SliceStable(sorted, func(i, j int) bool {
-		ci, cj := sorted[i], sorted[j]
-		gi, gj := colSortGroup(ci), colSortGroup(cj)
-		if gi != gj {
-			return gi < gj
+	sorted := slices.Clone(cols)
+	slices.SortStableFunc(sorted, func(a, b *ColumnDef) int {
+		if c := cmp.Compare(colSortGroup(a), colSortGroup(b)); c != 0 {
+			return c
 		}
-		return ci.Name < cj.Name
+		return strings.Compare(a.Name, b.Name)
 	})
 	return sorted
 }
@@ -337,7 +343,7 @@ type ColumnDef struct {
 // Validate checks that the column definition is well-formed.
 func (c *ColumnDef) Validate() error {
 	if c.Name == "" {
-		return alerr.New(alerr.ErrSchemaInvalid, "column name is required")
+		return alerr.New(alerr.ErrSchemaInvalid, msgColumnNameRequired)
 	}
 	if err := ValidateIdentifier(c.Name); err != nil {
 		return err
@@ -411,6 +417,43 @@ func (c *ColumnDef) HasBackfill() bool {
 	return c.BackfillSet || c.Backfill != nil
 }
 
+// EnumValues extracts enum string values from TypeArgs.
+// Handles both []string and []any at TypeArgs[0] (primary) and TypeArgs[1] (legacy).
+func (c *ColumnDef) EnumValues() []string {
+	if len(c.TypeArgs) == 0 {
+		return nil
+	}
+	// TypeArgs[0] is the enum values slice (from col.id() API)
+	if values, ok := c.TypeArgs[0].([]string); ok {
+		return values
+	}
+	if values, ok := c.TypeArgs[0].([]any); ok {
+		var result []string
+		for _, v := range values {
+			if s, ok := v.(string); ok {
+				result = append(result, s)
+			}
+		}
+		return result
+	}
+	// Legacy format: TypeArgs[1] has enum values
+	if len(c.TypeArgs) > 1 {
+		if values, ok := c.TypeArgs[1].([]string); ok {
+			return values
+		}
+		if values, ok := c.TypeArgs[1].([]any); ok {
+			var result []string
+			for _, v := range values {
+				if s, ok := v.(string); ok {
+					result = append(result, s)
+				}
+			}
+			return result
+		}
+	}
+	return nil
+}
+
 // -----------------------------------------------------------------------------
 // SQLExpr - marks raw SQL expressions
 // -----------------------------------------------------------------------------
@@ -475,7 +518,7 @@ type IndexDef struct {
 // Validate checks that the index definition is well-formed.
 func (i *IndexDef) Validate() error {
 	if len(i.Columns) == 0 {
-		return alerr.New(alerr.ErrSchemaInvalid, "index must have at least one column")
+		return alerr.New(alerr.ErrSchemaInvalid, msgIndexNeedsColumn)
 	}
 	for _, col := range i.Columns {
 		if err := ValidateIdentifier(col); err != nil {
@@ -507,7 +550,7 @@ type ForeignKeyDef struct {
 // Validate checks that the foreign key definition is well-formed.
 func (fk *ForeignKeyDef) Validate() error {
 	if len(fk.Columns) == 0 {
-		return alerr.New(alerr.ErrSchemaInvalid, "foreign key must have at least one column")
+		return alerr.New(alerr.ErrSchemaInvalid, msgFKNeedsColumn)
 	}
 	for _, col := range fk.Columns {
 		if err := ValidateIdentifier(col); err != nil {
@@ -515,10 +558,10 @@ func (fk *ForeignKeyDef) Validate() error {
 		}
 	}
 	if fk.RefTable == "" {
-		return alerr.New(alerr.ErrSchemaInvalid, "foreign key must reference a table")
+		return alerr.New(alerr.ErrSchemaInvalid, msgFKNeedsRefTable)
 	}
 	if len(fk.RefColumns) == 0 {
-		return alerr.New(alerr.ErrSchemaInvalid, "foreign key must reference at least one column")
+		return alerr.New(alerr.ErrSchemaInvalid, msgFKNeedsRefColumn)
 	}
 	if err := ValidateIdentifier(fk.RefTable); err != nil {
 		return err
@@ -529,7 +572,7 @@ func (fk *ForeignKeyDef) Validate() error {
 		}
 	}
 	if len(fk.Columns) != len(fk.RefColumns) {
-		return alerr.New(alerr.ErrSchemaInvalid, "foreign key column count must match referenced column count").
+		return alerr.New(alerr.ErrSchemaInvalid, msgFKColumnCountMatch).
 			With("columns", len(fk.Columns)).
 			With("ref_columns", len(fk.RefColumns))
 	}

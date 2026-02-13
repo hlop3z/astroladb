@@ -15,6 +15,7 @@ import (
 	"github.com/hlop3z/astroladb/internal/dialect"
 	"github.com/hlop3z/astroladb/internal/engine"
 	"github.com/hlop3z/astroladb/internal/introspect"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // DevDatabase represents an ephemeral database used for schema normalization.
@@ -206,15 +207,11 @@ func (d *DevDatabase) generateCreateTable(table *ast.TableDef) (string, error) {
 
 // generateCreateIndex generates CREATE INDEX DDL.
 func (d *DevDatabase) generateCreateIndex(table *ast.TableDef, idx *ast.IndexDef) string {
-	tableName := table.Name
-	if table.Namespace != "" {
-		tableName = table.Namespace + "_" + table.Name
-	}
+	tableName := table.FullName()
 
 	indexName := idx.Name
 	if indexName == "" {
-		// Generate index name
-		indexName = fmt.Sprintf("idx_%s_%s", tableName, idx.Columns[0])
+		indexName = strutil.IndexName(tableName, idx.Columns...)
 	}
 
 	unique := ""

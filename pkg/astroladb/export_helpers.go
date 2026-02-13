@@ -3,7 +3,7 @@ package astroladb
 import (
 	"bytes"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
@@ -12,32 +12,11 @@ import (
 
 // sortTablesByQualifiedName returns a sorted copy of the table slice for deterministic output.
 func sortTablesByQualifiedName(tables []*ast.TableDef) []*ast.TableDef {
-	sorted := make([]*ast.TableDef, len(tables))
-	copy(sorted, tables)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].QualifiedName() < sorted[j].QualifiedName()
+	sorted := slices.Clone(tables)
+	slices.SortFunc(sorted, func(a, b *ast.TableDef) int {
+		return strings.Compare(a.QualifiedName(), b.QualifiedName())
 	})
 	return sorted
-}
-
-// getEnumValues extracts enum values from a column definition.
-func getEnumValues(col *ast.ColumnDef) []string {
-	if len(col.TypeArgs) == 0 {
-		return nil
-	}
-	if values, ok := col.TypeArgs[0].([]string); ok {
-		return values
-	}
-	if values, ok := col.TypeArgs[0].([]any); ok {
-		var result []string
-		for _, v := range values {
-			if s, ok := v.(string); ok {
-				result = append(result, s)
-			}
-		}
-		return result
-	}
-	return nil
 }
 
 // enumInfo holds precomputed information about an enum column for export code generators.
@@ -53,7 +32,7 @@ func forEachEnum(tables []*ast.TableDef, fn func(e enumInfo)) {
 	for _, table := range tables {
 		for _, col := range table.Columns {
 			if col.Type == "enum" && len(col.TypeArgs) > 0 {
-				values := getEnumValues(col)
+				values := col.EnumValues()
 				if len(values) == 0 {
 					continue
 				}

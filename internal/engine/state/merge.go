@@ -4,7 +4,8 @@
 package state
 
 import (
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
 	"github.com/hlop3z/astroladb/internal/ast"
@@ -103,7 +104,7 @@ func (s *Schema) TableNames() []string {
 	for name := range s.Tables {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	return names
 }
 
@@ -113,8 +114,8 @@ func (s *Schema) TableList() []*ast.TableDef {
 	for _, t := range s.Tables {
 		tables = append(tables, t)
 	}
-	sort.Slice(tables, func(i, j int) bool {
-		return tables[i].QualifiedName() < tables[j].QualifiedName()
+	slices.SortFunc(tables, func(a, b *ast.TableDef) int {
+		return strings.Compare(a.QualifiedName(), b.QualifiedName())
 	})
 	return tables
 }
@@ -130,7 +131,7 @@ func (s *Schema) Namespaces() []string {
 	for ns := range nsSet {
 		namespaces = append(namespaces, ns)
 	}
-	sort.Strings(namespaces)
+	slices.Sort(namespaces)
 	return namespaces
 }
 
@@ -142,8 +143,8 @@ func (s *Schema) TablesInNamespace(namespace string) []*ast.TableDef {
 			tables = append(tables, t)
 		}
 	}
-	sort.Slice(tables, func(i, j int) bool {
-		return tables[i].Name < tables[j].Name
+	slices.SortFunc(tables, func(a, b *ast.TableDef) int {
+		return strings.Compare(a.Name, b.Name)
 	})
 	return tables
 }
@@ -345,7 +346,7 @@ func (s *Schema) getDependencies(table *ast.TableDef) []string {
 		}
 	}
 
-	sort.Strings(deps)
+	slices.Sort(deps)
 	return deps
 }
 

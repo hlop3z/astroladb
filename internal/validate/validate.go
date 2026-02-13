@@ -8,58 +8,20 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+
+	"github.com/hlop3z/astroladb/internal/alerr"
 )
 
 // -----------------------------------------------------------------------------
-// Error Codes (following alerr convention - E2xxx for validation errors)
+// Error Codes (re-exported from alerr for local use)
 // -----------------------------------------------------------------------------
-
-// Code represents an error code for machine-readable error identification.
-type Code string
 
 const (
-	ErrInvalidIdentifier Code = "E2001"
-	ErrInvalidSnakeCase  Code = "E2002"
-	ErrInvalidReference  Code = "E2003"
-	ErrReservedWord      Code = "E2004"
+	ErrInvalidIdentifier = alerr.ErrInvalidIdentifier
+	ErrInvalidSnakeCase  = alerr.ErrInvalidSnakeCase
+	ErrInvalidReference  = alerr.ErrInvalidReference
+	ErrReservedWord      = alerr.ErrReservedWord
 )
-
-// Error represents a validation error with code and context.
-type Error struct {
-	Code    Code
-	Message string
-	Context map[string]any
-}
-
-// Error returns the formatted error message.
-func (e *Error) Error() string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("[%s] %s", e.Code, e.Message))
-	if len(e.Context) > 0 {
-		for k, v := range e.Context {
-			sb.WriteString(fmt.Sprintf("\n  %s: %v", k, v))
-		}
-	}
-	return sb.String()
-}
-
-// With adds context to the error.
-func (e *Error) With(key string, value any) *Error {
-	if e.Context == nil {
-		e.Context = make(map[string]any)
-	}
-	e.Context[key] = value
-	return e
-}
-
-// newError creates a new validation error.
-func newError(code Code, msg string) *Error {
-	return &Error{
-		Code:    code,
-		Message: msg,
-		Context: make(map[string]any),
-	}
-}
 
 // -----------------------------------------------------------------------------
 // SQL Reserved Words
@@ -220,7 +182,7 @@ func IsReservedWord(s string) bool {
 // ReservedWordError returns an error if s is a reserved word, nil otherwise.
 func ReservedWordError(s string) error {
 	if IsReservedWord(s) {
-		return newError(ErrReservedWord, fmt.Sprintf("'%s' is a SQL reserved word", s)).
+		return alerr.New(ErrReservedWord, fmt.Sprintf("'%s' is a SQL reserved word", s)).
 			With("identifier", s).
 			With("suggestion", s+"_col or "+s+"_table")
 	}
@@ -267,17 +229,17 @@ const maxIdentifierLength = 63
 // - Is not a reserved word
 func Identifier(s string) error {
 	if s == "" {
-		return newError(ErrInvalidIdentifier, "identifier cannot be empty")
+		return alerr.New(ErrInvalidIdentifier, "identifier cannot be empty")
 	}
 
 	if len(s) > maxIdentifierLength {
-		return newError(ErrInvalidIdentifier, fmt.Sprintf("identifier exceeds maximum length of %d characters", maxIdentifierLength)).
+		return alerr.New(ErrInvalidIdentifier, fmt.Sprintf("identifier exceeds maximum length of %d characters", maxIdentifierLength)).
 			With("identifier", s).
 			With("length", len(s))
 	}
 
 	if !identifierRegex.MatchString(s) {
-		return newError(ErrInvalidIdentifier, "identifier contains invalid characters").
+		return alerr.New(ErrInvalidIdentifier, "identifier contains invalid characters").
 			With("identifier", s).
 			With("allowed", "letters, digits, underscores (must start with letter or underscore)")
 	}
@@ -299,13 +261,13 @@ func Identifier(s string) error {
 // - Is a valid identifier (not a reserved word, proper length)
 func SnakeCase(s string) error {
 	if s == "" {
-		return newError(ErrInvalidSnakeCase, "name cannot be empty")
+		return alerr.New(ErrInvalidSnakeCase, "name cannot be empty")
 	}
 
 	if !IsSnakeCase(s) {
 		// Provide helpful suggestion
 		suggestion := toSnakeCase(s)
-		err := newError(ErrInvalidSnakeCase, "name must be snake_case").
+		err := alerr.New(ErrInvalidSnakeCase, "name must be snake_case").
 			With("got", s)
 		if suggestion != s && IsSnakeCase(suggestion) {
 			_ = err.With("suggestion", suggestion) //nolint:errcheck
@@ -322,8 +284,8 @@ func SnakeCase(s string) error {
 func Namespace(s string) error {
 	if err := SnakeCase(s); err != nil {
 		// Enhance error message for namespace context
-		if e, ok := err.(*Error); ok {
-			e.Message = "namespace " + e.Message
+		if e, ok := err.(*alerr.Error); ok {
+			e.SetMessage("namespace " + e.GetMessage())
 		}
 		return err
 	}
@@ -335,8 +297,8 @@ func Namespace(s string) error {
 func TableName(s string) error {
 	if err := SnakeCase(s); err != nil {
 		// Enhance error message for table context
-		if e, ok := err.(*Error); ok {
-			e.Message = "table " + e.Message
+		if e, ok := err.(*alerr.Error); ok {
+			e.SetMessage("table " + e.GetMessage())
 		}
 		return err
 	}
@@ -348,8 +310,8 @@ func TableName(s string) error {
 func ColumnName(s string) error {
 	if err := SnakeCase(s); err != nil {
 		// Enhance error message for column context
-		if e, ok := err.(*Error); ok {
-			e.Message = "column " + e.Message
+		if e, ok := err.(*alerr.Error); ok {
+			e.SetMessage("column " + e.GetMessage())
 		}
 		return err
 	}
@@ -365,14 +327,14 @@ func ColumnName(s string) error {
 // If no namespace is provided (just "table"), namespace will be empty.
 func TableRef(ref string) (namespace, table string, err error) {
 	if ref == "" {
-		return "", "", newError(ErrInvalidReference, "table reference cannot be empty")
+		return "", "", alerr.New(ErrInvalidReference, "table reference cannot be empty")
 	}
 
 	// Check for leading dot (e.g., ".users" for same-namespace reference)
 	if strings.HasPrefix(ref, ".") {
 		table = strings.TrimPrefix(ref, ".")
 		if table == "" {
-			return "", "", newError(ErrInvalidReference, "table name cannot be empty after '.'").
+			return "", "", alerr.New(ErrInvalidReference, "table name cannot be empty after '.'").
 				With("reference", ref)
 		}
 		if err := TableName(table); err != nil {
@@ -397,11 +359,11 @@ func TableRef(ref string) (namespace, table string, err error) {
 		table = parts[1]
 
 		if namespace == "" {
-			return "", "", newError(ErrInvalidReference, "namespace cannot be empty").
+			return "", "", alerr.New(ErrInvalidReference, "namespace cannot be empty").
 				With("reference", ref)
 		}
 		if table == "" {
-			return "", "", newError(ErrInvalidReference, "table name cannot be empty").
+			return "", "", alerr.New(ErrInvalidReference, "table name cannot be empty").
 				With("reference", ref)
 		}
 
@@ -414,7 +376,7 @@ func TableRef(ref string) (namespace, table string, err error) {
 		return namespace, table, nil
 
 	default:
-		return "", "", newError(ErrInvalidReference, "invalid table reference format").
+		return "", "", alerr.New(ErrInvalidReference, "invalid table reference format").
 			With("reference", ref).
 			With("expected", "namespace.table or table")
 	}
@@ -433,7 +395,7 @@ func ParseRef(ref, currentNS string) (namespace, table string, err error) {
 	// If no namespace in reference, use current namespace
 	if ns == "" {
 		if currentNS == "" {
-			return "", "", newError(ErrInvalidReference, "cannot resolve relative reference without current namespace").
+			return "", "", alerr.New(ErrInvalidReference, "cannot resolve relative reference without current namespace").
 				With("reference", ref)
 		}
 		return currentNS, tbl, nil

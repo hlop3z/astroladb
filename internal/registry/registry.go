@@ -4,7 +4,8 @@
 package registry
 
 import (
-	"sort"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
@@ -128,8 +129,8 @@ func (r *ModelRegistry) AllInNamespace(ns string) []*ast.TableDef {
 	}
 
 	// Sort by table name for deterministic output
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Name < result[j].Name
+	slices.SortFunc(result, func(a, b *ast.TableDef) int {
+		return strings.Compare(a.Name, b.Name)
 	})
 
 	return result
@@ -149,7 +150,7 @@ func (r *ModelRegistry) Namespaces() []string {
 	for ns := range nsSet {
 		result = append(result, ns)
 	}
-	sort.Strings(result)
+	slices.Sort(result)
 
 	return result
 }

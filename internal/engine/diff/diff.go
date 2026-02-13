@@ -1,23 +1,25 @@
 package diff
 
 import (
+	"cmp"
 	"log/slog"
 	"reflect"
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/engine"
 	"github.com/hlop3z/astroladb/internal/engine/topo"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // sortOpsByTypeAndName sorts operations first by Type(), then by OpName() for deterministic output.
 func sortOpsByTypeAndName(ops []ast.Operation) {
-	sort.SliceStable(ops, func(i, j int) bool {
-		ti, tj := ops[i].Type(), ops[j].Type()
-		if ti != tj {
-			return ti < tj
+	slices.SortStableFunc(ops, func(a, b ast.Operation) int {
+		if c := cmp.Compare(a.Type(), b.Type()); c != 0 {
+			return c
 		}
-		return ops[i].OpName() < ops[j].OpName()
+		return strings.Compare(a.OpName(), b.OpName())
 	})
 }
 
@@ -77,8 +79,8 @@ func diffCreateTables(old, new *engine.Schema) []ast.Operation {
 	}
 
 	// Sort for deterministic output
-	sort.Slice(ops, func(i, j int) bool {
-		return ops[i].Table() < ops[j].Table()
+	slices.SortFunc(ops, func(a, b ast.Operation) int {
+		return strings.Compare(a.Table(), b.Table())
 	})
 
 	return ops
@@ -100,8 +102,8 @@ func diffDropTables(old, new *engine.Schema) []ast.Operation {
 	}
 
 	// Sort for deterministic output (reversed for drop order)
-	sort.Slice(ops, func(i, j int) bool {
-		return ops[i].Table() > ops[j].Table()
+	slices.SortFunc(ops, func(a, b ast.Operation) int {
+		return strings.Compare(b.Table(), a.Table())
 	})
 
 	return ops
@@ -118,7 +120,7 @@ func diffAlterTables(old, new *engine.Schema) []ast.Operation {
 			tableNames = append(tableNames, name)
 		}
 	}
-	sort.Strings(tableNames)
+	slices.Sort(tableNames)
 
 	for _, name := range tableNames {
 		newTable := new.Tables[name]
@@ -189,32 +191,17 @@ func diffColumns(oldTable, newTable *ast.TableDef) []ast.Operation {
 	}
 
 	// Sort for deterministic output
-	sort.SliceStable(ops, func(i, j int) bool {
+	slices.SortStableFunc(ops, func(a, b ast.Operation) int {
 		// AddColumn before DropColumn before AlterColumn
-		ti, tj := ops[i].Type(), ops[j].Type()
-		if ti != tj {
-			return ti < tj
+		if c := cmp.Compare(a.Type(), b.Type()); c != 0 {
+			return c
 		}
 		// Then by table name
-		if ops[i].Table() != ops[j].Table() {
-			return ops[i].Table() < ops[j].Table()
+		if c := strings.Compare(a.Table(), b.Table()); c != 0 {
+			return c
 		}
 		// Then by column name for deterministic output
-		switch a := ops[i].(type) {
-		case *ast.AddColumn:
-			if b, ok := ops[j].(*ast.AddColumn); ok {
-				return a.Column.Name < b.Column.Name
-			}
-		case *ast.DropColumn:
-			if b, ok := ops[j].(*ast.DropColumn); ok {
-				return a.Name < b.Name
-			}
-		case *ast.AlterColumn:
-			if b, ok := ops[j].(*ast.AlterColumn); ok {
-				return a.Name < b.Name
-			}
-		}
-		return false
+		return strings.Compare(a.OpName(), b.OpName())
 	})
 
 	return ops
@@ -727,14 +714,14 @@ func getCreateTableDependencies(op *ast.CreateTable, schema *engine.Schema) []st
 			ns = op.Namespace
 		}
 
-		qualified := ns + "_" + table // SQL name format
+		qualified := strutil.SQLName(ns, table)
 		if !seen[qualified] && qualified != op.Table() {
 			seen[qualified] = true
 			deps = append(deps, qualified)
 		}
 	}
 
-	sort.Strings(deps)
+	slices.Sort(deps)
 	return deps
 }
 
@@ -742,8 +729,8 @@ func getCreateTableDependencies(op *ast.CreateTable, schema *engine.Schema) []st
 func sortDropTablesByDependency(ops []*ast.DropTable) []*ast.DropTable {
 	// For now, just sort alphabetically in reverse
 	// A proper implementation would analyze the old schema's dependencies
-	sort.Slice(ops, func(i, j int) bool {
-		return ops[i].Table() > ops[j].Table()
+	slices.SortFunc(ops, func(a, b *ast.DropTable) int {
+		return strings.Compare(b.Table(), a.Table())
 	})
 	return ops
 }

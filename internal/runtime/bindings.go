@@ -9,6 +9,7 @@ import (
 
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/runtime/builder"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // BindingsContext provides context for DSL bindings during evaluation.
@@ -331,11 +332,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 		}
 		// Auto-generate index name if not provided (required for rollback)
 		if op.Name == "" {
-			sqlTable := table
-			if ns != "" {
-				sqlTable = ns + "_" + table
-			}
-			op.Name = "idx_" + sqlTable + "_" + strings.Join(columns, "_")
+			op.Name = strutil.IndexName(strutil.SQLName(ns, table), columns...)
 		}
 		s.operations = append(s.operations, op)
 	})
@@ -385,10 +382,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 	_ = obj.Set("add_foreign_key", func(ref string, columns []string, refTable string, refColumns []string, opts ...map[string]any) {
 		ns, table := mustParseRef(ref, s.vm)
 		refNs, refTbl := mustParseRef(refTable, s.vm)
-		sqlRefTable := refTbl
-		if refNs != "" {
-			sqlRefTable = refNs + "_" + refTbl
-		}
+		sqlRefTable := strutil.SQLName(refNs, refTbl)
 
 		op := &ast.AddForeignKey{
 			TableRef:   ast.TableRef{Namespace: ns, Table_: table},

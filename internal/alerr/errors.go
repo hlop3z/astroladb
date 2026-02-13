@@ -143,6 +143,11 @@ func (e *Error) GetMessage() string {
 	return e.message
 }
 
+// SetMessage replaces the error message.
+func (e *Error) SetMessage(msg string) {
+	e.message = msg
+}
+
 // GetContext returns the error context map.
 func (e *Error) GetContext() map[string]any {
 	return e.context

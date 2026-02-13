@@ -1,7 +1,8 @@
 package runner
 
 import (
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
 	"github.com/hlop3z/astroladb/internal/ast"
@@ -76,10 +77,9 @@ func planUp(all []engine.Migration, appliedSet map[string]bool, target string) (
 	}
 
 	// Sort all migrations by revision
-	sorted := make([]engine.Migration, len(all))
-	copy(sorted, all)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Revision < sorted[j].Revision
+	sorted := slices.Clone(all)
+	slices.SortFunc(sorted, func(a, b engine.Migration) int {
+		return strings.Compare(a.Revision, b.Revision)
 	})
 
 	hasApplied := len(appliedSet) > 0
@@ -134,10 +134,9 @@ func planDown(all []engine.Migration, applied []AppliedMigration, target string)
 	migrationMap := engine.ToMap(all, func(m engine.Migration) string { return m.Revision })
 
 	// Sort applied migrations in reverse order (most recent first)
-	sortedApplied := make([]AppliedMigration, len(applied))
-	copy(sortedApplied, applied)
-	sort.Slice(sortedApplied, func(i, j int) bool {
-		return sortedApplied[i].Revision > sortedApplied[j].Revision
+	sortedApplied := slices.Clone(applied)
+	slices.SortFunc(sortedApplied, func(a, b AppliedMigration) int {
+		return strings.Compare(b.Revision, a.Revision)
 	})
 
 	// Add migrations to rollback in reverse order
@@ -196,7 +195,7 @@ func GetStatus(all []engine.Migration, applied []AppliedMigration) []engine.Migr
 	for r := range revisionSet {
 		revisions = append(revisions, r)
 	}
-	sort.Strings(revisions)
+	slices.Sort(revisions)
 
 	// Build status list
 	statuses := make([]engine.MigrationStatus, 0, len(revisions))

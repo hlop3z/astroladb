@@ -6,7 +6,7 @@ package engine
 import (
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
@@ -149,8 +149,8 @@ func (e *Evaluator) EvalDir(dir string) ([]*ast.TableDef, error) {
 	}
 
 	// Sort tables by qualified name for deterministic output
-	sort.Slice(tables, func(i, j int) bool {
-		return tables[i].QualifiedName() < tables[j].QualifiedName()
+	slices.SortFunc(tables, func(a, b *ast.TableDef) int {
+		return strings.Compare(a.QualifiedName(), b.QualifiedName())
 	})
 
 	return tables, nil
@@ -194,8 +194,8 @@ func (e *Evaluator) EvalDirStrict(dir string) ([]*ast.TableDef, error) {
 		return nil, err
 	}
 
-	sort.Slice(tables, func(i, j int) bool {
-		return tables[i].QualifiedName() < tables[j].QualifiedName()
+	slices.SortFunc(tables, func(a, b *ast.TableDef) int {
+		return strings.Compare(a.QualifiedName(), b.QualifiedName())
 	})
 
 	return tables, nil

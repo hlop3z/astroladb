@@ -235,7 +235,7 @@ func buildColumnList(table *ast.TableDef) []map[string]any {
 		}
 		// Enum values - TypeArgs[0] contains the entire []string slice
 		if col.Type == "enum" {
-			if enumValues := getEnumValues(col); len(enumValues) > 0 {
+			if enumValues := col.EnumValues(); len(enumValues) > 0 {
 				c["enum"] = enumValues
 			}
 		}
@@ -399,7 +399,7 @@ func generateColumnExample(col *ast.ColumnDef) any {
 	case "base64":
 		return "SGVsbG8gV29ybGQh"
 	case "enum":
-		if enumValues := getEnumValues(col); len(enumValues) > 0 {
+		if enumValues := col.EnumValues(); len(enumValues) > 0 {
 			return enumValues[0]
 		}
 		return "value"
@@ -814,7 +814,7 @@ func columnToOpenAPIProperty(col *ast.ColumnDef, table *ast.TableDef, cfg *expor
 		prop["additionalProperties"] = true
 
 	case "enum":
-		if enumValues := getEnumValues(col); len(enumValues) > 0 {
+		if enumValues := col.EnumValues(); len(enumValues) > 0 {
 			prop["enum"] = enumValues
 		}
 
@@ -1094,7 +1094,7 @@ func buildSQLType(col *ast.ColumnDef) map[string]string {
 
 	case "enum":
 		// ENUMs are handled differently per database (special case)
-		enumValues := getEnumValues(col)
+		enumValues := col.EnumValues()
 		if len(enumValues) > 0 {
 			var quotedValues []string
 			for _, v := range enumValues {

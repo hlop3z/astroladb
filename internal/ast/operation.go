@@ -2,6 +2,7 @@ package ast
 
 import (
 	"github.com/hlop3z/astroladb/internal/alerr"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // Operation represents a single atomic change to the database schema.
@@ -39,18 +40,12 @@ type TableOp struct {
 
 // Table returns the full table name in namespace_tablename format.
 func (t TableOp) Table() string {
-	if t.Namespace == "" {
-		return t.Name
-	}
-	return t.Namespace + "_" + t.Name
+	return strutil.SQLName(t.Namespace, t.Name)
 }
 
 // QualifiedName returns the dot-separated qualified name (namespace.name or name).
 func (t TableOp) QualifiedName() string {
-	if t.Namespace == "" {
-		return t.Name
-	}
-	return t.Namespace + "." + t.Name
+	return strutil.QualifiedName(t.Namespace, t.Name)
 }
 
 // TableRef provides common Namespace+Table_ fields for column/index operations.
@@ -62,18 +57,12 @@ type TableRef struct {
 
 // Table returns the full table name in namespace_tablename format.
 func (t TableRef) Table() string {
-	if t.Namespace == "" {
-		return t.Table_
-	}
-	return t.Namespace + "_" + t.Table_
+	return strutil.SQLName(t.Namespace, t.Table_)
 }
 
 // QualifiedName returns the dot-separated qualified name (namespace.table or table).
 func (t TableRef) QualifiedName() string {
-	if t.Namespace == "" {
-		return t.Table_
-	}
-	return t.Namespace + "." + t.Table_
+	return strutil.QualifiedName(t.Namespace, t.Table_)
 }
 
 // -----------------------------------------------------------------------------
@@ -94,10 +83,10 @@ func (op *CreateTable) OpName() string { return op.Name }
 
 func (op *CreateTable) Validate() error {
 	if op.Name == "" {
-		return alerr.New(alerr.ErrSchemaInvalid, "table name is required")
+		return alerr.New(alerr.ErrSchemaInvalid, msgTableNameRequired)
 	}
 	if len(op.Columns) == 0 {
-		return alerr.New(alerr.ErrSchemaInvalid, "table must have at least one column").
+		return alerr.New(alerr.ErrSchemaInvalid, msgTableNeedsColumn).
 			WithTable(op.Namespace, op.Name)
 	}
 	// Validate each column
@@ -160,10 +149,7 @@ func (op *RenameTable) Type() OpType   { return OpRenameTable }
 func (op *RenameTable) OpName() string { return op.OldName }
 
 func (op *RenameTable) Table() string {
-	if op.Namespace != "" {
-		return op.Namespace + "_" + op.OldName
-	}
-	return op.OldName
+	return strutil.SQLName(op.Namespace, op.OldName)
 }
 
 func (op *RenameTable) Validate() error {
@@ -343,7 +329,7 @@ func (op *CreateIndex) Validate() error {
 		return alerr.New(alerr.ErrSchemaInvalid, "table name is required for create index")
 	}
 	if len(op.Columns) == 0 {
-		return alerr.New(alerr.ErrSchemaInvalid, "index must have at least one column").
+		return alerr.New(alerr.ErrSchemaInvalid, msgIndexNeedsColumn).
 			WithTable(op.Namespace, op.Table_)
 	}
 	return nil
@@ -393,19 +379,19 @@ func (op *AddForeignKey) Validate() error {
 		return alerr.New(alerr.ErrSchemaInvalid, "table name is required for add foreign key")
 	}
 	if len(op.Columns) == 0 {
-		return alerr.New(alerr.ErrSchemaInvalid, "foreign key must have at least one column").
+		return alerr.New(alerr.ErrSchemaInvalid, msgFKNeedsColumn).
 			WithTable(op.Namespace, op.Table_)
 	}
 	if op.RefTable == "" {
-		return alerr.New(alerr.ErrSchemaInvalid, "foreign key must reference a table").
+		return alerr.New(alerr.ErrSchemaInvalid, msgFKNeedsRefTable).
 			WithTable(op.Namespace, op.Table_)
 	}
 	if len(op.RefColumns) == 0 {
-		return alerr.New(alerr.ErrSchemaInvalid, "foreign key must reference at least one column").
+		return alerr.New(alerr.ErrSchemaInvalid, msgFKNeedsRefColumn).
 			WithTable(op.Namespace, op.Table_)
 	}
 	if len(op.Columns) != len(op.RefColumns) {
-		return alerr.New(alerr.ErrSchemaInvalid, "foreign key column count must match referenced column count").
+		return alerr.New(alerr.ErrSchemaInvalid, msgFKColumnCountMatch).
 			WithTable(op.Namespace, op.Table_).
 			With("columns", len(op.Columns)).
 			With("ref_columns", len(op.RefColumns))

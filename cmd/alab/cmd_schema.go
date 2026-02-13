@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/strutil"
 	"github.com/hlop3z/astroladb/internal/ui"
 )
 
@@ -310,10 +311,7 @@ func printSchemaSQL(client interface{}, revision string, tables []*ast.TableDef)
 // printCreateTableSQL prints a CREATE TABLE statement.
 // This is a simplified version that doesn't require a dialect.
 func printCreateTableSQL(op *ast.CreateTable) {
-	tableName := op.Name
-	if op.Namespace != "" {
-		tableName = op.Namespace + "_" + op.Name
-	}
+	tableName := op.Table()
 
 	fmt.Printf("CREATE TABLE %s (\n", tableName)
 
@@ -349,7 +347,7 @@ func printCreateTableSQL(op *ast.CreateTable) {
 		}
 		indexName := idx.Name
 		if indexName == "" {
-			indexName = "idx_" + tableName + "_" + strings.Join(idx.Columns, "_")
+			indexName = strutil.IndexName(tableName, idx.Columns...)
 		}
 		fmt.Printf("CREATE %sINDEX %s ON %s (%s);\n",
 			uniqueStr, indexName, tableName, strings.Join(idx.Columns, ", "))

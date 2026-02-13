@@ -1,9 +1,10 @@
 package astroladb
 
 import (
+	"cmp"
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
@@ -23,30 +24,21 @@ func (c *Client) sortColumnsForDatabase(columns []*ast.ColumnDef) []*ast.ColumnD
 	}
 
 	// Make a copy to avoid modifying the original
-	sorted := make([]*ast.ColumnDef, len(columns))
-	copy(sorted, columns)
+	sorted := slices.Clone(columns)
 
 	// Sort using custom ordering
-	sort.SliceStable(sorted, func(i, j int) bool {
-		col1, col2 := sorted[i], sorted[j]
-
+	slices.SortStableFunc(sorted, func(col1, col2 *ast.ColumnDef) int {
 		// Priority 1: id/primary key columns first
-		if col1.PrimaryKey && !col2.PrimaryKey {
-			return true
-		}
-		if !col1.PrimaryKey && col2.PrimaryKey {
-			return false
+		if col1.PrimaryKey != col2.PrimaryKey {
+			return cmp.Compare(boolToInt(!col1.PrimaryKey), boolToInt(!col2.PrimaryKey))
 		}
 
 		// Priority 2: timestamp columns last
 		isTimestamp1 := col1.Name == "created_at" || col1.Name == "updated_at" || col1.Name == "deleted_at"
 		isTimestamp2 := col2.Name == "created_at" || col2.Name == "updated_at" || col2.Name == "deleted_at"
 
-		if isTimestamp1 && !isTimestamp2 {
-			return false
-		}
-		if !isTimestamp1 && isTimestamp2 {
-			return true
+		if isTimestamp1 != isTimestamp2 {
+			return cmp.Compare(boolToInt(isTimestamp1), boolToInt(isTimestamp2))
 		}
 
 		// Priority 3: created_at before updated_at before deleted_at
@@ -56,14 +48,21 @@ func (c *Client) sortColumnsForDatabase(columns []*ast.ColumnDef) []*ast.ColumnD
 				"updated_at": 2,
 				"deleted_at": 3,
 			}
-			return order[col1.Name] < order[col2.Name]
+			return cmp.Compare(order[col1.Name], order[col2.Name])
 		}
 
 		// Priority 4: alphabetically by name
-		return col1.Name < col2.Name
+		return strings.Compare(col1.Name, col2.Name)
 	})
 
 	return sorted
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // getCompiledSchema loads tables and compiles schema - used by multiple methods.

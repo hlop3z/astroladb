@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -254,8 +254,8 @@ func computeEntries(migrationsDir string) ([]Entry, error) {
 	}
 
 	// Sort by filename for deterministic output
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Filename < entries[j].Filename
+	slices.SortFunc(entries, func(a, b Entry) int {
+		return strings.Compare(a.Filename, b.Filename)
 	})
 
 	return entries, nil

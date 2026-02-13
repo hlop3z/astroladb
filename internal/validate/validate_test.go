@@ -3,6 +3,8 @@ package validate
 import (
 	"strings"
 	"testing"
+
+	"github.com/hlop3z/astroladb/internal/alerr"
 )
 
 // -----------------------------------------------------------------------------
@@ -14,7 +16,7 @@ func TestIdentifier(t *testing.T) {
 		name    string
 		input   string
 		wantErr bool
-		errCode Code
+		errCode alerr.Code
 	}{
 		// Valid identifiers (note: "user" is a SQL reserved word)
 		{"simple", "account", false, ""},
@@ -57,13 +59,13 @@ func TestIdentifier(t *testing.T) {
 				return
 			}
 			if err != nil && tt.errCode != "" {
-				vErr, ok := err.(*Error)
+				vErr, ok := err.(*alerr.Error)
 				if !ok {
 					t.Errorf("expected *Error, got %T", err)
 					return
 				}
-				if vErr.Code != tt.errCode {
-					t.Errorf("error code = %v, want %v", vErr.Code, tt.errCode)
+				if vErr.GetCode() != tt.errCode {
+					t.Errorf("error code = %v, want %v", vErr.GetCode(), tt.errCode)
 				}
 			}
 		})
@@ -79,7 +81,7 @@ func TestSnakeCaseValidation(t *testing.T) {
 		name        string
 		input       string
 		wantErr     bool
-		errCode     Code
+		errCode     alerr.Code
 		wantSuggest string // expected suggestion in error context
 	}{
 		// Valid snake_case (note: "user" is a SQL reserved word)
@@ -124,16 +126,16 @@ func TestSnakeCaseValidation(t *testing.T) {
 				return
 			}
 			if err != nil {
-				vErr, ok := err.(*Error)
+				vErr, ok := err.(*alerr.Error)
 				if !ok {
 					t.Errorf("expected *Error, got %T", err)
 					return
 				}
-				if tt.errCode != "" && vErr.Code != tt.errCode {
-					t.Errorf("error code = %v, want %v", vErr.Code, tt.errCode)
+				if tt.errCode != "" && vErr.GetCode() != tt.errCode {
+					t.Errorf("error code = %v, want %v", vErr.GetCode(), tt.errCode)
 				}
 				if tt.wantSuggest != "" {
-					suggestion, hasSuggest := vErr.Context["suggestion"]
+					suggestion, hasSuggest := vErr.GetContext()["suggestion"]
 					if !hasSuggest {
 						t.Errorf("expected suggestion in error context")
 					} else if suggestion != tt.wantSuggest {
@@ -280,18 +282,18 @@ func TestReservedWordError(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for reserved word")
 		}
-		vErr, ok := err.(*Error)
+		vErr, ok := err.(*alerr.Error)
 		if !ok {
 			t.Fatalf("expected *Error, got %T", err)
 		}
-		if vErr.Code != ErrReservedWord {
-			t.Errorf("code = %v, want %v", vErr.Code, ErrReservedWord)
+		if vErr.GetCode() != ErrReservedWord {
+			t.Errorf("code = %v, want %v", vErr.GetCode(), ErrReservedWord)
 		}
-		if vErr.Context["identifier"] != "select" {
-			t.Errorf("identifier = %v, want 'select'", vErr.Context["identifier"])
+		if vErr.GetContext()["identifier"] != "select" {
+			t.Errorf("identifier = %v, want 'select'", vErr.GetContext()["identifier"])
 		}
 		// Should have suggestion
-		if _, ok := vErr.Context["suggestion"]; !ok {
+		if _, ok := vErr.GetContext()["suggestion"]; !ok {
 			t.Error("expected suggestion in error context")
 		}
 	})
@@ -456,7 +458,7 @@ func TestValidationErrors(t *testing.T) {
 		}
 
 		// Add actual error
-		ve.Add(newError(ErrInvalidIdentifier, "first error"))
+		ve.Add(alerr.New(ErrInvalidIdentifier, "first error"))
 		if !ve.HasErrors() {
 			t.Error("should have errors after adding one")
 		}
@@ -465,7 +467,7 @@ func TestValidationErrors(t *testing.T) {
 		}
 
 		// Add another error
-		ve.Add(newError(ErrInvalidSnakeCase, "second error"))
+		ve.Add(alerr.New(ErrInvalidSnakeCase, "second error"))
 		if len(ve) != 2 {
 			t.Errorf("length = %d, want 2", len(ve))
 		}
@@ -473,11 +475,11 @@ func TestValidationErrors(t *testing.T) {
 
 	t.Run("merge collections", func(t *testing.T) {
 		var ve1 ValidationErrors
-		ve1.Add(newError(ErrInvalidIdentifier, "error 1"))
+		ve1.Add(alerr.New(ErrInvalidIdentifier, "error 1"))
 
 		var ve2 ValidationErrors
-		ve2.Add(newError(ErrInvalidSnakeCase, "error 2"))
-		ve2.Add(newError(ErrReservedWord, "error 3"))
+		ve2.Add(alerr.New(ErrInvalidSnakeCase, "error 2"))
+		ve2.Add(alerr.New(ErrReservedWord, "error 3"))
 
 		ve1.Merge(ve2)
 		if len(ve1) != 3 {
@@ -487,8 +489,8 @@ func TestValidationErrors(t *testing.T) {
 
 	t.Run("error string format", func(t *testing.T) {
 		var ve ValidationErrors
-		ve.Add(newError(ErrInvalidIdentifier, "first error"))
-		ve.Add(newError(ErrInvalidSnakeCase, "second error"))
+		ve.Add(alerr.New(ErrInvalidIdentifier, "first error"))
+		ve.Add(alerr.New(ErrInvalidSnakeCase, "second error"))
 
 		errStr := ve.Error()
 
@@ -508,7 +510,7 @@ func TestValidationErrors(t *testing.T) {
 
 	t.Run("ToError with errors", func(t *testing.T) {
 		var ve ValidationErrors
-		ve.Add(newError(ErrInvalidIdentifier, "error"))
+		ve.Add(alerr.New(ErrInvalidIdentifier, "error"))
 
 		err := ve.ToError()
 		if err == nil {
@@ -630,38 +632,33 @@ func TestColumnName(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestErrorWith(t *testing.T) {
-	err := newError(ErrInvalidIdentifier, "test").
+	err := alerr.New(ErrInvalidIdentifier, "test").
 		With("key1", "value1").
 		With("key2", 42)
 
-	if err.Context["key1"] != "value1" {
-		t.Errorf("key1 = %v, want 'value1'", err.Context["key1"])
+	if err.GetContext()["key1"] != "value1" {
+		t.Errorf("key1 = %v, want 'value1'", err.GetContext()["key1"])
 	}
-	if err.Context["key2"] != 42 {
-		t.Errorf("key2 = %v, want 42", err.Context["key2"])
+	if err.GetContext()["key2"] != 42 {
+		t.Errorf("key2 = %v, want 42", err.GetContext()["key2"])
 	}
 }
 
-func TestErrorWithNilContext(t *testing.T) {
-	// Create an Error with nil Context to test the initialization path
-	err := &Error{
-		Code:    ErrInvalidIdentifier,
-		Message: "test",
-		Context: nil,
-	}
-
+func TestErrorWithChaining(t *testing.T) {
+	// Test that With() initializes context and chains correctly
+	err := alerr.New(ErrInvalidIdentifier, "test")
 	err.With("key", "value")
 
-	if err.Context == nil {
+	if err.GetContext() == nil {
 		t.Error("Context should be initialized")
 	}
-	if err.Context["key"] != "value" {
-		t.Errorf("key = %v, want 'value'", err.Context["key"])
+	if err.GetContext()["key"] != "value" {
+		t.Errorf("key = %v, want 'value'", err.GetContext()["key"])
 	}
 }
 
 func TestErrorFormat(t *testing.T) {
-	err := newError(ErrInvalidSnakeCase, "name must be snake_case").
+	err := alerr.New(ErrInvalidSnakeCase, "name must be snake_case").
 		With("got", "userName").
 		With("suggestion", "user_name")
 

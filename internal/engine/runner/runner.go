@@ -15,6 +15,7 @@ import (
 	"github.com/hlop3z/astroladb/internal/dialect"
 	"github.com/hlop3z/astroladb/internal/engine"
 	"github.com/hlop3z/astroladb/internal/engine/topo"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // lockReleaseTimeout is the maximum time to wait when releasing a migration lock.
@@ -541,10 +542,7 @@ func refToSQLName(ref, defaultNS string) string {
 	if ns == "" {
 		ns = defaultNS
 	}
-	if ns != "" {
-		return ns + "_" + table
-	}
-	return table
+	return strutil.SQLName(ns, table)
 }
 
 // operationToSQL converts an operation to SQL statements.

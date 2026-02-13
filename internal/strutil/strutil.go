@@ -112,6 +112,16 @@ func QualifyTable(namespace, table string) string {
 	return SQLName(namespace, table)
 }
 
+// QualifiedName returns the dot-separated qualified name (namespace.table or table).
+// Example: QualifiedName("auth", "users") -> "auth.users"
+// Example: QualifiedName("", "users") -> "users"
+func QualifiedName(namespace, table string) string {
+	if namespace == "" {
+		return table
+	}
+	return namespace + "." + table
+}
+
 // FKColumn returns the foreign key column name for a table.
 // Example: FKColumn("user") -> "user_id"
 func FKColumn(table string) string {

@@ -2,21 +2,31 @@ package state
 
 import (
 	"slices"
-	"strings"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/strutil"
+)
+
+// Error messages for schema replay operations.
+const (
+	msgTableNotFound  = "table does not exist"
+	msgColumnNotFound = "column does not exist"
+	msgIndexNotFound  = "index does not exist"
+	msgTableExists    = "table already exists"
+	msgColumnExists   = "column already exists"
+	msgIndexExists    = "index already exists"
 )
 
 // tableNotFoundErr creates a standard "table does not exist" error with fuzzy suggestions.
 func tableNotFoundErr(schema *Schema, ns, name string) *alerr.Error {
-	err := alerr.New(alerr.ErrSchemaNotFound, "table does not exist").
+	err := alerr.New(alerr.ErrSchemaNotFound, msgTableNotFound).
 		WithTable(ns, name)
 	names := make([]string, 0, len(schema.Tables))
 	for k := range schema.Tables {
 		names = append(names, k)
 	}
-	if suggestion := alerr.SuggestSimilar(qualifyName(ns, name), names); suggestion != "" {
+	if suggestion := alerr.SuggestSimilar(strutil.QualifiedName(ns, name), names); suggestion != "" {
 		err.WithHelp(suggestion)
 	}
 	return err
@@ -24,7 +34,7 @@ func tableNotFoundErr(schema *Schema, ns, name string) *alerr.Error {
 
 // columnNotFoundErr creates a standard "column does not exist" error with fuzzy suggestions.
 func columnNotFoundErr(table *ast.TableDef, ns, tableName, colName string) *alerr.Error {
-	err := alerr.New(alerr.ErrSchemaNotFound, "column does not exist").
+	err := alerr.New(alerr.ErrSchemaNotFound, msgColumnNotFound).
 		WithTable(ns, tableName).
 		WithColumn(colName)
 	names := make([]string, 0, len(table.Columns))
@@ -37,17 +47,9 @@ func columnNotFoundErr(table *ast.TableDef, ns, tableName, colName string) *aler
 	return err
 }
 
-// qualifyName returns the dot-separated qualified name (ns.name or name).
-func qualifyName(ns, name string) string {
-	if ns == "" {
-		return name
-	}
-	return ns + "." + name
-}
-
 // lookupTable finds a table by namespace and name, returning a not-found error if missing.
 func lookupTable(schema *Schema, ns, name string) (*ast.TableDef, string, error) {
-	qn := qualifyName(ns, name)
+	qn := strutil.QualifiedName(ns, name)
 	table, exists := schema.Tables[qn]
 	if !exists {
 		return nil, qn, tableNotFoundErr(schema, ns, name)
@@ -109,7 +111,7 @@ func applyCreateTable(schema *Schema, op *ast.CreateTable) error {
 	qualifiedName := op.QualifiedName()
 
 	if _, exists := schema.Tables[qualifiedName]; exists {
-		return alerr.New(alerr.ErrSchemaDuplicate, "table already exists").
+		return alerr.New(alerr.ErrSchemaDuplicate, msgTableExists).
 			WithTable(op.Namespace, op.Name)
 	}
 
@@ -135,7 +137,7 @@ func applyCreateTable(schema *Schema, op *ast.CreateTable) error {
 			idxCopy := *idx
 			// Auto-generate name if not provided
 			if idxCopy.Name == "" {
-				idxCopy.Name = "idx_" + table.FullName() + "_" + strings.Join(idxCopy.Columns, "_")
+				idxCopy.Name = strutil.IndexName(table.FullName(), idxCopy.Columns...)
 			}
 			table.Indexes[i] = &idxCopy
 		}
@@ -168,8 +170,8 @@ func applyDropTable(schema *Schema, op *ast.DropTable) error {
 
 // applyRenameTable renames a table in the schema.
 func applyRenameTable(schema *Schema, op *ast.RenameTable) error {
-	oldQualified := qualifyName(op.Namespace, op.OldName)
-	newQualified := qualifyName(op.Namespace, op.NewName)
+	oldQualified := strutil.QualifiedName(op.Namespace, op.OldName)
+	newQualified := strutil.QualifiedName(op.Namespace, op.NewName)
 
 	table, exists := schema.Tables[oldQualified]
 	if !exists {
@@ -198,7 +200,7 @@ func applyAddColumn(schema *Schema, op *ast.AddColumn) error {
 
 	// Check if column already exists
 	if table.HasColumn(op.Column.Name) {
-		return alerr.New(alerr.ErrSchemaDuplicate, "column already exists").
+		return alerr.New(alerr.ErrSchemaDuplicate, msgColumnExists).
 			WithTable(op.Namespace, op.Table_).
 			WithColumn(op.Column.Name)
 	}
@@ -305,7 +307,7 @@ func applyCreateIndex(schema *Schema, op *ast.CreateIndex) error {
 	// Auto-generate name if not provided (do this first to enable duplicate detection)
 	indexName := op.Name
 	if indexName == "" {
-		indexName = "idx_" + table.FullName() + "_" + strings.Join(op.Columns, "_")
+		indexName = strutil.IndexName(table.FullName(), op.Columns...)
 	}
 
 	// Check if index already exists (by name or by columns)
@@ -316,7 +318,7 @@ func applyCreateIndex(schema *Schema, op *ast.CreateIndex) error {
 			if op.IfNotExists {
 				return nil // Silently skip
 			}
-			return alerr.New(alerr.ErrSchemaDuplicate, "index already exists").
+			return alerr.New(alerr.ErrSchemaDuplicate, msgIndexExists).
 				WithTable(op.Namespace, op.Table_).
 				With("index", op.Name)
 		}
@@ -371,7 +373,7 @@ func applyDropIndex(schema *Schema, op *ast.DropIndex) error {
 		if op.IfExists {
 			return nil
 		}
-		return alerr.New(alerr.ErrSchemaNotFound, "index does not exist").
+		return alerr.New(alerr.ErrSchemaNotFound, msgIndexNotFound).
 			With("index", op.Name)
 	}
 
@@ -387,7 +389,7 @@ func applyDropIndex(schema *Schema, op *ast.DropIndex) error {
 	}
 
 	if !found && !op.IfExists {
-		return alerr.New(alerr.ErrSchemaNotFound, "index does not exist").
+		return alerr.New(alerr.ErrSchemaNotFound, msgIndexNotFound).
 			With("index", op.Name)
 	}
 

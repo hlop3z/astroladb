@@ -7,6 +7,7 @@ package engine_test
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
@@ -59,35 +60,13 @@ func execOperations(t *testing.T, db *sql.DB, d dialect.Dialect, ops []ast.Opera
 }
 
 // operationToSQL converts an operation to SQL using the dialect.
+// Returns the statements joined with ";\n" for backwards compatibility.
 func operationToSQL(d dialect.Dialect, op ast.Operation) (string, error) {
-	switch o := op.(type) {
-	case *ast.CreateTable:
-		return d.CreateTableSQL(o)
-	case *ast.DropTable:
-		return d.DropTableSQL(o)
-	case *ast.AddColumn:
-		return d.AddColumnSQL(o)
-	case *ast.DropColumn:
-		return d.DropColumnSQL(o)
-	case *ast.RenameColumn:
-		return d.RenameColumnSQL(o)
-	case *ast.AlterColumn:
-		return d.AlterColumnSQL(o)
-	case *ast.CreateIndex:
-		return d.CreateIndexSQL(o)
-	case *ast.DropIndex:
-		return d.DropIndexSQL(o)
-	case *ast.RenameTable:
-		return d.RenameTableSQL(o)
-	case *ast.AddForeignKey:
-		return d.AddForeignKeySQL(o)
-	case *ast.DropForeignKey:
-		return d.DropForeignKeySQL(o)
-	case *ast.RawSQL:
-		return d.RawSQLFor(o)
-	default:
-		return "", nil
+	stmts, err := dialect.OperationToSQL(d, op)
+	if err != nil {
+		return "", err
 	}
+	return strings.Join(stmts, ";\n"), nil
 }
 
 // -----------------------------------------------------------------------------

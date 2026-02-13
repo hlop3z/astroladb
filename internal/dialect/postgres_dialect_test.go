@@ -332,8 +332,8 @@ func TestPostgres_RawSQLFor(t *testing.T) {
 	}
 }
 
-// TestPostgres_getEnumValues tests the getEnumValues helper function.
-func TestPostgres_getEnumValues(t *testing.T) {
+// TestColumnDef_EnumValues tests the ColumnDef.EnumValues() method.
+func TestColumnDef_EnumValues(t *testing.T) {
 
 	tests := []struct {
 		name     string
@@ -374,7 +374,8 @@ func TestPostgres_getEnumValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getEnumValues(tt.typeArgs)
+			col := &ast.ColumnDef{Type: "enum", TypeArgs: tt.typeArgs}
+			got := col.EnumValues()
 			if len(got) != len(tt.want) {
 				t.Errorf("length mismatch: got %d, want %d", len(got), len(tt.want))
 				return

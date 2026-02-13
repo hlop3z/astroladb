@@ -19,6 +19,12 @@ const (
 	// DefaultStringLen is the default VARCHAR length when no explicit length is provided.
 	DefaultStringLen = 255
 
+	// DefaultDecimalPrecision is the default precision for DECIMAL/NUMERIC columns.
+	DefaultDecimalPrecision = 10
+
+	// DefaultDecimalScale is the default scale for DECIMAL/NUMERIC columns.
+	DefaultDecimalScale = 2
+
 	// hashSuffixBytes is the number of SHA256 bytes used for truncated identifier suffixes.
 	// 4 bytes = 8 hex characters, providing sufficient uniqueness for name collisions.
 	hashSuffixBytes = 4
@@ -87,7 +93,7 @@ func buildColumnTypeSQL(typeName string, typeArgs []any, mapper TypeMapper) stri
 	case "float":
 		return mapper.FloatType()
 	case "decimal":
-		precision, scale := 10, 2
+		precision, scale := DefaultDecimalPrecision, DefaultDecimalScale
 		if len(typeArgs) > 0 {
 			if p, ok := typeArgs[0].(int); ok {
 				precision = p
@@ -539,50 +545,13 @@ func checkConstraintName(table string, name string) string {
 	return truncateIdentifier("chk_"+table+"_"+name, 63)
 }
 
-// getEnumValues extracts enum string values from type arguments.
-// Handles both []string and []any at TypeArgs[0] (primary) and TypeArgs[1] (legacy).
-func getEnumValues(typeArgs []any) []string {
-	if len(typeArgs) == 0 {
-		return nil
-	}
-	// TypeArgs[0] is the enum values slice (from col.id() API)
-	if values, ok := typeArgs[0].([]string); ok {
-		return values
-	}
-	if values, ok := typeArgs[0].([]any); ok {
-		var result []string
-		for _, v := range values {
-			if s, ok := v.(string); ok {
-				result = append(result, s)
-			}
-		}
-		return result
-	}
-	// Legacy format: TypeArgs[1] has enum values
-	if len(typeArgs) > 1 {
-		if values, ok := typeArgs[1].([]string); ok {
-			return values
-		}
-		if values, ok := typeArgs[1].([]any); ok {
-			var result []string
-			for _, v := range values {
-				if s, ok := v.(string); ok {
-					result = append(result, s)
-				}
-			}
-			return result
-		}
-	}
-	return nil
-}
-
 // buildEnumCheckSQL generates a CHECK constraint clause for enum columns.
 // Returns empty string if the column is not an enum or has no values.
 func buildEnumCheckSQL(col *ast.ColumnDef, tableName string, quoteIdent QuoteIdentFunc) string {
 	if col.Type != "enum" || len(col.TypeArgs) == 0 {
 		return ""
 	}
-	values := getEnumValues(col.TypeArgs)
+	values := col.EnumValues()
 	if len(values) == 0 {
 		return ""
 	}

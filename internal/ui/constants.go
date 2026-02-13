@@ -1,3 +1,5 @@
+// Package ui provides terminal UI components for the Alab CLI,
+// including spinners, panels, tables, grids, and status bars.
 package ui
 
 // TView color tags - semantic naming for dynamic color formatting

@@ -42,7 +42,7 @@ func NewTypeScriptConverter() *TypeScriptConverter {
 func (c *TypeScriptConverter) ConvertType(col *ast.ColumnDef) string {
 	// Handle enum specially - create union type from values
 	if col.Type == "enum" {
-		enumValues := getEnumValues(col)
+		enumValues := col.EnumValues()
 		if len(enumValues) > 0 {
 			var quotedValues []string
 			for _, v := range enumValues {

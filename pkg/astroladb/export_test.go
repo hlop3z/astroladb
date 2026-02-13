@@ -833,16 +833,16 @@ func TestGetEnumValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			col := &ast.ColumnDef{Type: "enum", TypeArgs: tt.typeArgs}
-			got := getEnumValues(col)
+			got := col.EnumValues()
 
 			if len(got) != len(tt.want) {
-				t.Errorf("getEnumValues() len = %d, want %d", len(got), len(tt.want))
+				t.Errorf("EnumValues() len = %d, want %d", len(got), len(tt.want))
 				return
 			}
 
 			for i, v := range got {
 				if v != tt.want[i] {
-					t.Errorf("getEnumValues()[%d] = %s, want %s", i, v, tt.want[i])
+					t.Errorf("EnumValues()[%d] = %s, want %s", i, v, tt.want[i])
 				}
 			}
 		})
