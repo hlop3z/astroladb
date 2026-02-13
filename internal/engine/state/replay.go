@@ -1,5 +1,4 @@
-// Package engine provides schema replay functionality for computing schema state at a revision.
-package engine
+package state
 
 import (
 	"strings"
@@ -490,25 +489,4 @@ func applyDropForeignKey(schema *Schema, op *ast.DropForeignKey) error {
 
 	table.ForeignKeys = newFKs
 	return nil
-}
-
-// ReplayMigrations replays a list of migrations and returns the resulting schema.
-func ReplayMigrations(migrations []Migration) (*Schema, error) {
-	var allOps []ast.Operation
-	for _, m := range migrations {
-		allOps = append(allOps, m.Operations...)
-	}
-	return ReplayOperations(allOps)
-}
-
-// ReplayMigrationsUpTo replays migrations up to and including the specified revision.
-func ReplayMigrationsUpTo(migrations []Migration, targetRevision string) (*Schema, error) {
-	var allOps []ast.Operation
-	for _, m := range migrations {
-		allOps = append(allOps, m.Operations...)
-		if m.Revision == targetRevision {
-			break
-		}
-	}
-	return ReplayOperations(allOps)
 }

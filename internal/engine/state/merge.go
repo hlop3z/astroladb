@@ -1,4 +1,7 @@
-package engine
+// Package state provides schema state management for the engine.
+// It contains the Schema type and replay operations for computing
+// schema state at a given revision.
+package state
 
 import (
 	"sort"
