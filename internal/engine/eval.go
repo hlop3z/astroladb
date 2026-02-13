@@ -96,26 +96,15 @@ func (e *Evaluator) EvalDir(dir string) ([]*ast.TableDef, error) {
 	// Reset metadata for fresh evaluation
 	e.sandbox.ClearMetadata()
 
-	// Check if directory exists
-	info, err := os.Stat(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, alerr.New(alerr.ErrSchemaNotFound, "schema directory does not exist").
-				With("path", dir)
-		}
-		return nil, alerr.Wrap(alerr.ErrSchemaNotFound, err, "failed to access schema directory").
-			With("path", dir)
-	}
-	if !info.IsDir() {
-		return nil, alerr.New(alerr.ErrSchemaInvalid, "path is not a directory").
-			With("path", dir)
+	if err := validateSchemaDir(dir); err != nil {
+		return nil, err
 	}
 
 	var tables []*ast.TableDef
 	var evalErrors []error
 
 	// Walk the directory
-	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -173,23 +162,13 @@ func (e *Evaluator) EvalDirStrict(dir string) ([]*ast.TableDef, error) {
 	// Reset metadata for fresh evaluation (important for determinism check)
 	e.sandbox.ClearMetadata()
 
-	info, err := os.Stat(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, alerr.New(alerr.ErrSchemaNotFound, "schema directory does not exist").
-				With("path", dir)
-		}
-		return nil, alerr.Wrap(alerr.ErrSchemaNotFound, err, "failed to access schema directory").
-			With("path", dir)
-	}
-	if !info.IsDir() {
-		return nil, alerr.New(alerr.ErrSchemaInvalid, "path is not a directory").
-			With("path", dir)
+	if err := validateSchemaDir(dir); err != nil {
+		return nil, err
 	}
 
 	var tables []*ast.TableDef
 
-	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -249,6 +228,24 @@ func (e *Evaluator) SaveMetadataToFile(filePath string) error {
 	return e.sandbox.SaveMetadataToFile(filePath)
 }
 
+// validateSchemaDir checks that dir exists and is a directory.
+func validateSchemaDir(dir string) error {
+	info, err := os.Stat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return alerr.New(alerr.ErrSchemaNotFound, "schema directory does not exist").
+				With("path", dir)
+		}
+		return alerr.Wrap(alerr.ErrSchemaNotFound, err, "failed to access schema directory").
+			With("path", dir)
+	}
+	if !info.IsDir() {
+		return alerr.New(alerr.ErrSchemaInvalid, "path is not a directory").
+			With("path", dir)
+	}
+	return nil
+}
+
 // inferFromPath extracts namespace and table name from a schema file path.
 // Expected format: .../schemas/<namespace>/<table>.js
 func inferFromPath(path string) (namespace, tableName string, err error) {
@@ -298,38 +295,9 @@ func ValidateEvaluatedTables(tables []*ast.TableDef) error {
 
 	// Validate each table
 	for _, t := range tables {
-		if err := validateTableDef(t); err != nil {
+		if err := t.ValidateBasic(); err != nil {
 			return err
 		}
-	}
-
-	return nil
-}
-
-// validateTableDef validates a single table definition.
-func validateTableDef(t *ast.TableDef) error {
-	if t.Name == "" {
-		return alerr.New(alerr.ErrSchemaInvalid, "table name is required")
-	}
-
-	if len(t.Columns) == 0 {
-		return alerr.New(alerr.ErrSchemaInvalid, "table must have at least one column").
-			WithTable(t.Namespace, t.Name)
-	}
-
-	// Check for duplicate columns
-	colSeen := make(map[string]bool)
-	for _, col := range t.Columns {
-		if col.Name == "" {
-			return alerr.New(alerr.ErrSchemaInvalid, "column name is required").
-				WithTable(t.Namespace, t.Name)
-		}
-		if colSeen[col.Name] {
-			return alerr.New(alerr.ErrSchemaDuplicate, "duplicate column name").
-				WithTable(t.Namespace, t.Name).
-				WithColumn(col.Name)
-		}
-		colSeen[col.Name] = true
 	}
 
 	return nil

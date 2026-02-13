@@ -842,6 +842,54 @@ func TestOperationErrorCodes(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
+// QualifiedName Tests
+// -----------------------------------------------------------------------------
+
+func TestTableOpQualifiedName(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		tableName string
+		want      string
+	}{
+		{"with_namespace", "auth", "users", "auth.users"},
+		{"no_namespace", "", "users", "users"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			op := TableOp{Namespace: tt.namespace, Name: tt.tableName}
+			got := op.QualifiedName()
+			if got != tt.want {
+				t.Errorf("QualifiedName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTableRefQualifiedName(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		tableName string
+		want      string
+	}{
+		{"with_namespace", "auth", "users", "auth.users"},
+		{"no_namespace", "", "users", "users"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ref := TableRef{Namespace: tt.namespace, Table_: tt.tableName}
+			got := ref.QualifiedName()
+			if got != tt.want {
+				t.Errorf("QualifiedName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// -----------------------------------------------------------------------------
 // Operation Interface Tests
 // -----------------------------------------------------------------------------
 

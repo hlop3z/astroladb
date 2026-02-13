@@ -172,6 +172,33 @@ func (t *TableDef) PrimaryKey() *ColumnDef {
 	return nil
 }
 
+// ValidateBasic checks that the table has a name, at least one column,
+// and no duplicate column names. It does NOT validate identifier syntax,
+// column types, indexes, or foreign keys — use Validate() for that.
+func (t *TableDef) ValidateBasic() error {
+	if t.Name == "" {
+		return alerr.New(alerr.ErrSchemaInvalid, "table name is required")
+	}
+	if len(t.Columns) == 0 {
+		return alerr.New(alerr.ErrSchemaInvalid, "table must have at least one column").
+			WithTable(t.Namespace, t.Name)
+	}
+	colSeen := make(map[string]bool)
+	for _, col := range t.Columns {
+		if col.Name == "" {
+			return alerr.New(alerr.ErrSchemaInvalid, "column name is required").
+				WithTable(t.Namespace, t.Name)
+		}
+		if colSeen[col.Name] {
+			return alerr.New(alerr.ErrSchemaDuplicate, "duplicate column name").
+				WithTable(t.Namespace, t.Name).
+				WithColumn(col.Name)
+		}
+		colSeen[col.Name] = true
+	}
+	return nil
+}
+
 // Validate checks that the table definition is well-formed.
 func (t *TableDef) Validate() error {
 	if t.Name == "" {
@@ -403,6 +430,22 @@ func IsSQLExpr(v any) bool {
 func AsSQLExpr(v any) (*SQLExpr, bool) {
 	expr, ok := v.(*SQLExpr)
 	return expr, ok
+}
+
+// ConvertSQLExprValue converts JS values (like sql("...") results) to Go types.
+// If v is a map[string]any with {_type: "sql_expr", expr: "..."}, returns *SQLExpr.
+// Otherwise returns v unchanged.
+func ConvertSQLExprValue(v any) any {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return v
+	}
+	if typ, ok := m["_type"].(string); ok && typ == "sql_expr" {
+		if expr, ok := m["expr"].(string); ok {
+			return &SQLExpr{Expr: expr}
+		}
+	}
+	return v
 }
 
 // -----------------------------------------------------------------------------

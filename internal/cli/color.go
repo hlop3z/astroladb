@@ -34,71 +34,33 @@ var (
 	styleHighlight = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
 )
 
+// applyStyle renders text with the given style, respecting color settings.
+func applyStyle(s string, style lipgloss.Style) string {
+	if !EnableColors() {
+		return s
+	}
+	return style.Render(s)
+}
+
 // Styled text functions - these check EnableColors() internally.
 
-// Error returns text styled as an error label.
-func Error(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleError.Render(s)
-}
-
-// Warning returns text styled as a warning label.
-func Warning(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleWarning.Render(s)
-}
-
-// Note returns text styled as a note label.
-func Note(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleNote.Render(s)
-}
-
-// Help returns text styled as a help label.
-func Help(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleHelp.Render(s)
-}
-
-// Success returns text styled as a success message.
-func Success(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleSuccess.Render(s)
-}
-
-// Info returns text styled as informational text.
-func Info(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleInfo.Render(s)
-}
-
-// Code returns text styled as an error code.
-func Code(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleCode.Render(s)
-}
-
-// LineNum returns text styled as a line number.
-func LineNum(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleLineNum.Render(s)
-}
+func Error(s string) string     { return applyStyle(s, styleError) }
+func Warning(s string) string   { return applyStyle(s, styleWarning) }
+func Note(s string) string      { return applyStyle(s, styleNote) }
+func Help(s string) string      { return applyStyle(s, styleHelp) }
+func Success(s string) string   { return applyStyle(s, styleSuccess) }
+func Info(s string) string      { return applyStyle(s, styleInfo) }
+func Code(s string) string      { return applyStyle(s, styleCode) }
+func LineNum(s string) string   { return applyStyle(s, styleLineNum) }
+func Pointer(s string) string   { return applyStyle(s, stylePointer) }
+func Source(s string) string    { return applyStyle(s, styleSource) }
+func FilePath(s string) string  { return applyStyle(s, styleFilePath) }
+func Progress(s string) string  { return applyStyle(s, styleProgress) }
+func Done(s string) string      { return applyStyle(s, styleDone) }
+func Failed(s string) string    { return applyStyle(s, styleFailed) }
+func Header(s string) string    { return applyStyle(s, styleHeader) }
+func Dim(s string) string       { return applyStyle(s, styleDim) }
+func Highlight(s string) string { return applyStyle(s, styleHighlight) }
 
 // Pipe returns a pipe character styled for source display.
 func Pipe() string {
@@ -106,76 +68,4 @@ func Pipe() string {
 		return "|"
 	}
 	return stylePipe.Render("|")
-}
-
-// Pointer returns text styled as a pointer (^^^^).
-func Pointer(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return stylePointer.Render(s)
-}
-
-// Source returns text styled as source code.
-func Source(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleSource.Render(s)
-}
-
-// FilePath returns text styled as a file path.
-func FilePath(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleFilePath.Render(s)
-}
-
-// Progress returns text styled for progress display.
-func Progress(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleProgress.Render(s)
-}
-
-// Done returns text styled as "done" (success).
-func Done(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleDone.Render(s)
-}
-
-// Failed returns text styled as "failed" (error).
-func Failed(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleFailed.Render(s)
-}
-
-// Header returns text styled as a table header.
-func Header(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleHeader.Render(s)
-}
-
-// Dim returns text styled as dim/muted.
-func Dim(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleDim.Render(s)
-}
-
-// Highlight returns text styled as highlighted.
-func Highlight(s string) string {
-	if !EnableColors() {
-		return s
-	}
-	return styleHighlight.Render(s)
 }

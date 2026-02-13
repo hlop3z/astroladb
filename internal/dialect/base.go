@@ -27,6 +27,13 @@ const (
 // QuoteIdentFunc is a function that quotes an identifier.
 type QuoteIdentFunc func(name string) string
 
+// quoteIdentDoubleQuote quotes an identifier using SQL-standard double quotes.
+// Used by both PostgreSQL and SQLite.
+func quoteIdentDoubleQuote(name string) string {
+	escaped := strings.ReplaceAll(name, `"`, `""`)
+	return `"` + escaped + `"`
+}
+
 // writeQuotedList writes comma-separated quoted identifiers to the builder.
 // This is a DRY helper used by FK constraints, indexes, and other column lists.
 func writeQuotedList(b *strings.Builder, items []string, quote QuoteIdentFunc) {
@@ -532,6 +539,74 @@ func checkConstraintName(table string, name string) string {
 	return truncateIdentifier("chk_"+table+"_"+name, 63)
 }
 
+// getEnumValues extracts enum string values from type arguments.
+// Handles both []string and []any at TypeArgs[0] (primary) and TypeArgs[1] (legacy).
+func getEnumValues(typeArgs []any) []string {
+	if len(typeArgs) == 0 {
+		return nil
+	}
+	// TypeArgs[0] is the enum values slice (from col.id() API)
+	if values, ok := typeArgs[0].([]string); ok {
+		return values
+	}
+	if values, ok := typeArgs[0].([]any); ok {
+		var result []string
+		for _, v := range values {
+			if s, ok := v.(string); ok {
+				result = append(result, s)
+			}
+		}
+		return result
+	}
+	// Legacy format: TypeArgs[1] has enum values
+	if len(typeArgs) > 1 {
+		if values, ok := typeArgs[1].([]string); ok {
+			return values
+		}
+		if values, ok := typeArgs[1].([]any); ok {
+			var result []string
+			for _, v := range values {
+				if s, ok := v.(string); ok {
+					result = append(result, s)
+				}
+			}
+			return result
+		}
+	}
+	return nil
+}
+
+// buildEnumCheckSQL generates a CHECK constraint clause for enum columns.
+// Returns empty string if the column is not an enum or has no values.
+func buildEnumCheckSQL(col *ast.ColumnDef, tableName string, quoteIdent QuoteIdentFunc) string {
+	if col.Type != "enum" || len(col.TypeArgs) == 0 {
+		return ""
+	}
+	values := getEnumValues(col.TypeArgs)
+	if len(values) == 0 {
+		return ""
+	}
+
+	constraintName := checkConstraintName(tableName, col.Name+"_enum")
+	var b strings.Builder
+	b.WriteString(" CONSTRAINT ")
+	b.WriteString(quoteIdent(constraintName))
+	b.WriteString(" CHECK (")
+	b.WriteString(quoteIdent(col.Name))
+	b.WriteString(" IN (")
+	for i, v := range values {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		escaped := strings.ReplaceAll(v, "'", "''")
+		b.WriteString("'")
+		b.WriteString(escaped)
+		b.WriteString("'")
+	}
+	b.WriteString("))")
+	return b.String()
+}
+
 // buildAddCheckSQL generates ALTER TABLE ADD CONSTRAINT CHECK SQL.
 func buildAddCheckSQL(op *ast.AddCheck, quoteIdent QuoteIdentFunc) (string, error) {
 	var b strings.Builder
@@ -547,16 +622,15 @@ func buildAddCheckSQL(op *ast.AddCheck, quoteIdent QuoteIdentFunc) (string, erro
 	return b.String(), nil
 }
 
+// buildDropConstraintSQL generates ALTER TABLE DROP CONSTRAINT SQL.
+// Used for both foreign keys and CHECK constraints in PostgreSQL.
+func buildDropConstraintSQL(tableName, constraintName string, quoteIdent QuoteIdentFunc) string {
+	return "ALTER TABLE " + quoteIdent(tableName) + " DROP CONSTRAINT " + quoteIdent(constraintName)
+}
+
 // buildDropCheckSQL generates ALTER TABLE DROP CONSTRAINT SQL for CHECK constraints.
 func buildDropCheckSQL(op *ast.DropCheck, quoteIdent QuoteIdentFunc) (string, error) {
-	var b strings.Builder
-
-	b.WriteString("ALTER TABLE ")
-	b.WriteString(quoteIdent(op.Table()))
-	b.WriteString(" DROP CONSTRAINT ")
-	b.WriteString(quoteIdent(op.Name))
-
-	return b.String(), nil
+	return buildDropConstraintSQL(op.Table(), op.Name, quoteIdent), nil
 }
 
 // computedExprSQL renders a computed column expression (map[string]any) to SQL.
@@ -796,22 +870,11 @@ func buildCreateIndexSQL(op *ast.CreateIndex, quoteIdent QuoteIdentFunc, opts In
 	// Generate index name if not provided
 	indexName := op.Name
 	if indexName == "" {
-		if opts.IndexNameFunc != nil {
-			indexName = opts.IndexNameFunc(op.Table(), op.Unique, op.Columns...)
-		} else {
-			// Default: use strutil naming conventions
-			if op.Unique {
-				indexName = "uniq_" + op.Table()
-				for _, col := range op.Columns {
-					indexName += "_" + col
-				}
-			} else {
-				indexName = "idx_" + op.Table()
-				for _, col := range op.Columns {
-					indexName += "_" + col
-				}
-			}
+		nameFunc := opts.IndexNameFunc
+		if nameFunc == nil {
+			nameFunc = indexNameFunc
 		}
+		indexName = nameFunc(op.Table(), op.Unique, op.Columns...)
 	}
 
 	b.WriteString(quoteIdent(indexName))

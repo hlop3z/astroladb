@@ -30,6 +30,8 @@ type DDLGenerator interface {
 type SQLFormatter interface {
 	QuoteIdent(name string) string
 	Placeholder(index int) string
+	BooleanLiteral(b bool) string
+	CurrentTimestamp() string
 }
 
 // FeatureDetector reports database-specific capabilities.

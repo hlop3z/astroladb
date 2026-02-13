@@ -136,18 +136,7 @@ func (c *ColumnConverter) IndexesToAST(idxs []*builder.IndexDef) []*ast.IndexDef
 
 // convertValue converts JS values (like sql("...") results) to Go types.
 func (c *ColumnConverter) convertValue(v any) any {
-	switch val := v.(type) {
-	case map[string]any:
-		// Check if this is a SQL expression marker from sql("...")
-		if typ, ok := val["_type"].(string); ok && typ == "sql_expr" {
-			if expr, ok := val["expr"].(string); ok {
-				return &ast.SQLExpr{Expr: expr}
-			}
-		}
-		return val
-	default:
-		return v
-	}
+	return ast.ConvertSQLExprValue(v)
 }
 
 // TableBuilderToAST converts a TableBuilder directly to an ast.TableDef.

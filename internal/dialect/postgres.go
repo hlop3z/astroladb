@@ -88,13 +88,22 @@ func (d *postgres) EnumType(name string, values []string) string {
 // -----------------------------------------------------------------------------
 
 func (d *postgres) QuoteIdent(name string) string {
-	// PostgreSQL uses double quotes for identifiers
-	escaped := strings.ReplaceAll(name, `"`, `""`)
-	return `"` + escaped + `"`
+	return quoteIdentDoubleQuote(name)
 }
 
 func (d *postgres) Placeholder(index int) string {
 	return "$" + strconv.Itoa(index)
+}
+
+func (d *postgres) BooleanLiteral(b bool) string {
+	if b {
+		return "TRUE"
+	}
+	return "FALSE"
+}
+
+func (d *postgres) CurrentTimestamp() string {
+	return "CURRENT_TIMESTAMP"
 }
 
 // -----------------------------------------------------------------------------
@@ -195,39 +204,15 @@ func (d *postgres) AddForeignKeySQL(op *ast.AddForeignKey) (string, error) {
 }
 
 func (d *postgres) DropForeignKeySQL(op *ast.DropForeignKey) (string, error) {
-	var b strings.Builder
-
-	b.WriteString("ALTER TABLE ")
-	b.WriteString(d.QuoteIdent(op.Table()))
-	b.WriteString(" DROP CONSTRAINT ")
-	b.WriteString(d.QuoteIdent(op.Name))
-
-	return b.String(), nil
+	return buildDropConstraintSQL(op.Table(), op.Name, d.QuoteIdent), nil
 }
 
 func (d *postgres) AddCheckSQL(op *ast.AddCheck) (string, error) {
-	var b strings.Builder
-
-	b.WriteString("ALTER TABLE ")
-	b.WriteString(d.QuoteIdent(op.Table()))
-	b.WriteString(" ADD CONSTRAINT ")
-	b.WriteString(d.QuoteIdent(op.Name))
-	b.WriteString(" CHECK (")
-	b.WriteString(op.Expression)
-	b.WriteString(")")
-
-	return b.String(), nil
+	return buildAddCheckSQL(op, d.QuoteIdent)
 }
 
 func (d *postgres) DropCheckSQL(op *ast.DropCheck) (string, error) {
-	var b strings.Builder
-
-	b.WriteString("ALTER TABLE ")
-	b.WriteString(d.QuoteIdent(op.Table()))
-	b.WriteString(" DROP CONSTRAINT ")
-	b.WriteString(d.QuoteIdent(op.Name))
-
-	return b.String(), nil
+	return buildDropConstraintSQL(op.Table(), op.Name, d.QuoteIdent), nil
 }
 
 func (d *postgres) RawSQLFor(op *ast.RawSQL) (string, error) {
@@ -256,68 +241,7 @@ func (d *postgres) columnDefSQL(col *ast.ColumnDef, tableName string) string {
 
 // enumCheckSQL generates the CHECK constraint for enum columns.
 func (d *postgres) enumCheckSQL(col *ast.ColumnDef, tableName string) string {
-	if col.Type != "enum" || len(col.TypeArgs) == 0 {
-		return ""
-	}
-	values := d.getEnumValues(col.TypeArgs)
-	if len(values) == 0 {
-		return ""
-	}
-
-	constraintName := checkConstraintName(tableName, col.Name+"_enum")
-	var b strings.Builder
-	b.WriteString(" CONSTRAINT ")
-	b.WriteString(d.QuoteIdent(constraintName))
-	b.WriteString(" CHECK (")
-	b.WriteString(d.QuoteIdent(col.Name))
-	b.WriteString(" IN (")
-	for i, v := range values {
-		if i > 0 {
-			b.WriteString(", ")
-		}
-		escaped := strings.ReplaceAll(v, "'", "''")
-		b.WriteString("'")
-		b.WriteString(escaped)
-		b.WriteString("'")
-	}
-	b.WriteString("))")
-	return b.String()
-}
-
-// getEnumValues extracts enum values from type arguments.
-func (d *postgres) getEnumValues(typeArgs []any) []string {
-	if len(typeArgs) == 0 {
-		return nil
-	}
-	// TypeArgs[0] is the enum values slice (from col.id() API)
-	if values, ok := typeArgs[0].([]string); ok {
-		return values
-	}
-	if values, ok := typeArgs[0].([]any); ok {
-		var result []string
-		for _, v := range values {
-			if s, ok := v.(string); ok {
-				result = append(result, s)
-			}
-		}
-		return result
-	}
-	// Legacy format: TypeArgs[1] has enum values
-	if len(typeArgs) > 1 {
-		if values, ok := typeArgs[1].([]string); ok {
-			return values
-		}
-		if values, ok := typeArgs[1].([]any); ok {
-			var result []string
-			for _, v := range values {
-				if s, ok := v.(string); ok {
-					result = append(result, s)
-				}
-			}
-			return result
-		}
-	}
-	return nil
+	return buildEnumCheckSQL(col, tableName, d.QuoteIdent)
 }
 
 // columnTypeSQL returns the SQL type for a column.

@@ -1,6 +1,7 @@
 package state
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
@@ -15,11 +16,7 @@ func tableNotFoundErr(schema *Schema, ns, name string) *alerr.Error {
 	for k := range schema.Tables {
 		names = append(names, k)
 	}
-	qualifiedName := name
-	if ns != "" {
-		qualifiedName = ns + "." + name
-	}
-	if suggestion := alerr.SuggestSimilar(qualifiedName, names); suggestion != "" {
+	if suggestion := alerr.SuggestSimilar(qualifyName(ns, name), names); suggestion != "" {
 		err.WithHelp(suggestion)
 	}
 	return err
@@ -38,6 +35,24 @@ func columnNotFoundErr(table *ast.TableDef, ns, tableName, colName string) *aler
 		err.WithHelp(suggestion)
 	}
 	return err
+}
+
+// qualifyName returns the dot-separated qualified name (ns.name or name).
+func qualifyName(ns, name string) string {
+	if ns == "" {
+		return name
+	}
+	return ns + "." + name
+}
+
+// lookupTable finds a table by namespace and name, returning a not-found error if missing.
+func lookupTable(schema *Schema, ns, name string) (*ast.TableDef, string, error) {
+	qn := qualifyName(ns, name)
+	table, exists := schema.Tables[qn]
+	if !exists {
+		return nil, qn, tableNotFoundErr(schema, ns, name)
+	}
+	return table, qn, nil
 }
 
 // ReplayOperations applies a sequence of operations to build the resulting schema state.
@@ -91,10 +106,7 @@ func applyOperation(schema *Schema, op ast.Operation) error {
 
 // applyCreateTable adds a new table to the schema.
 func applyCreateTable(schema *Schema, op *ast.CreateTable) error {
-	qualifiedName := op.Namespace + "." + op.Name
-	if op.Namespace == "" {
-		qualifiedName = op.Name
-	}
+	qualifiedName := op.QualifiedName()
 
 	if _, exists := schema.Tables[qualifiedName]; exists {
 		return alerr.New(alerr.ErrSchemaDuplicate, "table already exists").
@@ -144,10 +156,7 @@ func applyCreateTable(schema *Schema, op *ast.CreateTable) error {
 
 // applyDropTable removes a table from the schema.
 func applyDropTable(schema *Schema, op *ast.DropTable) error {
-	qualifiedName := op.Namespace + "." + op.Name
-	if op.Namespace == "" {
-		qualifiedName = op.Name
-	}
+	qualifiedName := op.QualifiedName()
 
 	if _, exists := schema.Tables[qualifiedName]; !exists && !op.IfExists {
 		return tableNotFoundErr(schema, op.Namespace, op.Name)
@@ -159,12 +168,8 @@ func applyDropTable(schema *Schema, op *ast.DropTable) error {
 
 // applyRenameTable renames a table in the schema.
 func applyRenameTable(schema *Schema, op *ast.RenameTable) error {
-	oldQualified := op.Namespace + "." + op.OldName
-	newQualified := op.Namespace + "." + op.NewName
-	if op.Namespace == "" {
-		oldQualified = op.OldName
-		newQualified = op.NewName
-	}
+	oldQualified := qualifyName(op.Namespace, op.OldName)
+	newQualified := qualifyName(op.Namespace, op.NewName)
 
 	table, exists := schema.Tables[oldQualified]
 	if !exists {
@@ -186,23 +191,16 @@ func applyRenameTable(schema *Schema, op *ast.RenameTable) error {
 
 // applyAddColumn adds a column to an existing table.
 func applyAddColumn(schema *Schema, op *ast.AddColumn) error {
-	qualifiedName := op.Namespace + "." + op.Table_
-	if op.Namespace == "" {
-		qualifiedName = op.Table_
-	}
-
-	table, exists := schema.Tables[qualifiedName]
-	if !exists {
-		return tableNotFoundErr(schema, op.Namespace, op.Table_)
+	table, _, err := lookupTable(schema, op.Namespace, op.Table_)
+	if err != nil {
+		return err
 	}
 
 	// Check if column already exists
-	for _, col := range table.Columns {
-		if col.Name == op.Column.Name {
-			return alerr.New(alerr.ErrSchemaDuplicate, "column already exists").
-				WithTable(op.Namespace, op.Table_).
-				WithColumn(op.Column.Name)
-		}
+	if table.HasColumn(op.Column.Name) {
+		return alerr.New(alerr.ErrSchemaDuplicate, "column already exists").
+			WithTable(op.Namespace, op.Table_).
+			WithColumn(op.Column.Name)
 	}
 
 	// Add the column
@@ -214,14 +212,9 @@ func applyAddColumn(schema *Schema, op *ast.AddColumn) error {
 
 // applyDropColumn removes a column from an existing table.
 func applyDropColumn(schema *Schema, op *ast.DropColumn) error {
-	qualifiedName := op.Namespace + "." + op.Table_
-	if op.Namespace == "" {
-		qualifiedName = op.Table_
-	}
-
-	table, exists := schema.Tables[qualifiedName]
-	if !exists {
-		return tableNotFoundErr(schema, op.Namespace, op.Table_)
+	table, _, err := lookupTable(schema, op.Namespace, op.Table_)
+	if err != nil {
+		return err
 	}
 
 	// Find and remove the column
@@ -245,29 +238,17 @@ func applyDropColumn(schema *Schema, op *ast.DropColumn) error {
 
 // applyRenameColumn renames a column in an existing table.
 func applyRenameColumn(schema *Schema, op *ast.RenameColumn) error {
-	qualifiedName := op.Namespace + "." + op.Table_
-	if op.Namespace == "" {
-		qualifiedName = op.Table_
-	}
-
-	table, exists := schema.Tables[qualifiedName]
-	if !exists {
-		return tableNotFoundErr(schema, op.Namespace, op.Table_)
+	table, _, err := lookupTable(schema, op.Namespace, op.Table_)
+	if err != nil {
+		return err
 	}
 
 	// Find the column and rename it
-	found := false
-	for _, col := range table.Columns {
-		if col.Name == op.OldName {
-			col.Name = op.NewName
-			found = true
-			break
-		}
-	}
-
-	if !found {
+	col := table.GetColumn(op.OldName)
+	if col == nil {
 		return columnNotFoundErr(table, op.Namespace, op.Table_, op.OldName)
 	}
+	col.Name = op.NewName
 
 	// Also update any indexes that reference this column
 	for _, idx := range table.Indexes {
@@ -283,25 +264,13 @@ func applyRenameColumn(schema *Schema, op *ast.RenameColumn) error {
 
 // applyAlterColumn modifies a column's properties.
 func applyAlterColumn(schema *Schema, op *ast.AlterColumn) error {
-	qualifiedName := op.Namespace + "." + op.Table_
-	if op.Namespace == "" {
-		qualifiedName = op.Table_
-	}
-
-	table, exists := schema.Tables[qualifiedName]
-	if !exists {
-		return tableNotFoundErr(schema, op.Namespace, op.Table_)
+	table, _, err := lookupTable(schema, op.Namespace, op.Table_)
+	if err != nil {
+		return err
 	}
 
 	// Find the column
-	var col *ast.ColumnDef
-	for _, c := range table.Columns {
-		if c.Name == op.Name {
-			col = c
-			break
-		}
-	}
-
+	col := table.GetColumn(op.Name)
 	if col == nil {
 		return columnNotFoundErr(table, op.Namespace, op.Table_, op.Name)
 	}
@@ -328,14 +297,9 @@ func applyAlterColumn(schema *Schema, op *ast.AlterColumn) error {
 
 // applyCreateIndex adds an index to an existing table.
 func applyCreateIndex(schema *Schema, op *ast.CreateIndex) error {
-	qualifiedName := op.Namespace + "." + op.Table_
-	if op.Namespace == "" {
-		qualifiedName = op.Table_
-	}
-
-	table, exists := schema.Tables[qualifiedName]
-	if !exists {
-		return tableNotFoundErr(schema, op.Namespace, op.Table_)
+	table, _, err := lookupTable(schema, op.Namespace, op.Table_)
+	if err != nil {
+		return err
 	}
 
 	// Auto-generate name if not provided (do this first to enable duplicate detection)
@@ -360,7 +324,7 @@ func applyCreateIndex(schema *Schema, op *ast.CreateIndex) error {
 		// 1. belongs_to creates an index inside CreateTable (with auto-generated name)
 		// 2. A separate CreateIndex operation tries to create the same index
 		// This prevents duplicate indexes on the same columns
-		if columnsMatch(idx.Columns, op.Columns) {
+		if slices.Equal(idx.Columns, op.Columns) {
 			return nil
 		}
 	}
@@ -377,34 +341,17 @@ func applyCreateIndex(schema *Schema, op *ast.CreateIndex) error {
 	return nil
 }
 
-// columnsMatch checks if two column lists are identical (order matters).
-func columnsMatch(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 // applyDropIndex removes an index from an existing table.
 func applyDropIndex(schema *Schema, op *ast.DropIndex) error {
 	// Find table containing this index
 	var table *ast.TableDef
-	qualifiedName := op.Namespace + "." + op.Table_
-	if op.Namespace == "" {
-		qualifiedName = op.Table_
-	}
 
 	if op.Table_ != "" {
-		var exists bool
-		table, exists = schema.Tables[qualifiedName]
-		if !exists && !op.IfExists {
-			return tableNotFoundErr(schema, op.Namespace, op.Table_)
+		t, _, err := lookupTable(schema, op.Namespace, op.Table_)
+		if err != nil && !op.IfExists {
+			return err
 		}
+		table = t
 	} else {
 		// Search all tables for the index
 		for _, t := range schema.Tables {
@@ -450,14 +397,9 @@ func applyDropIndex(schema *Schema, op *ast.DropIndex) error {
 
 // applyAddForeignKey adds a foreign key constraint to an existing table.
 func applyAddForeignKey(schema *Schema, op *ast.AddForeignKey) error {
-	qualifiedName := op.Namespace + "." + op.Table_
-	if op.Namespace == "" {
-		qualifiedName = op.Table_
-	}
-
-	table, exists := schema.Tables[qualifiedName]
-	if !exists {
-		return tableNotFoundErr(schema, op.Namespace, op.Table_)
+	table, _, err := lookupTable(schema, op.Namespace, op.Table_)
+	if err != nil {
+		return err
 	}
 
 	// Add the foreign key
@@ -478,14 +420,9 @@ func applyAddForeignKey(schema *Schema, op *ast.AddForeignKey) error {
 
 // applyDropForeignKey removes a foreign key constraint from an existing table.
 func applyDropForeignKey(schema *Schema, op *ast.DropForeignKey) error {
-	qualifiedName := op.Namespace + "." + op.Table_
-	if op.Namespace == "" {
-		qualifiedName = op.Table_
-	}
-
-	table, exists := schema.Tables[qualifiedName]
-	if !exists {
-		return tableNotFoundErr(schema, op.Namespace, op.Table_)
+	table, _, err := lookupTable(schema, op.Namespace, op.Table_)
+	if err != nil {
+		return err
 	}
 
 	// Remove the foreign key

@@ -163,18 +163,7 @@ func ParseIndexDefMap(obj any) *ast.IndexDef {
 
 // convertValue converts JS values (like sql("...") results) to Go types.
 func (p *SchemaParser) convertValue(v any) any {
-	switch val := v.(type) {
-	case map[string]any:
-		// Check if this is a SQL expression marker from sql("...")
-		if typ, ok := val["_type"].(string); ok && typ == "sql_expr" {
-			if expr, ok := val["expr"].(string); ok {
-				return &ast.SQLExpr{Expr: expr}
-			}
-		}
-		return val
-	default:
-		return v
-	}
+	return ast.ConvertSQLExprValue(v)
 }
 
 // ParseColumns parses a list of column objects into ast.ColumnDef slice.

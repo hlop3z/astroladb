@@ -7,6 +7,7 @@ import (
 
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/engine/topo"
 )
 
 // sortOpsByTypeAndName sorts operations first by Type(), then by OpName() for deterministic output.
@@ -682,7 +683,7 @@ func sortCreateTablesByDependency(ops []*ast.CreateTable, schema *engine.Schema)
 	}
 
 	// Perform topological sort
-	sorted, err := engine.TopoSort(nodes)
+	sorted, err := topo.TopoSort(nodes)
 	if err != nil {
 		// Circular dependency - log warning and return original order
 		// This should not happen with a properly validated schema

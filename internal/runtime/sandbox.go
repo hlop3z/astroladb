@@ -503,34 +503,9 @@ func (s *Sandbox) parseTableDef(namespace, name string, defObj any) *ast.TableDe
 	if auditable, ok := def["auditable"].(bool); ok {
 		tableDef.Auditable = auditable
 	}
-	if sortBy, ok := def["sort_by"].([]string); ok {
-		tableDef.SortBy = sortBy
-	} else if sortByAny, ok := def["sort_by"].([]any); ok {
-		// Handle []any from Goja
-		for _, v := range sortByAny {
-			if s, ok := v.(string); ok {
-				tableDef.SortBy = append(tableDef.SortBy, s)
-			}
-		}
-	}
-	if searchable, ok := def["searchable"].([]string); ok {
-		tableDef.Searchable = searchable
-	} else if searchableAny, ok := def["searchable"].([]any); ok {
-		for _, v := range searchableAny {
-			if s, ok := v.(string); ok {
-				tableDef.Searchable = append(tableDef.Searchable, s)
-			}
-		}
-	}
-	if filterable, ok := def["filterable"].([]string); ok {
-		tableDef.Filterable = filterable
-	} else if filterableAny, ok := def["filterable"].([]any); ok {
-		for _, v := range filterableAny {
-			if s, ok := v.(string); ok {
-				tableDef.Filterable = append(tableDef.Filterable, s)
-			}
-		}
-	}
+	tableDef.SortBy = toStringSlice(def["sort_by"])
+	tableDef.Searchable = toStringSlice(def["searchable"])
+	tableDef.Filterable = toStringSlice(def["filterable"])
 
 	// Add table to metadata
 	s.meta.AddTable(tableDef)
@@ -630,20 +605,30 @@ func (s *Sandbox) parseColumnDef(obj any) *ast.ColumnDef {
 	return col
 }
 
-// convertValue converts JS values (like sql("...") results) to Go types.
-func (s *Sandbox) convertValue(v any) any {
-	switch val := v.(type) {
-	case map[string]any:
-		// Check if this is a SQL expression marker from sql("...")
-		if typ, ok := val["_type"].(string); ok && typ == "sql_expr" {
-			if expr, ok := val["expr"].(string); ok {
-				return &ast.SQLExpr{Expr: expr}
+// toStringSlice converts a Goja value to []string.
+// Handles both []string and []any (where each element is asserted to string).
+func toStringSlice(v any) []string {
+	if v == nil {
+		return nil
+	}
+	if ss, ok := v.([]string); ok {
+		return ss
+	}
+	if aa, ok := v.([]any); ok {
+		var result []string
+		for _, item := range aa {
+			if s, ok := item.(string); ok {
+				result = append(result, s)
 			}
 		}
-		return val
-	default:
-		return v
+		return result
 	}
+	return nil
+}
+
+// convertValue converts JS values (like sql("...") results) to Go types.
+func (s *Sandbox) convertValue(v any) any {
+	return ast.ConvertSQLExprValue(v)
 }
 
 // SetTimeout sets the execution timeout for JS code.

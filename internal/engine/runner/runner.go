@@ -14,6 +14,7 @@ import (
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/dialect"
 	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/engine/topo"
 )
 
 // lockReleaseTimeout is the maximum time to wait when releasing a migration lock.
@@ -502,7 +503,7 @@ func sortDropTablesByFKDependency(dropTables []*ast.DropTable, allOps []ast.Oper
 	}
 
 	// Perform topological sort
-	sorted, err := engine.TopoSort(nodes)
+	sorted, err := topo.TopoSort(nodes)
 	if err != nil {
 		// Circular dependency - return in reverse alphabetical order as fallback
 		sortStrings := func(s []*ast.DropTable) {

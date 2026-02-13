@@ -45,6 +45,14 @@ func (t TableOp) Table() string {
 	return t.Namespace + "_" + t.Name
 }
 
+// QualifiedName returns the dot-separated qualified name (namespace.name or name).
+func (t TableOp) QualifiedName() string {
+	if t.Namespace == "" {
+		return t.Name
+	}
+	return t.Namespace + "." + t.Name
+}
+
 // TableRef provides common Namespace+Table_ fields for column/index operations.
 // Operations that target columns or indexes within a table embed this type.
 type TableRef struct {
@@ -58,6 +66,14 @@ func (t TableRef) Table() string {
 		return t.Table_
 	}
 	return t.Namespace + "_" + t.Table_
+}
+
+// QualifiedName returns the dot-separated qualified name (namespace.table or table).
+func (t TableRef) QualifiedName() string {
+	if t.Namespace == "" {
+		return t.Table_
+	}
+	return t.Namespace + "." + t.Table_
 }
 
 // -----------------------------------------------------------------------------

@@ -102,14 +102,23 @@ func (d *sqlite) EnumType(name string, values []string) string {
 // -----------------------------------------------------------------------------
 
 func (d *sqlite) QuoteIdent(name string) string {
-	// SQLite uses double quotes for identifiers (SQL standard)
-	escaped := strings.ReplaceAll(name, `"`, `""`)
-	return `"` + escaped + `"`
+	return quoteIdentDoubleQuote(name)
 }
 
 func (d *sqlite) Placeholder(index int) string {
 	// SQLite uses ? for all placeholders
 	return "?"
+}
+
+func (d *sqlite) BooleanLiteral(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
+}
+
+func (d *sqlite) CurrentTimestamp() string {
+	return "datetime('now')"
 }
 
 // -----------------------------------------------------------------------------
@@ -186,38 +195,31 @@ func (d *sqlite) RenameTableSQL(op *ast.RenameTable) (string, error) {
 	return buildRenameTableSQL(op, d.QuoteIdent, strutil.QualifyTable)
 }
 
+// sqliteUnsupported returns a standardized error for unsupported ALTER TABLE operations.
+func sqliteUnsupported(msg, ns, table, key, name string) (string, error) {
+	return "", alerr.New(alerr.ErrSQLExecution, msg).
+		WithTable(ns, table).
+		With(key, name)
+}
+
 func (d *sqlite) AddForeignKeySQL(op *ast.AddForeignKey) (string, error) {
-	// SQLite does not support adding foreign keys via ALTER TABLE.
-	// Foreign keys must be defined at table creation time.
-	// To add a FK, you need to recreate the table.
-	return "", alerr.New(alerr.ErrSQLExecution, "SQLite does not support ALTER TABLE ADD FOREIGN KEY; use table recreation pattern").
-		WithTable(op.Namespace, op.Table_).
-		With("fk_name", op.Name)
+	return sqliteUnsupported("SQLite does not support ALTER TABLE ADD FOREIGN KEY; use table recreation pattern",
+		op.Namespace, op.Table_, "fk_name", op.Name)
 }
 
 func (d *sqlite) DropForeignKeySQL(op *ast.DropForeignKey) (string, error) {
-	// SQLite does not support dropping foreign keys via ALTER TABLE.
-	// To remove a FK, you need to recreate the table.
-	return "", alerr.New(alerr.ErrSQLExecution, "SQLite does not support ALTER TABLE DROP FOREIGN KEY; use table recreation pattern").
-		WithTable(op.Namespace, op.Table_).
-		With("fk_name", op.Name)
+	return sqliteUnsupported("SQLite does not support ALTER TABLE DROP FOREIGN KEY; use table recreation pattern",
+		op.Namespace, op.Table_, "fk_name", op.Name)
 }
 
 func (d *sqlite) AddCheckSQL(op *ast.AddCheck) (string, error) {
-	// SQLite does not support adding CHECK constraints via ALTER TABLE.
-	// CHECK constraints must be defined at table creation time.
-	// To add a CHECK, you need to recreate the table.
-	return "", alerr.New(alerr.ErrSQLExecution, "SQLite does not support ALTER TABLE ADD CHECK; use table recreation pattern").
-		WithTable(op.Namespace, op.Table_).
-		With("check_name", op.Name)
+	return sqliteUnsupported("SQLite does not support ALTER TABLE ADD CHECK; use table recreation pattern",
+		op.Namespace, op.Table_, "check_name", op.Name)
 }
 
 func (d *sqlite) DropCheckSQL(op *ast.DropCheck) (string, error) {
-	// SQLite does not support dropping CHECK constraints via ALTER TABLE.
-	// To remove a CHECK, you need to recreate the table.
-	return "", alerr.New(alerr.ErrSQLExecution, "SQLite does not support ALTER TABLE DROP CHECK; use table recreation pattern").
-		WithTable(op.Namespace, op.Table_).
-		With("check_name", op.Name)
+	return sqliteUnsupported("SQLite does not support ALTER TABLE DROP CHECK; use table recreation pattern",
+		op.Namespace, op.Table_, "check_name", op.Name)
 }
 
 func (d *sqlite) RawSQLFor(op *ast.RawSQL) (string, error) {
@@ -246,31 +248,7 @@ func (d *sqlite) columnDefSQL(col *ast.ColumnDef, tableName string) string {
 
 // enumCheckSQL generates the CHECK constraint for enum columns.
 func (d *sqlite) enumCheckSQL(col *ast.ColumnDef, tableName string) string {
-	if col.Type != "enum" || len(col.TypeArgs) <= 1 {
-		return ""
-	}
-	values := d.getEnumValues(col.TypeArgs)
-	if len(values) == 0 {
-		return ""
-	}
-
-	var b strings.Builder
-	// Generate named CHECK constraint: CONSTRAINT chk_table_column CHECK (...)
-	constraintName := "chk_" + tableName + "_" + col.Name
-	b.WriteString(" CONSTRAINT ")
-	b.WriteString(d.QuoteIdent(constraintName))
-	b.WriteString(" CHECK (")
-	b.WriteString(d.QuoteIdent(col.Name))
-	b.WriteString(" IN (")
-	for i, v := range values {
-		if i > 0 {
-			b.WriteString(", ")
-		}
-		escaped := strings.ReplaceAll(v, "'", "''")
-		b.WriteString("'" + escaped + "'")
-	}
-	b.WriteString("))")
-	return b.String()
+	return buildEnumCheckSQL(col, tableName, d.QuoteIdent)
 }
 
 // columnTypeSQL returns the SQL type for a column.
@@ -306,24 +284,4 @@ func (d *sqlite) defaultValueSQL(value any) string {
 // but the name is included when provided for documentation purposes.
 func (d *sqlite) foreignKeyConstraintSQL(fk *ast.ForeignKeyDef) string {
 	return buildForeignKeyConstraintSQL(fk, d.QuoteIdent)
-}
-
-// getEnumValues extracts enum values from type arguments.
-func (d *sqlite) getEnumValues(typeArgs []any) []string {
-	if len(typeArgs) > 1 {
-		if values, ok := typeArgs[1].([]string); ok {
-			return values
-		}
-		// Handle []interface{} from JS
-		if values, ok := typeArgs[1].([]interface{}); ok {
-			var strValues []string
-			for _, v := range values {
-				if s, ok := v.(string); ok {
-					strValues = append(strValues, s)
-				}
-			}
-			return strValues
-		}
-	}
-	return nil
 }

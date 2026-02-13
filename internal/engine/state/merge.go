@@ -8,6 +8,7 @@ import (
 
 	"github.com/hlop3z/astroladb/internal/alerr"
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/engine/topo"
 	"github.com/hlop3z/astroladb/internal/registry"
 )
 
@@ -179,7 +180,7 @@ func (s *Schema) Clone() *Schema {
 func (s *Schema) Validate() error {
 	// Validate each table individually
 	for _, t := range s.Tables {
-		if err := validateTableDef(t); err != nil {
+		if err := t.ValidateBasic(); err != nil {
 			return err
 		}
 	}
@@ -362,7 +363,7 @@ func (s *Schema) GetCreationOrder() ([]*ast.TableDef, error) {
 	}
 
 	// Perform topological sort
-	sorted, err := TopoSort(nodes)
+	sorted, err := topo.TopoSort(nodes)
 	if err != nil {
 		return nil, alerr.New(alerr.ErrSchemaCircularRef, "circular dependency prevents ordering")
 	}

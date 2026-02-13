@@ -332,9 +332,8 @@ func TestPostgres_RawSQLFor(t *testing.T) {
 	}
 }
 
-// TestPostgres_getEnumValues tests the getEnumValues helper method.
+// TestPostgres_getEnumValues tests the getEnumValues helper function.
 func TestPostgres_getEnumValues(t *testing.T) {
-	d := &postgres{}
 
 	tests := []struct {
 		name     string
@@ -375,7 +374,7 @@ func TestPostgres_getEnumValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := d.getEnumValues(tt.typeArgs)
+			got := getEnumValues(tt.typeArgs)
 			if len(got) != len(tt.want) {
 				t.Errorf("length mismatch: got %d, want %d", len(got), len(tt.want))
 				return

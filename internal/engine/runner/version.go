@@ -256,31 +256,12 @@ func (v *VersionManager) RecordApplied(ctx context.Context, rec ApplyRecord) err
 		return err
 	}
 
-	var query string
-	var args []interface{}
-
-	switch v.dialect.Name() {
-	case "postgres":
-		query = fmt.Sprintf(
-			"INSERT INTO %s (revision, checksum, exec_time_ms, description, sql_checksum, squashed_through, applied_order) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-			quotedTable,
-		)
-		args = []interface{}{rec.Revision, rec.Checksum, execTimeMs, nullIfEmpty(rec.Description), nullIfEmpty(rec.SQLChecksum), nullIfEmpty(rec.SquashedThrough), nextOrder}
-
-	case "sqlite":
-		query = fmt.Sprintf(
-			"INSERT INTO %s (revision, checksum, exec_time_ms, description, sql_checksum, squashed_through, applied_order) VALUES (?, ?, ?, ?, ?, ?, ?)",
-			quotedTable,
-		)
-		args = []interface{}{rec.Revision, rec.Checksum, execTimeMs, nullIfEmpty(rec.Description), nullIfEmpty(rec.SQLChecksum), nullIfEmpty(rec.SquashedThrough), nextOrder}
-
-	default:
-		query = fmt.Sprintf(
-			"INSERT INTO %s (revision, checksum, exec_time_ms, description, sql_checksum, squashed_through, applied_order) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-			quotedTable,
-		)
-		args = []interface{}{rec.Revision, rec.Checksum, execTimeMs, nullIfEmpty(rec.Description), nullIfEmpty(rec.SQLChecksum), nullIfEmpty(rec.SquashedThrough), nextOrder}
-	}
+	p := v.dialect.Placeholder
+	query := fmt.Sprintf(
+		"INSERT INTO %s (revision, checksum, exec_time_ms, description, sql_checksum, squashed_through, applied_order) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+		quotedTable, p(1), p(2), p(3), p(4), p(5), p(6), p(7),
+	)
+	args := []interface{}{rec.Revision, rec.Checksum, execTimeMs, nullIfEmpty(rec.Description), nullIfEmpty(rec.SQLChecksum), nullIfEmpty(rec.SquashedThrough), nextOrder}
 
 	_, err = v.db.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -318,22 +299,8 @@ func nullIfEmpty(s string) interface{} {
 func (v *VersionManager) RecordRollback(ctx context.Context, revision string) error {
 	quotedTable := v.dialect.QuoteIdent(MigrationTableName)
 
-	var query string
-	var args []interface{}
-
-	switch v.dialect.Name() {
-	case "postgres":
-		query = fmt.Sprintf("DELETE FROM %s WHERE revision = $1", quotedTable)
-		args = []interface{}{revision}
-
-	case "sqlite":
-		query = fmt.Sprintf("DELETE FROM %s WHERE revision = ?", quotedTable)
-		args = []interface{}{revision}
-
-	default:
-		query = fmt.Sprintf("DELETE FROM %s WHERE revision = $1", quotedTable)
-		args = []interface{}{revision}
-	}
+	query := fmt.Sprintf("DELETE FROM %s WHERE revision = %s", quotedTable, v.dialect.Placeholder(1))
+	args := []interface{}{revision}
 
 	result, err := v.db.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -359,22 +326,8 @@ func (v *VersionManager) RecordRollback(ctx context.Context, revision string) er
 func (v *VersionManager) IsApplied(ctx context.Context, revision string) (bool, error) {
 	quotedTable := v.dialect.QuoteIdent(MigrationTableName)
 
-	var query string
-	var args []interface{}
-
-	switch v.dialect.Name() {
-	case "postgres":
-		query = fmt.Sprintf("SELECT 1 FROM %s WHERE revision = $1 LIMIT 1", quotedTable)
-		args = []interface{}{revision}
-
-	case "sqlite":
-		query = fmt.Sprintf("SELECT 1 FROM %s WHERE revision = ? LIMIT 1", quotedTable)
-		args = []interface{}{revision}
-
-	default:
-		query = fmt.Sprintf("SELECT 1 FROM %s WHERE revision = $1 LIMIT 1", quotedTable)
-		args = []interface{}{revision}
-	}
+	query := fmt.Sprintf("SELECT 1 FROM %s WHERE revision = %s LIMIT 1", quotedTable, v.dialect.Placeholder(1))
+	args := []interface{}{revision}
 
 	var exists int
 	err := v.db.QueryRowContext(ctx, query, args...).Scan(&exists)
@@ -394,22 +347,8 @@ func (v *VersionManager) IsApplied(ctx context.Context, revision string) (bool, 
 func (v *VersionManager) GetChecksum(ctx context.Context, revision string) (string, error) {
 	quotedTable := v.dialect.QuoteIdent(MigrationTableName)
 
-	var query string
-	var args []interface{}
-
-	switch v.dialect.Name() {
-	case "postgres":
-		query = fmt.Sprintf("SELECT checksum FROM %s WHERE revision = $1", quotedTable)
-		args = []interface{}{revision}
-
-	case "sqlite":
-		query = fmt.Sprintf("SELECT checksum FROM %s WHERE revision = ?", quotedTable)
-		args = []interface{}{revision}
-
-	default:
-		query = fmt.Sprintf("SELECT checksum FROM %s WHERE revision = $1", quotedTable)
-		args = []interface{}{revision}
-	}
+	query := fmt.Sprintf("SELECT checksum FROM %s WHERE revision = %s", quotedTable, v.dialect.Placeholder(1))
+	args := []interface{}{revision}
 
 	var checksum sql.NullString
 	err := v.db.QueryRowContext(ctx, query, args...).Scan(&checksum)
@@ -509,24 +448,19 @@ func (v *VersionManager) createLockTableSQL() string {
 // insertLockRowSQL returns the INSERT statement for the initial lock row.
 func (v *VersionManager) insertLockRowSQL() string {
 	quotedTable := v.dialect.QuoteIdent(LockTableName)
+	boolFalse := v.dialect.BooleanLiteral(false)
 
-	switch v.dialect.Name() {
-	case "postgres":
+	// SQLite uses INSERT OR IGNORE; postgres/default use ON CONFLICT DO NOTHING
+	if v.dialect.Name() == "sqlite" {
 		return fmt.Sprintf(
-			"INSERT INTO %s (id, locked) VALUES (1, FALSE) ON CONFLICT (id) DO NOTHING",
-			quotedTable,
-		)
-	case "sqlite":
-		return fmt.Sprintf(
-			"INSERT OR IGNORE INTO %s (id, locked) VALUES (1, 0)",
-			quotedTable,
-		)
-	default:
-		return fmt.Sprintf(
-			"INSERT INTO %s (id, locked) VALUES (1, FALSE) ON CONFLICT (id) DO NOTHING",
-			quotedTable,
+			"INSERT OR IGNORE INTO %s (id, locked) VALUES (1, %s)",
+			quotedTable, boolFalse,
 		)
 	}
+	return fmt.Sprintf(
+		"INSERT INTO %s (id, locked) VALUES (1, %s) ON CONFLICT (id) DO NOTHING",
+		quotedTable, boolFalse,
+	)
 }
 
 // AcquireLock attempts to acquire the migration lock with a timeout.
@@ -592,39 +526,16 @@ func (v *VersionManager) AcquireLock(ctx context.Context, timeout time.Duration)
 // Returns (true, nil) if lock was acquired, (false, nil) if lock is held by another.
 func (v *VersionManager) tryAcquireLock(ctx context.Context, lockID string) (bool, error) {
 	quotedTable := v.dialect.QuoteIdent(LockTableName)
+	d := v.dialect
 
-	var query string
-	var args []interface{}
-
-	switch v.dialect.Name() {
-	case "postgres":
-		// Atomic compare-and-swap: only update if not locked
-		query = fmt.Sprintf(`
+	// Atomic compare-and-swap: only update if not locked
+	query := fmt.Sprintf(`
 			UPDATE %s
-			SET locked = TRUE, locked_at = CURRENT_TIMESTAMP, locked_by = $1
-			WHERE id = 1 AND locked = FALSE`,
-			quotedTable,
-		)
-		args = []interface{}{lockID}
-
-	case "sqlite":
-		query = fmt.Sprintf(`
-			UPDATE %s
-			SET locked = 1, locked_at = datetime('now'), locked_by = ?
-			WHERE id = 1 AND locked = 0`,
-			quotedTable,
-		)
-		args = []interface{}{lockID}
-
-	default:
-		query = fmt.Sprintf(`
-			UPDATE %s
-			SET locked = TRUE, locked_at = CURRENT_TIMESTAMP, locked_by = $1
-			WHERE id = 1 AND locked = FALSE`,
-			quotedTable,
-		)
-		args = []interface{}{lockID}
-	}
+			SET locked = %s, locked_at = %s, locked_by = %s
+			WHERE id = 1 AND locked = %s`,
+		quotedTable, d.BooleanLiteral(true), d.CurrentTimestamp(), d.Placeholder(1), d.BooleanLiteral(false),
+	)
+	args := []interface{}{lockID}
 
 	result, err := v.db.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -646,39 +557,16 @@ func (v *VersionManager) tryAcquireLock(ctx context.Context, lockID string) (boo
 func (v *VersionManager) ReleaseLock(ctx context.Context) error {
 	quotedTable := v.dialect.QuoteIdent(LockTableName)
 	lockID := v.getLockIdentifier()
+	d := v.dialect
 
-	var query string
-	var args []interface{}
-
-	switch v.dialect.Name() {
-	case "postgres":
-		// Only release if we hold the lock
-		query = fmt.Sprintf(`
+	// Only release if we hold the lock
+	query := fmt.Sprintf(`
 			UPDATE %s
-			SET locked = FALSE, locked_at = NULL, locked_by = NULL
-			WHERE id = 1 AND locked_by = $1`,
-			quotedTable,
-		)
-		args = []interface{}{lockID}
-
-	case "sqlite":
-		query = fmt.Sprintf(`
-			UPDATE %s
-			SET locked = 0, locked_at = NULL, locked_by = NULL
-			WHERE id = 1 AND locked_by = ?`,
-			quotedTable,
-		)
-		args = []interface{}{lockID}
-
-	default:
-		query = fmt.Sprintf(`
-			UPDATE %s
-			SET locked = FALSE, locked_at = NULL, locked_by = NULL
-			WHERE id = 1 AND locked_by = $1`,
-			quotedTable,
-		)
-		args = []interface{}{lockID}
-	}
+			SET locked = %s, locked_at = NULL, locked_by = NULL
+			WHERE id = 1 AND locked_by = %s`,
+		quotedTable, d.BooleanLiteral(false), d.Placeholder(1),
+	)
+	args := []interface{}{lockID}
 
 	_, err := v.db.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -694,33 +582,12 @@ func (v *VersionManager) ReleaseLock(ctx context.Context) error {
 func (v *VersionManager) ForceReleaseLock(ctx context.Context) error {
 	quotedTable := v.dialect.QuoteIdent(LockTableName)
 
-	var query string
-
-	switch v.dialect.Name() {
-	case "postgres":
-		query = fmt.Sprintf(`
+	query := fmt.Sprintf(`
 			UPDATE %s
-			SET locked = FALSE, locked_at = NULL, locked_by = NULL
+			SET locked = %s, locked_at = NULL, locked_by = NULL
 			WHERE id = 1`,
-			quotedTable,
-		)
-
-	case "sqlite":
-		query = fmt.Sprintf(`
-			UPDATE %s
-			SET locked = 0, locked_at = NULL, locked_by = NULL
-			WHERE id = 1`,
-			quotedTable,
-		)
-
-	default:
-		query = fmt.Sprintf(`
-			UPDATE %s
-			SET locked = FALSE, locked_at = NULL, locked_by = NULL
-			WHERE id = 1`,
-			quotedTable,
-		)
-	}
+		quotedTable, v.dialect.BooleanLiteral(false),
+	)
 
 	_, err := v.db.ExecContext(ctx, query)
 	if err != nil {

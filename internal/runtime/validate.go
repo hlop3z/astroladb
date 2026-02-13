@@ -266,10 +266,10 @@ func (s *Sandbox) ValidateSchema(code string) error {
 		return err
 	}
 
-	// Validate tables
+	// Convert tables to CreateTable operations once for both validations
 	tables := sandbox.GetTables()
+	ops := make([]ast.Operation, 0, len(tables))
 	for _, table := range tables {
-		// Convert table to CreateTable operation for validation
 		op := &ast.CreateTable{
 			TableOp: ast.TableOp{Namespace: table.Namespace, Name: table.Name},
 			Columns: table.Columns,
@@ -278,23 +278,10 @@ func (s *Sandbox) ValidateSchema(code string) error {
 		if err := op.Validate(); err != nil {
 			return err
 		}
+		ops = append(ops, op)
 	}
 
-	// Validate identifiers
-	ops := make([]ast.Operation, 0, len(tables))
-	for _, table := range tables {
-		ops = append(ops, &ast.CreateTable{
-			TableOp: ast.TableOp{Namespace: table.Namespace, Name: table.Name},
-			Columns: table.Columns,
-			Indexes: table.Indexes,
-		})
-	}
-
-	if err := ValidateIdentifiers(ops); err != nil {
-		return err
-	}
-
-	return nil
+	return ValidateIdentifiers(ops)
 }
 
 // DetectForbiddenTypes checks for JavaScript-unsafe types in operations.
