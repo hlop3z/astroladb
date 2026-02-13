@@ -1,5 +1,4 @@
-// Package engine provides the core migration execution functionality.
-package engine
+package runner
 
 import (
 	"context"

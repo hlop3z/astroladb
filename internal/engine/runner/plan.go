@@ -1,92 +1,12 @@
-// Package engine provides the core migration execution functionality.
-package engine
+package runner
 
 import (
 	"sort"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/engine"
 )
-
-// Direction indicates whether migrations run up (apply) or down (rollback).
-type Direction int
-
-const (
-	// Up applies migrations (creates/modifies schema).
-	Up Direction = iota
-	// Down rolls back migrations (reverts schema changes).
-	Down
-)
-
-// String returns the string representation of the direction.
-func (d Direction) String() string {
-	if d == Up {
-		return "up"
-	}
-	return "down"
-}
-
-// Migration represents a single migration with its operations.
-type Migration struct {
-	// Revision is the unique identifier (e.g., "001", "20240101120000").
-	Revision string
-
-	// Name is the human-readable name (e.g., "add_users_table").
-	Name string
-
-	// Path is the file path to the migration script.
-	Path string
-
-	// Checksum is the SHA256 hash of the migration content for integrity checking.
-	Checksum string
-
-	// Operations are the forward (up) operations to apply.
-	Operations []ast.Operation
-
-	// DownOps are the reverse operations (auto-generated or explicit).
-	DownOps []ast.Operation
-
-	// Irreversible marks migrations that cannot be rolled back.
-	Irreversible bool
-
-	// Dependencies are revisions that must be applied before this one.
-	Dependencies []string
-
-	// BeforeHooks are SQL statements to execute before DDL operations.
-	BeforeHooks []string
-
-	// AfterHooks are SQL statements to execute after DDL operations.
-	AfterHooks []string
-
-	// DownBeforeHooks are SQL statements to execute before DDL operations during rollback.
-	DownBeforeHooks []string
-
-	// DownAfterHooks are SQL statements to execute after DDL operations during rollback.
-	DownAfterHooks []string
-
-	// Description is a human-readable summary of what this migration does.
-	Description string
-
-	// IsBaseline marks this as a squashed baseline migration.
-	IsBaseline bool
-
-	// SquashedThrough is the last revision that was squashed into this baseline.
-	SquashedThrough string
-}
-
-// Plan represents a set of migrations to execute in a specific direction.
-type Plan struct {
-	// Migrations to execute, in order.
-	Migrations []Migration
-
-	// Direction of execution (Up or Down).
-	Direction Direction
-}
-
-// IsEmpty returns true if the plan has no migrations to execute.
-func (p *Plan) IsEmpty() bool {
-	return len(p.Migrations) == 0
-}
 
 // PlanMigrations creates an execution plan based on current state.
 //
@@ -103,7 +23,7 @@ func (p *Plan) IsEmpty() bool {
 // For Down direction:
 //   - Returns applied migrations from current state down to target (or all)
 //   - Ordered in reverse (most recent first)
-func PlanMigrations(all []Migration, applied []AppliedMigration, target string, dir Direction) (*Plan, error) {
+func PlanMigrations(all []engine.Migration, applied []AppliedMigration, target string, dir engine.Direction) (*engine.Plan, error) {
 	// Create a set of applied revisions for quick lookup
 	appliedSet := make(map[string]bool, len(applied))
 	appliedChecksums := make(map[string]string, len(applied))
@@ -113,22 +33,22 @@ func PlanMigrations(all []Migration, applied []AppliedMigration, target string, 
 	}
 
 	switch dir {
-	case Up:
+	case engine.Up:
 		// Verify checksums of applied migrations against current files
 		if err := verifyChecksums(all, appliedChecksums); err != nil {
 			return nil, err
 		}
 		return planUp(all, appliedSet, target)
-	case Down:
+	case engine.Down:
 		return planDown(all, applied, target)
 	default:
-		return &Plan{Direction: dir}, nil
+		return &engine.Plan{Direction: dir}, nil
 	}
 }
 
 // verifyChecksums checks that all applied migrations still match their recorded checksums.
 // Returns an error if any migration file has been modified after being applied.
-func verifyChecksums(all []Migration, appliedChecksums map[string]string) error {
+func verifyChecksums(all []engine.Migration, appliedChecksums map[string]string) error {
 	for _, m := range all {
 		recorded, ok := appliedChecksums[m.Revision]
 		if !ok {
@@ -149,14 +69,14 @@ func verifyChecksums(all []Migration, appliedChecksums map[string]string) error 
 }
 
 // planUp creates a plan for applying migrations.
-func planUp(all []Migration, appliedSet map[string]bool, target string) (*Plan, error) {
-	plan := &Plan{
-		Direction:  Up,
-		Migrations: make([]Migration, 0),
+func planUp(all []engine.Migration, appliedSet map[string]bool, target string) (*engine.Plan, error) {
+	plan := &engine.Plan{
+		Direction:  engine.Up,
+		Migrations: make([]engine.Migration, 0),
 	}
 
 	// Sort all migrations by revision
-	sorted := make([]Migration, len(all))
+	sorted := make([]engine.Migration, len(all))
 	copy(sorted, all)
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].Revision < sorted[j].Revision
@@ -204,14 +124,14 @@ func planUp(all []Migration, appliedSet map[string]bool, target string) (*Plan, 
 }
 
 // planDown creates a plan for rolling back migrations.
-func planDown(all []Migration, applied []AppliedMigration, target string) (*Plan, error) {
-	plan := &Plan{
-		Direction:  Down,
-		Migrations: make([]Migration, 0),
+func planDown(all []engine.Migration, applied []AppliedMigration, target string) (*engine.Plan, error) {
+	plan := &engine.Plan{
+		Direction:  engine.Down,
+		Migrations: make([]engine.Migration, 0),
 	}
 
 	// Create a map of all migrations for lookup
-	migrationMap := ToMap(all, func(m Migration) string { return m.Revision })
+	migrationMap := engine.ToMap(all, func(m engine.Migration) string { return m.Revision })
 
 	// Sort applied migrations in reverse order (most recent first)
 	sortedApplied := make([]AppliedMigration, len(applied))
@@ -249,57 +169,18 @@ func planDown(all []Migration, applied []AppliedMigration, target string) (*Plan
 
 // PlanSingle creates a plan for a single migration.
 // Useful for executing individual migrations out of order (dangerous!).
-func PlanSingle(m Migration, dir Direction) *Plan {
-	return &Plan{
+func PlanSingle(m engine.Migration, dir engine.Direction) *engine.Plan {
+	return &engine.Plan{
 		Direction:  dir,
-		Migrations: []Migration{m},
+		Migrations: []engine.Migration{m},
 	}
-}
-
-// PlanStatus represents the status of a migration.
-type PlanStatus int
-
-const (
-	// StatusPending means the migration has not been applied.
-	StatusPending PlanStatus = iota
-	// StatusApplied means the migration has been applied.
-	StatusApplied
-	// StatusMissing means the migration file is missing but was previously applied.
-	StatusMissing
-	// StatusModified means the migration checksum doesn't match.
-	StatusModified
-)
-
-// String returns the string representation of the status.
-func (s PlanStatus) String() string {
-	switch s {
-	case StatusPending:
-		return "pending"
-	case StatusApplied:
-		return "applied"
-	case StatusMissing:
-		return "missing"
-	case StatusModified:
-		return "modified"
-	default:
-		return "unknown"
-	}
-}
-
-// MigrationStatus provides status information about a migration.
-type MigrationStatus struct {
-	Revision  string
-	Name      string
-	Status    PlanStatus
-	AppliedAt *string // nil if not applied
-	Checksum  string
 }
 
 // GetStatus returns the status of all migrations.
-func GetStatus(all []Migration, applied []AppliedMigration) []MigrationStatus {
+func GetStatus(all []engine.Migration, applied []AppliedMigration) []engine.MigrationStatus {
 	// Build maps for quick lookup
-	appliedMap := ToMap(applied, func(a AppliedMigration) string { return a.Revision })
-	migrationMap := ToMap(all, func(m Migration) string { return m.Revision })
+	appliedMap := engine.ToMap(applied, func(a AppliedMigration) string { return a.Revision })
+	migrationMap := engine.ToMap(all, func(m engine.Migration) string { return m.Revision })
 
 	// Collect all unique revisions
 	revisionSet := make(map[string]bool, len(all)+len(applied))
@@ -318,9 +199,9 @@ func GetStatus(all []Migration, applied []AppliedMigration) []MigrationStatus {
 	sort.Strings(revisions)
 
 	// Build status list
-	statuses := make([]MigrationStatus, 0, len(revisions))
+	statuses := make([]engine.MigrationStatus, 0, len(revisions))
 	for _, rev := range revisions {
-		status := MigrationStatus{
+		status := engine.MigrationStatus{
 			Revision: rev,
 		}
 
@@ -337,14 +218,14 @@ func GetStatus(all []Migration, applied []AppliedMigration) []MigrationStatus {
 			status.AppliedAt = &appliedStr
 
 			if !hasMigration {
-				status.Status = StatusMissing
+				status.Status = engine.StatusMissing
 			} else if a.Checksum != "" && m.Checksum != "" && a.Checksum != m.Checksum {
-				status.Status = StatusModified
+				status.Status = engine.StatusModified
 			} else {
-				status.Status = StatusApplied
+				status.Status = engine.StatusApplied
 			}
 		} else {
-			status.Status = StatusPending
+			status.Status = engine.StatusPending
 		}
 
 		statuses = append(statuses, status)

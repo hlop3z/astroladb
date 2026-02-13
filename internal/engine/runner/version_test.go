@@ -1,6 +1,6 @@
 //go:build integration
 
-package engine
+package runner
 
 import (
 	"context"

@@ -5,6 +5,7 @@ import (
 
 	"github.com/hlop3z/astroladb/internal/chain"
 	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/engine/runner"
 )
 
 func (c *Client) MigrationStatus() ([]MigrationStatus, error) {
@@ -35,7 +36,7 @@ func (c *Client) MigrationStatus() ([]MigrationStatus, error) {
 	}
 
 	// Get status from engine
-	statuses := engine.GetStatus(migrations, applied)
+	statuses := runner.GetStatus(migrations, applied)
 
 	// Convert to public type
 	result := make([]MigrationStatus, len(statuses))
@@ -186,7 +187,7 @@ func (c *Client) VerifySQLDeterminism() ([]SQLDeterminismResult, error) {
 	}
 
 	// Build map of applied sql checksums
-	appliedMap := make(map[string]engine.AppliedMigration)
+	appliedMap := make(map[string]runner.AppliedMigration)
 	for _, a := range applied {
 		if a.SQLChecksum != "" {
 			appliedMap[a.Revision] = a
@@ -220,7 +221,7 @@ func (c *Client) VerifySQLDeterminism() ([]SQLDeterminismResult, error) {
 		if err != nil {
 			continue
 		}
-		currentChecksum := engine.ComputeSQLChecksum(sqls)
+		currentChecksum := runner.ComputeSQLChecksum(sqls)
 
 		results = append(results, SQLDeterminismResult{
 			Revision:        m.Revision,

@@ -7,6 +7,8 @@ import (
 
 	"github.com/hlop3z/astroladb/internal/chain"
 	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/engine/diff"
+	"github.com/hlop3z/astroladb/internal/engine/runner"
 )
 
 // Note: Migration implementations split across multiple files:
@@ -113,7 +115,7 @@ func (c *Client) RecordSquashedBaseline(ctx context.Context, revision, checksum,
 
 	description := fmt.Sprintf("Baseline: squashed from %d migrations", squashedCount)
 
-	rec := engine.ApplyRecord{
+	rec := runner.ApplyRecord{
 		Revision:        revision,
 		Checksum:        checksum,
 		ExecTime:        0, // No actual execution time for squash
@@ -155,7 +157,7 @@ func (c *Client) MigrationPlan() (*engine.Plan, error) {
 	}
 
 	// Create execution plan
-	return engine.PlanMigrations(migrations, applied, "", engine.Up)
+	return runner.PlanMigrations(migrations, applied, "", engine.Up)
 }
 
 func (c *Client) MigrationLockStatus() (*MigrationLockInfo, error) {
@@ -219,7 +221,7 @@ func (c *Client) LintPendingMigrations() ([]string, error) {
 		return nil, nil
 	}
 
-	warnings := engine.LintOperations(ops)
+	warnings := diff.LintOperations(ops)
 	if len(warnings) == 0 {
 		return nil, nil
 	}

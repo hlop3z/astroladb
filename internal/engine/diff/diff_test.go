@@ -1,9 +1,10 @@
-package engine
+package diff
 
 import (
 	"testing"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/engine"
 )
 
 // -----------------------------------------------------------------------------
@@ -13,13 +14,13 @@ import (
 func TestDiffEmptySchemas(t *testing.T) {
 	tests := []struct {
 		name string
-		old  *Schema
-		new  *Schema
+		old  *engine.Schema
+		new  *engine.Schema
 	}{
 		{"both_nil", nil, nil},
-		{"old_nil", nil, NewSchema()},
-		{"new_nil", NewSchema(), nil},
-		{"both_empty", NewSchema(), NewSchema()},
+		{"old_nil", nil, engine.NewSchema()},
+		{"new_nil", engine.NewSchema(), nil},
+		{"both_empty", engine.NewSchema(), engine.NewSchema()},
 	}
 
 	for _, tt := range tests {
@@ -36,8 +37,8 @@ func TestDiffEmptySchemas(t *testing.T) {
 }
 
 func TestDiffTableCreation(t *testing.T) {
-	old := NewSchema()
-	new := NewSchema()
+	old := engine.NewSchema()
+	new := engine.NewSchema()
 
 	// Add a new table to the new schema
 	new.Tables["auth.users"] = &ast.TableDef{
@@ -69,8 +70,8 @@ func TestDiffTableCreation(t *testing.T) {
 }
 
 func TestDiffMultipleTableCreation(t *testing.T) {
-	old := NewSchema()
-	new := NewSchema()
+	old := engine.NewSchema()
+	new := engine.NewSchema()
 
 	// Add multiple new tables
 	new.Tables["auth.users"] = &ast.TableDef{
@@ -103,8 +104,8 @@ func TestDiffMultipleTableCreation(t *testing.T) {
 }
 
 func TestDiffTableDrop(t *testing.T) {
-	old := NewSchema()
-	new := NewSchema()
+	old := engine.NewSchema()
+	new := engine.NewSchema()
 
 	// Old schema has a table, new schema doesn't
 	old.Tables["auth.users"] = &ast.TableDef{
@@ -133,8 +134,8 @@ func TestDiffTableDrop(t *testing.T) {
 }
 
 func TestDiffColumnAdd(t *testing.T) {
-	old := NewSchema()
-	new := NewSchema()
+	old := engine.NewSchema()
+	new := engine.NewSchema()
 
 	// Both have the same table, but new has an additional column
 	old.Tables["auth.users"] = &ast.TableDef{
@@ -176,8 +177,8 @@ func TestDiffColumnAdd(t *testing.T) {
 }
 
 func TestDiffColumnDrop(t *testing.T) {
-	old := NewSchema()
-	new := NewSchema()
+	old := engine.NewSchema()
+	new := engine.NewSchema()
 
 	// Old has more columns than new
 	old.Tables["auth.users"] = &ast.TableDef{
@@ -221,8 +222,8 @@ func TestDiffColumnDrop(t *testing.T) {
 }
 
 func TestDiffColumnAlter(t *testing.T) {
-	old := NewSchema()
-	new := NewSchema()
+	old := engine.NewSchema()
+	new := engine.NewSchema()
 
 	// Column type changes
 	old.Tables["auth.users"] = &ast.TableDef{
@@ -265,8 +266,8 @@ func TestDiffColumnAlter(t *testing.T) {
 }
 
 func TestDiffColumnNullabilityChange(t *testing.T) {
-	old := NewSchema()
-	new := NewSchema()
+	old := engine.NewSchema()
+	new := engine.NewSchema()
 
 	old.Tables["auth.users"] = &ast.TableDef{
 		Namespace: "auth",
@@ -307,8 +308,8 @@ func TestDiffColumnNullabilityChange(t *testing.T) {
 }
 
 func TestDiffIndexAdd(t *testing.T) {
-	old := NewSchema()
-	new := NewSchema()
+	old := engine.NewSchema()
+	new := engine.NewSchema()
 
 	old.Tables["auth.users"] = &ast.TableDef{
 		Namespace: "auth",
@@ -343,8 +344,8 @@ func TestDiffIndexAdd(t *testing.T) {
 }
 
 func TestDiffIndexDrop(t *testing.T) {
-	old := NewSchema()
-	new := NewSchema()
+	old := engine.NewSchema()
+	new := engine.NewSchema()
 
 	old.Tables["auth.users"] = &ast.TableDef{
 		Namespace: "auth",
@@ -384,7 +385,7 @@ func TestDiffIndexDrop(t *testing.T) {
 
 func TestSortByDependencyEmpty(t *testing.T) {
 	ops := []ast.Operation{}
-	schema := NewSchema()
+	schema := engine.NewSchema()
 
 	sorted := sortByDependency(ops, schema)
 
@@ -394,7 +395,7 @@ func TestSortByDependencyEmpty(t *testing.T) {
 }
 
 func TestSortByDependencyCreateTablesWithFK(t *testing.T) {
-	schema := NewSchema()
+	schema := engine.NewSchema()
 
 	// posts depends on users (posts.user_id -> users.id)
 	schema.Tables["auth.users"] = &ast.TableDef{
@@ -445,7 +446,7 @@ func TestSortByDependencyCreateTablesWithFK(t *testing.T) {
 }
 
 func TestSortByDependencyOperationOrder(t *testing.T) {
-	schema := NewSchema()
+	schema := engine.NewSchema()
 
 	// Mix of different operation types
 	ops := []ast.Operation{
@@ -560,7 +561,7 @@ func TestHasChanges(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// parseSimpleRef Tests
+// engine.ParseSimpleRef Tests
 // -----------------------------------------------------------------------------
 
 func TestParseSimpleRef(t *testing.T) {
@@ -578,15 +579,15 @@ func TestParseSimpleRef(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			ns, table, isRel := parseSimpleRef(tt.input)
+			ns, table, isRel := engine.ParseSimpleRef(tt.input)
 			if ns != tt.wantNS {
-				t.Errorf("parseSimpleRef(%q) ns = %q, want %q", tt.input, ns, tt.wantNS)
+				t.Errorf("engine.ParseSimpleRef(%q) ns = %q, want %q", tt.input, ns, tt.wantNS)
 			}
 			if table != tt.wantTable {
-				t.Errorf("parseSimpleRef(%q) table = %q, want %q", tt.input, table, tt.wantTable)
+				t.Errorf("engine.ParseSimpleRef(%q) table = %q, want %q", tt.input, table, tt.wantTable)
 			}
 			if isRel != tt.wantRel {
-				t.Errorf("parseSimpleRef(%q) isRelative = %v, want %v", tt.input, isRel, tt.wantRel)
+				t.Errorf("engine.ParseSimpleRef(%q) isRelative = %v, want %v", tt.input, isRel, tt.wantRel)
 			}
 		})
 	}
@@ -1170,7 +1171,7 @@ func TestDiffColumnsNoChange(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestSortByDependencyWithChecks(t *testing.T) {
-	schema := NewSchema()
+	schema := engine.NewSchema()
 
 	ops := []ast.Operation{
 		&ast.AddCheck{TableRef: ast.TableRef{Namespace: "auth", Table_: "users"}, Name: "chk_age", Expression: "age > 0"},
@@ -1204,7 +1205,7 @@ func TestSortByDependencyWithChecks(t *testing.T) {
 }
 
 func TestSortByDependencyWithRawSQL(t *testing.T) {
-	schema := NewSchema()
+	schema := engine.NewSchema()
 
 	ops := []ast.Operation{
 		&ast.RawSQL{SQL: "SELECT 1"},
@@ -1367,7 +1368,7 @@ func TestExtractFKsFromColumns(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestGetCreateTableDependencies(t *testing.T) {
-	schema := NewSchema()
+	schema := engine.NewSchema()
 
 	t.Run("no_dependencies", func(t *testing.T) {
 		op := &ast.CreateTable{
@@ -1468,11 +1469,11 @@ func TestSortDropTablesByDependency(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// parseSimpleRef Extended Tests
+// engine.ParseSimpleRef Extended Tests
 // -----------------------------------------------------------------------------
 
 func TestParseSimpleRefNestedNamespace(t *testing.T) {
-	ns, table, isRelative := parseSimpleRef("app.auth.users")
+	ns, table, isRelative := engine.ParseSimpleRef("app.auth.users")
 	if ns != "app.auth" {
 		t.Errorf("ns = %q, want %q", ns, "app.auth")
 	}
@@ -1489,7 +1490,7 @@ func TestParseSimpleRefNestedNamespace(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestSortCreateTablesByDependency(t *testing.T) {
-	schema := NewSchema()
+	schema := engine.NewSchema()
 
 	t.Run("no_dependencies", func(t *testing.T) {
 		ops := []*ast.CreateTable{
@@ -1578,8 +1579,8 @@ func TestDiffColumnsNullableChange(t *testing.T) {
 
 func TestDiffIntegration(t *testing.T) {
 	t.Run("empty_schemas", func(t *testing.T) {
-		oldSchema := NewSchema()
-		newSchema := NewSchema()
+		oldSchema := engine.NewSchema()
+		newSchema := engine.NewSchema()
 
 		ops, err := Diff(oldSchema, newSchema)
 		if err != nil {
@@ -1591,8 +1592,8 @@ func TestDiffIntegration(t *testing.T) {
 	})
 
 	t.Run("add_table", func(t *testing.T) {
-		oldSchema := NewSchema()
-		newSchema := NewSchema()
+		oldSchema := engine.NewSchema()
+		newSchema := engine.NewSchema()
 		newSchema.Tables["auth.users"] = &ast.TableDef{
 			Namespace: "auth",
 			Name:      "users",
@@ -1617,13 +1618,13 @@ func TestDiffIntegration(t *testing.T) {
 	})
 
 	t.Run("drop_table", func(t *testing.T) {
-		oldSchema := NewSchema()
+		oldSchema := engine.NewSchema()
 		oldSchema.Tables["auth.users"] = &ast.TableDef{
 			Namespace: "auth",
 			Name:      "users",
 			Columns:   []*ast.ColumnDef{{Name: "id", Type: "id"}},
 		}
-		newSchema := NewSchema()
+		newSchema := engine.NewSchema()
 
 		ops, err := Diff(oldSchema, newSchema)
 		if err != nil {

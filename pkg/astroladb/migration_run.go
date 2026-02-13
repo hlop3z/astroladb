@@ -11,6 +11,7 @@ import (
 
 	"github.com/hlop3z/astroladb/internal/chain"
 	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/engine/runner"
 )
 
 // Migration execution and rollback operations.
@@ -76,7 +77,7 @@ func (c *Client) MigrationRun(opts ...MigrationOption) error {
 	}
 
 	// Create execution plan
-	plan, err := engine.PlanMigrations(migrations, applied, cfg.Target, engine.Up)
+	plan, err := runner.PlanMigrations(migrations, applied, cfg.Target, engine.Up)
 	if err != nil {
 		return &MigrationError{
 			Operation: "plan migrations",
@@ -170,7 +171,7 @@ func (c *Client) MigrationRollback(steps int, opts ...MigrationOption) error {
 	}
 
 	// Create rollback plan
-	plan, err := engine.PlanMigrations(migrations, applied, cfg.Target, engine.Down)
+	plan, err := runner.PlanMigrations(migrations, applied, cfg.Target, engine.Down)
 	if err != nil {
 		return &MigrationError{
 			Operation: "plan rollback",

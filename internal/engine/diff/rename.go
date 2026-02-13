@@ -1,5 +1,4 @@
-// Package engine provides migration planning and execution.
-package engine
+package diff
 
 import (
 	"math"

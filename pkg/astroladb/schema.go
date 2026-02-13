@@ -9,6 +9,7 @@ import (
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/devdb"
 	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/engine/diff"
 	"github.com/hlop3z/astroladb/internal/introspect"
 )
 
@@ -276,7 +277,7 @@ func (c *Client) SchemaDiff() ([]ast.Operation, error) {
 	}
 
 	// Step 4: Compute the diff between canonical forms
-	ops, err := engine.Diff(actualSchema, normalizedDesired)
+	ops, err := diff.Diff(actualSchema, normalizedDesired)
 	if err != nil {
 		return nil, &SchemaError{
 			Message: "failed to compute diff",
@@ -309,7 +310,7 @@ func (c *Client) SchemaDiffFromMigrations() ([]ast.Operation, error) {
 	}
 
 	// Compute the diff
-	ops, err := engine.Diff(oldSchema, newSchema)
+	ops, err := diff.Diff(oldSchema, newSchema)
 	if err != nil {
 		return nil, &SchemaError{
 			Message: "failed to compute diff",

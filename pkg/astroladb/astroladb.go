@@ -11,6 +11,7 @@ import (
 	"github.com/hlop3z/astroladb/internal/dialect"
 	"github.com/hlop3z/astroladb/internal/drift"
 	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/engine/runner"
 	"github.com/hlop3z/astroladb/internal/registry"
 	"github.com/hlop3z/astroladb/internal/runtime"
 )
@@ -40,7 +41,7 @@ type Client struct {
 	config   *Config
 	sandbox  *runtime.Sandbox
 	registry *registry.ModelRegistry
-	runner   *engine.Runner
+	runner   *runner.Runner
 	eval     *engine.Evaluator
 }
 
@@ -145,7 +146,7 @@ func New(opts ...Option) (*Client, error) {
 	}
 
 	// Initialize runner (needs db and dialect)
-	runner := engine.NewRunner(db, d)
+	runner := runner.NewRunner(db, d)
 
 	return &Client{
 		db:       db,

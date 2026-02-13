@@ -1,4 +1,4 @@
-package engine
+package diff
 
 import (
 	"log/slog"
@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/engine"
 )
 
 // opName extracts the Name field from an operation using reflection.
@@ -39,15 +40,15 @@ func sortOpsByTypeAndName(ops []ast.Operation) {
 //  2. Tables to drop (in old, not in new)
 //  3. Tables to alter (in both) - diff columns, indexes, FKs
 //  4. Sort by dependency (FKs must be created after referenced tables)
-func Diff(old, new *Schema) ([]ast.Operation, error) {
+func Diff(old, new *engine.Schema) ([]ast.Operation, error) {
 	var ops []ast.Operation
 
 	// Handle nil schemas
 	if old == nil {
-		old = NewSchema()
+		old = engine.NewSchema()
 	}
 	if new == nil {
-		new = NewSchema()
+		new = engine.NewSchema()
 	}
 
 	// 1. Tables to create (in new, not in old)
@@ -69,7 +70,7 @@ func Diff(old, new *Schema) ([]ast.Operation, error) {
 }
 
 // diffCreateTables returns CreateTable operations for tables in new but not in old.
-func diffCreateTables(old, new *Schema) []ast.Operation {
+func diffCreateTables(old, new *engine.Schema) []ast.Operation {
 	var ops []ast.Operation
 
 	for name, newTable := range new.Tables {
@@ -95,7 +96,7 @@ func diffCreateTables(old, new *Schema) []ast.Operation {
 }
 
 // diffDropTables returns DropTable operations for tables in old but not in new.
-func diffDropTables(old, new *Schema) []ast.Operation {
+func diffDropTables(old, new *engine.Schema) []ast.Operation {
 	var ops []ast.Operation
 
 	for name, oldTable := range old.Tables {
@@ -118,7 +119,7 @@ func diffDropTables(old, new *Schema) []ast.Operation {
 }
 
 // diffAlterTables returns operations to transform old tables into new tables.
-func diffAlterTables(old, new *Schema) []ast.Operation {
+func diffAlterTables(old, new *engine.Schema) []ast.Operation {
 	var ops []ast.Operation
 
 	// Sort table names for deterministic iteration order
@@ -158,8 +159,8 @@ func diffAlterTables(old, new *Schema) []ast.Operation {
 func diffColumns(oldTable, newTable *ast.TableDef) []ast.Operation {
 	var ops []ast.Operation
 
-	oldCols := ToMap(oldTable.Columns, func(c *ast.ColumnDef) string { return c.Name })
-	newCols := ToMap(newTable.Columns, func(c *ast.ColumnDef) string { return c.Name })
+	oldCols := engine.ToMap(oldTable.Columns, func(c *ast.ColumnDef) string { return c.Name })
+	newCols := engine.ToMap(newTable.Columns, func(c *ast.ColumnDef) string { return c.Name })
 
 	// Columns to add (in new, not in old)
 	for name, newCol := range newCols {
@@ -337,8 +338,8 @@ func defaultsEqual(a, b any) bool {
 func diffIndexes(oldTable, newTable *ast.TableDef) []ast.Operation {
 	var ops []ast.Operation
 
-	oldIdxs := ToMap(oldTable.Indexes, func(idx *ast.IndexDef) string { return indexKey(oldTable, idx) })
-	newIdxs := ToMap(newTable.Indexes, func(idx *ast.IndexDef) string { return indexKey(newTable, idx) })
+	oldIdxs := engine.ToMap(oldTable.Indexes, func(idx *ast.IndexDef) string { return indexKey(oldTable, idx) })
+	newIdxs := engine.ToMap(newTable.Indexes, func(idx *ast.IndexDef) string { return indexKey(newTable, idx) })
 
 	// Indexes to create (in new, not in old)
 	for key, newIdx := range newIdxs {
@@ -477,8 +478,8 @@ type fkInfo struct {
 func diffCheckConstraints(oldTable, newTable *ast.TableDef) []ast.Operation {
 	var ops []ast.Operation
 
-	oldChecks := ToMap(oldTable.Checks, func(c *ast.CheckDef) string { return checkKey(c) })
-	newChecks := ToMap(newTable.Checks, func(c *ast.CheckDef) string { return checkKey(c) })
+	oldChecks := engine.ToMap(oldTable.Checks, func(c *ast.CheckDef) string { return checkKey(c) })
+	newChecks := engine.ToMap(newTable.Checks, func(c *ast.CheckDef) string { return checkKey(c) })
 
 	// CHECKs to add (in new, not in old)
 	for key, newCheck := range newChecks {
@@ -553,7 +554,7 @@ func sanitizeCheckName(expr string) string {
 
 // sortByDependency sorts operations so that dependencies are satisfied.
 // Foreign keys must be created after their referenced tables exist.
-func sortByDependency(ops []ast.Operation, schema *Schema) []ast.Operation {
+func sortByDependency(ops []ast.Operation, schema *engine.Schema) []ast.Operation {
 	if len(ops) == 0 {
 		return ops
 	}
@@ -674,7 +675,7 @@ func sortByDependency(ops []ast.Operation, schema *Schema) []ast.Operation {
 }
 
 // sortCreateTablesByDependency sorts CreateTable operations so dependencies come first.
-func sortCreateTablesByDependency(ops []*ast.CreateTable, schema *Schema) []*ast.CreateTable {
+func sortCreateTablesByDependency(ops []*ast.CreateTable, schema *engine.Schema) []*ast.CreateTable {
 	if len(ops) <= 1 {
 		return ops
 	}
@@ -690,7 +691,7 @@ func sortCreateTablesByDependency(ops []*ast.CreateTable, schema *Schema) []*ast
 	}
 
 	// Perform topological sort
-	sorted, err := TopoSort(nodes)
+	sorted, err := engine.TopoSort(nodes)
 	if err != nil {
 		// Circular dependency - log warning and return original order
 		// This should not happen with a properly validated schema
@@ -718,7 +719,7 @@ func (n *createTableSortNode) ID() string             { return n.table }
 func (n *createTableSortNode) Dependencies() []string { return n.deps }
 
 // getCreateTableDependencies returns tables that a CreateTable operation depends on.
-func getCreateTableDependencies(op *ast.CreateTable, schema *Schema) []string {
+func getCreateTableDependencies(op *ast.CreateTable, schema *engine.Schema) []string {
 	var deps []string
 	seen := make(map[string]bool)
 
@@ -729,7 +730,7 @@ func getCreateTableDependencies(op *ast.CreateTable, schema *Schema) []string {
 
 		refTable := col.Reference.Table
 		// Try to resolve the reference
-		ns, table, _ := parseSimpleRef(refTable)
+		ns, table, _ := engine.ParseSimpleRef(refTable)
 		if ns == "" && op.Namespace != "" {
 			ns = op.Namespace
 		}
@@ -753,21 +754,6 @@ func sortDropTablesByDependency(ops []*ast.DropTable) []*ast.DropTable {
 		return ops[i].Table() > ops[j].Table()
 	})
 	return ops
-}
-
-// parseSimpleRef parses a simple "ns.table" or "table" reference.
-func parseSimpleRef(ref string) (ns, table string, isRelative bool) {
-	for i := len(ref) - 1; i >= 0; i-- {
-		if ref[i] == '.' {
-			if i == 0 {
-				// ".table" - relative
-				return "", ref[1:], true
-			}
-			return ref[:i], ref[i+1:], false
-		}
-	}
-	// No dot - just table name
-	return "", ref, false
 }
 
 // tableIndexesToIndexDefs converts a table's indexes to IndexDef slice.

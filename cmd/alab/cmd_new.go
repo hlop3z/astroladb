@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/engine/diff"
 	"github.com/hlop3z/astroladb/internal/ui"
 )
 
@@ -92,7 +93,7 @@ Migration names are automatically normalized to snake_case and prefixed with a s
 			}
 
 			// Prompt for renames if any detected
-			var confirmedRenames []engine.RenameCandidate
+			var confirmedRenames []diff.RenameCandidate
 			if len(renameCandidates) > 0 {
 				confirmedRenames = promptForRenames(renameCandidates)
 			}
@@ -260,12 +261,12 @@ func previousRevision(migrationsDir string) string {
 
 // promptForRenames prompts the user to confirm rename candidates.
 // Returns the list of confirmed renames.
-func promptForRenames(candidates []engine.RenameCandidate) []engine.RenameCandidate {
+func promptForRenames(candidates []diff.RenameCandidate) []diff.RenameCandidate {
 	if len(candidates) == 0 {
 		return nil
 	}
 
-	var confirmed []engine.RenameCandidate
+	var confirmed []diff.RenameCandidate
 
 	fmt.Println()
 	fmt.Println(ui.RenderSubtitle("Detected Potential Renames"))

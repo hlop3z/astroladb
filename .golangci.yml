@@ -59,7 +59,7 @@ linters:
         - (*github.com/hlop3z/astroladb/internal/alerr.Error).WithNote
         - (*github.com/hlop3z/astroladb/internal/alerr.Error).WithHelp
         # Version manager
-        - (*github.com/hlop3z/astroladb/internal/engine.VersionManager).ReleaseLock
+        - (*github.com/hlop3z/astroladb/internal/engine/runner.VersionManager).ReleaseLock
         # Astroladb client
         - (*github.com/hlop3z/astroladb/pkg/astroladb.Client).Close
         # DevDB

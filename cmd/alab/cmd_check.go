@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/engine/diff"
 	"github.com/hlop3z/astroladb/internal/lockfile"
 	"github.com/hlop3z/astroladb/internal/ui"
 )
@@ -159,7 +159,7 @@ func checkMigrations() error {
 		fmt.Fprintf(os.Stderr, "  %s Lock file: %v\n", ui.Warning("WARN"), err)
 	}
 
-	var allWarnings []engine.Warning
+	var allWarnings []diff.Warning
 	fileCount := 0
 	hasErrors := false
 
@@ -177,7 +177,7 @@ func checkMigrations() error {
 			continue
 		}
 
-		warnings := engine.LintOperations(ops)
+		warnings := diff.LintOperations(ops)
 		for i := range warnings {
 			warnings[i].Message = fmt.Sprintf("[%s] %s", entry.Name(), warnings[i].Message)
 		}

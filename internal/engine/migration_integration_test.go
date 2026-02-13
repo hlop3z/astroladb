@@ -12,7 +12,7 @@ import (
 
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/dialect"
-	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/engine/runner"
 	"github.com/hlop3z/astroladb/internal/testutil"
 )
 
@@ -98,7 +98,7 @@ func TestVersionManager_EnsureTable_AllDialects(t *testing.T) {
 	for _, ddb := range setupAllDatabases(t) {
 		t.Run(ddb.name, func(t *testing.T) {
 			ctx := context.Background()
-			vm := engine.NewVersionManager(ddb.db, ddb.dialect)
+			vm := runner.NewVersionManager(ddb.db, ddb.dialect)
 
 			// Create the migrations table
 			err := vm.EnsureTable(ctx)
@@ -107,7 +107,7 @@ func TestVersionManager_EnsureTable_AllDialects(t *testing.T) {
 			}
 
 			// Verify the table exists
-			testutil.AssertTableExists(t, ddb.db, engine.MigrationTableName)
+			testutil.AssertTableExists(t, ddb.db, runner.MigrationTableName)
 
 			// Should be idempotent - calling again should not fail
 			err = vm.EnsureTable(ctx)
@@ -122,7 +122,7 @@ func TestVersionManager_RecordApplied_AllDialects(t *testing.T) {
 	for _, ddb := range setupAllDatabases(t) {
 		t.Run(ddb.name, func(t *testing.T) {
 			ctx := context.Background()
-			vm := engine.NewVersionManager(ddb.db, ddb.dialect)
+			vm := runner.NewVersionManager(ddb.db, ddb.dialect)
 
 			// Setup
 			err := vm.EnsureTable(ctx)
@@ -165,7 +165,7 @@ func TestVersionManager_RecordRollback_AllDialects(t *testing.T) {
 	for _, ddb := range setupAllDatabases(t) {
 		t.Run(ddb.name, func(t *testing.T) {
 			ctx := context.Background()
-			vm := engine.NewVersionManager(ddb.db, ddb.dialect)
+			vm := runner.NewVersionManager(ddb.db, ddb.dialect)
 
 			// Setup
 			err := vm.EnsureTable(ctx)
@@ -609,7 +609,7 @@ func TestMigration_MultipleMigrations_InOrder_AllDialects(t *testing.T) {
 	for _, ddb := range setupAllDatabases(t) {
 		t.Run(ddb.name, func(t *testing.T) {
 			ctx := context.Background()
-			vm := engine.NewVersionManager(ddb.db, ddb.dialect)
+			vm := runner.NewVersionManager(ddb.db, ddb.dialect)
 
 			// Setup version tracking
 			err := vm.EnsureTable(ctx)
@@ -960,7 +960,7 @@ func TestVersionManager_ChecksumVerification_AllDialects(t *testing.T) {
 	for _, ddb := range setupAllDatabases(t) {
 		t.Run(ddb.name, func(t *testing.T) {
 			ctx := context.Background()
-			vm := engine.NewVersionManager(ddb.db, ddb.dialect)
+			vm := runner.NewVersionManager(ddb.db, ddb.dialect)
 
 			// Setup
 			err := vm.EnsureTable(ctx)
@@ -1000,7 +1000,7 @@ func TestVersionManager_IsApplied_AllDialects(t *testing.T) {
 	for _, ddb := range setupAllDatabases(t) {
 		t.Run(ddb.name, func(t *testing.T) {
 			ctx := context.Background()
-			vm := engine.NewVersionManager(ddb.db, ddb.dialect)
+			vm := runner.NewVersionManager(ddb.db, ddb.dialect)
 
 			// Setup
 			err := vm.EnsureTable(ctx)

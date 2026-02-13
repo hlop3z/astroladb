@@ -1,4 +1,4 @@
-package engine
+package runner
 
 import (
 	"strings"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/engine"
 )
 
 // -----------------------------------------------------------------------------
@@ -14,11 +15,11 @@ import (
 
 func TestDirectionString(t *testing.T) {
 	tests := []struct {
-		dir  Direction
+		dir  engine.Direction
 		want string
 	}{
-		{Up, "up"},
-		{Down, "down"},
+		{engine.Up, "up"},
+		{engine.Down, "down"},
 	}
 
 	for _, tt := range tests {
@@ -35,10 +36,10 @@ func TestDirectionString(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestPlanMigrationsUpEmpty(t *testing.T) {
-	all := []Migration{}
+	all := []engine.Migration{}
 	applied := []AppliedMigration{}
 
-	plan, err := PlanMigrations(all, applied, "", Up)
+	plan, err := PlanMigrations(all, applied, "", engine.Up)
 	if err != nil {
 		t.Fatalf("PlanMigrations() error = %v", err)
 	}
@@ -47,20 +48,20 @@ func TestPlanMigrationsUpEmpty(t *testing.T) {
 		t.Errorf("Plan should be empty, has %d migrations", len(plan.Migrations))
 	}
 
-	if plan.Direction != Up {
+	if plan.Direction != engine.Up {
 		t.Errorf("Plan.Direction = %v, want Up", plan.Direction)
 	}
 }
 
 func TestPlanMigrationsUpAllPending(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "create_users"},
 		{Revision: "002", Name: "create_posts"},
 		{Revision: "003", Name: "add_comments"},
 	}
 	applied := []AppliedMigration{}
 
-	plan, err := PlanMigrations(all, applied, "", Up)
+	plan, err := PlanMigrations(all, applied, "", engine.Up)
 	if err != nil {
 		t.Fatalf("PlanMigrations() error = %v", err)
 	}
@@ -79,7 +80,7 @@ func TestPlanMigrationsUpAllPending(t *testing.T) {
 }
 
 func TestPlanMigrationsUpPartiallyApplied(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "create_users"},
 		{Revision: "002", Name: "create_posts"},
 		{Revision: "003", Name: "add_comments"},
@@ -88,7 +89,7 @@ func TestPlanMigrationsUpPartiallyApplied(t *testing.T) {
 		{Revision: "001", AppliedAt: time.Now()},
 	}
 
-	plan, err := PlanMigrations(all, applied, "", Up)
+	plan, err := PlanMigrations(all, applied, "", engine.Up)
 	if err != nil {
 		t.Fatalf("PlanMigrations() error = %v", err)
 	}
@@ -103,7 +104,7 @@ func TestPlanMigrationsUpPartiallyApplied(t *testing.T) {
 }
 
 func TestPlanMigrationsUpWithTarget(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "create_users"},
 		{Revision: "002", Name: "create_posts"},
 		{Revision: "003", Name: "add_comments"},
@@ -111,7 +112,7 @@ func TestPlanMigrationsUpWithTarget(t *testing.T) {
 	applied := []AppliedMigration{}
 
 	// Target only up to 002
-	plan, err := PlanMigrations(all, applied, "002", Up)
+	plan, err := PlanMigrations(all, applied, "002", engine.Up)
 	if err != nil {
 		t.Fatalf("PlanMigrations() error = %v", err)
 	}
@@ -127,27 +128,27 @@ func TestPlanMigrationsUpWithTarget(t *testing.T) {
 }
 
 func TestPlanMigrationsUpTargetNotFound(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "create_users"},
 		{Revision: "002", Name: "create_posts"},
 	}
 	applied := []AppliedMigration{}
 
-	_, err := PlanMigrations(all, applied, "999", Up)
+	_, err := PlanMigrations(all, applied, "999", engine.Up)
 	if err == nil {
 		t.Error("PlanMigrations() should fail for non-existent target")
 	}
 }
 
 func TestPlanMigrationsUpAllApplied(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "create_users"},
 	}
 	applied := []AppliedMigration{
 		{Revision: "001", AppliedAt: time.Now()},
 	}
 
-	plan, err := PlanMigrations(all, applied, "", Up)
+	plan, err := PlanMigrations(all, applied, "", engine.Up)
 	if err != nil {
 		t.Fatalf("PlanMigrations() error = %v", err)
 	}
@@ -162,10 +163,10 @@ func TestPlanMigrationsUpAllApplied(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestPlanMigrationsDownEmpty(t *testing.T) {
-	all := []Migration{}
+	all := []engine.Migration{}
 	applied := []AppliedMigration{}
 
-	plan, err := PlanMigrations(all, applied, "", Down)
+	plan, err := PlanMigrations(all, applied, "", engine.Down)
 	if err != nil {
 		t.Fatalf("PlanMigrations() error = %v", err)
 	}
@@ -174,13 +175,13 @@ func TestPlanMigrationsDownEmpty(t *testing.T) {
 		t.Errorf("Plan should be empty, has %d migrations", len(plan.Migrations))
 	}
 
-	if plan.Direction != Down {
+	if plan.Direction != engine.Down {
 		t.Errorf("Plan.Direction = %v, want Down", plan.Direction)
 	}
 }
 
 func TestPlanMigrationsDownAll(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "create_users"},
 		{Revision: "002", Name: "create_posts"},
 		{Revision: "003", Name: "add_comments"},
@@ -191,7 +192,7 @@ func TestPlanMigrationsDownAll(t *testing.T) {
 		{Revision: "003", AppliedAt: time.Now().Add(-1 * time.Hour)},
 	}
 
-	plan, err := PlanMigrations(all, applied, "", Down)
+	plan, err := PlanMigrations(all, applied, "", engine.Down)
 	if err != nil {
 		t.Fatalf("PlanMigrations() error = %v", err)
 	}
@@ -210,7 +211,7 @@ func TestPlanMigrationsDownAll(t *testing.T) {
 }
 
 func TestPlanMigrationsDownWithTarget(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "create_users"},
 		{Revision: "002", Name: "create_posts"},
 		{Revision: "003", Name: "add_comments"},
@@ -222,7 +223,7 @@ func TestPlanMigrationsDownWithTarget(t *testing.T) {
 	}
 
 	// Rollback down to (but not including) 001
-	plan, err := PlanMigrations(all, applied, "001", Down)
+	plan, err := PlanMigrations(all, applied, "001", engine.Down)
 	if err != nil {
 		t.Fatalf("PlanMigrations() error = %v", err)
 	}
@@ -241,7 +242,7 @@ func TestPlanMigrationsDownWithTarget(t *testing.T) {
 
 func TestPlanMigrationsDownMissingFile(t *testing.T) {
 	// Applied migration but no corresponding migration file
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "create_users"},
 	}
 	applied := []AppliedMigration{
@@ -249,21 +250,21 @@ func TestPlanMigrationsDownMissingFile(t *testing.T) {
 		{Revision: "002", AppliedAt: time.Now()}, // No migration file for this
 	}
 
-	_, err := PlanMigrations(all, applied, "", Down)
+	_, err := PlanMigrations(all, applied, "", engine.Down)
 	if err == nil {
 		t.Error("PlanMigrations() should fail for missing migration file")
 	}
 }
 
 func TestPlanMigrationsDownIrreversible(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "drop_important_data", Irreversible: true},
 	}
 	applied := []AppliedMigration{
 		{Revision: "001", AppliedAt: time.Now()},
 	}
 
-	_, err := PlanMigrations(all, applied, "", Down)
+	_, err := PlanMigrations(all, applied, "", engine.Down)
 	if err == nil {
 		t.Error("PlanMigrations() should fail for irreversible migration")
 	}
@@ -274,18 +275,18 @@ func TestPlanMigrationsDownIrreversible(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestPlanSingle(t *testing.T) {
-	m := Migration{Revision: "001", Name: "create_users"}
+	m := engine.Migration{Revision: "001", Name: "create_users"}
 
-	upPlan := PlanSingle(m, Up)
+	upPlan := PlanSingle(m, engine.Up)
 	if len(upPlan.Migrations) != 1 {
 		t.Errorf("PlanSingle(Up) = %d migrations, want 1", len(upPlan.Migrations))
 	}
-	if upPlan.Direction != Up {
+	if upPlan.Direction != engine.Up {
 		t.Errorf("PlanSingle(Up).Direction = %v, want Up", upPlan.Direction)
 	}
 
-	downPlan := PlanSingle(m, Down)
-	if downPlan.Direction != Down {
+	downPlan := PlanSingle(m, engine.Down)
+	if downPlan.Direction != engine.Down {
 		t.Errorf("PlanSingle(Down).Direction = %v, want Down", downPlan.Direction)
 	}
 }
@@ -564,7 +565,7 @@ func TestHasIrreversibleOps(t *testing.T) {
 func TestGetStatus(t *testing.T) {
 	now := time.Now()
 
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "create_users", Checksum: "abc123"},
 		{Revision: "002", Name: "create_posts", Checksum: "def456"},
 		{Revision: "003", Name: "add_comments", Checksum: "ghi789"},
@@ -585,15 +586,15 @@ func TestGetStatus(t *testing.T) {
 	for _, s := range statuses {
 		switch s.Revision {
 		case "001":
-			if s.Status != StatusApplied {
+			if s.Status != engine.StatusApplied {
 				t.Errorf("001 status = %v, want StatusApplied", s.Status)
 			}
 		case "002":
-			if s.Status != StatusModified {
+			if s.Status != engine.StatusModified {
 				t.Errorf("002 status = %v, want StatusModified (checksum mismatch)", s.Status)
 			}
 		case "003":
-			if s.Status != StatusPending {
+			if s.Status != engine.StatusPending {
 				t.Errorf("003 status = %v, want StatusPending", s.Status)
 			}
 		}
@@ -601,7 +602,7 @@ func TestGetStatus(t *testing.T) {
 }
 
 func TestGetStatusMissing(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "create_users"},
 	}
 
@@ -619,7 +620,7 @@ func TestGetStatusMissing(t *testing.T) {
 	// Find the missing one
 	for _, s := range statuses {
 		if s.Revision == "002" {
-			if s.Status != StatusMissing {
+			if s.Status != engine.StatusMissing {
 				t.Errorf("002 status = %v, want StatusMissing", s.Status)
 			}
 		}
@@ -632,14 +633,14 @@ func TestGetStatusMissing(t *testing.T) {
 
 func TestPlanStatusString(t *testing.T) {
 	tests := []struct {
-		status PlanStatus
+		status engine.PlanStatus
 		want   string
 	}{
-		{StatusPending, "pending"},
-		{StatusApplied, "applied"},
-		{StatusMissing, "missing"},
-		{StatusModified, "modified"},
-		{PlanStatus(999), "unknown"},
+		{engine.StatusPending, "pending"},
+		{engine.StatusApplied, "applied"},
+		{engine.StatusMissing, "missing"},
+		{engine.StatusModified, "modified"},
+		{engine.PlanStatus(999), "unknown"},
 	}
 
 	for _, tt := range tests {
@@ -741,7 +742,7 @@ func TestGenerateDownOpsDropColumnIrreversible(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestPlanUp_SkipsBaselineWhenMigrationsApplied(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "baseline", IsBaseline: true, SquashedThrough: "003"},
 		{Revision: "004", Name: "add_column"},
 	}
@@ -751,7 +752,7 @@ func TestPlanUp_SkipsBaselineWhenMigrationsApplied(t *testing.T) {
 		{Revision: "003", AppliedAt: time.Now(), Checksum: "ghi"},
 	}
 
-	plan, err := PlanMigrations(all, applied, "", Up)
+	plan, err := PlanMigrations(all, applied, "", engine.Up)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -765,7 +766,7 @@ func TestPlanUp_SkipsBaselineWhenMigrationsApplied(t *testing.T) {
 }
 
 func TestPlanUp_RejectsModifiedChecksum(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "create_users", Checksum: "changed_checksum"},
 		{Revision: "002", Name: "add_column", Checksum: "aaa"},
 	}
@@ -773,7 +774,7 @@ func TestPlanUp_RejectsModifiedChecksum(t *testing.T) {
 		{Revision: "001", AppliedAt: time.Now(), Checksum: "original_checksum"},
 	}
 
-	_, err := PlanMigrations(all, applied, "", Up)
+	_, err := PlanMigrations(all, applied, "", engine.Up)
 	if err == nil {
 		t.Fatal("expected error for checksum mismatch, got nil")
 	}
@@ -783,7 +784,7 @@ func TestPlanUp_RejectsModifiedChecksum(t *testing.T) {
 }
 
 func TestPlanUp_AllowsEmptyChecksums(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "create_users", Checksum: "abc"},
 		{Revision: "002", Name: "add_column", Checksum: "def"},
 	}
@@ -791,7 +792,7 @@ func TestPlanUp_AllowsEmptyChecksums(t *testing.T) {
 		{Revision: "001", AppliedAt: time.Now(), Checksum: ""}, // old migration, no checksum recorded
 	}
 
-	plan, err := PlanMigrations(all, applied, "", Up)
+	plan, err := PlanMigrations(all, applied, "", engine.Up)
 	if err != nil {
 		t.Fatalf("empty checksums should not cause error: %v", err)
 	}
@@ -801,13 +802,13 @@ func TestPlanUp_AllowsEmptyChecksums(t *testing.T) {
 }
 
 func TestPlanUp_AppliesBaselineOnFreshDB(t *testing.T) {
-	all := []Migration{
+	all := []engine.Migration{
 		{Revision: "001", Name: "baseline", IsBaseline: true, SquashedThrough: "003"},
 		{Revision: "004", Name: "add_column"},
 	}
 	var applied []AppliedMigration // fresh DB
 
-	plan, err := PlanMigrations(all, applied, "", Up)
+	plan, err := PlanMigrations(all, applied, "", engine.Up)
 	if err != nil {
 		t.Fatal(err)
 	}

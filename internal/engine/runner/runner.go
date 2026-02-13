@@ -1,4 +1,4 @@
-package engine
+package runner
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/hlop3z/astroladb/internal/alerr"
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/dialect"
+	"github.com/hlop3z/astroladb/internal/engine"
 )
 
 // Runner executes migration plans against a database.
@@ -37,7 +38,7 @@ func NewRunner(db *sql.DB, d dialect.Dialect) *Runner {
 
 // Run executes all migrations in the plan.
 // Returns an error if any migration fails.
-func (r *Runner) Run(ctx context.Context, plan *Plan) error {
+func (r *Runner) Run(ctx context.Context, plan *engine.Plan) error {
 	if plan.IsEmpty() {
 		return nil
 	}
@@ -68,7 +69,7 @@ func (r *Runner) Run(ctx context.Context, plan *Plan) error {
 //   - lockTimeout: Maximum time to wait for lock acquisition (0 = default 30s)
 //
 // This is the recommended method for production deployments.
-func (r *Runner) RunWithLock(ctx context.Context, plan *Plan, lockTimeout time.Duration) error {
+func (r *Runner) RunWithLock(ctx context.Context, plan *engine.Plan, lockTimeout time.Duration) error {
 	if plan.IsEmpty() {
 		return nil
 	}
@@ -94,7 +95,7 @@ func (r *Runner) RunWithLock(ctx context.Context, plan *Plan, lockTimeout time.D
 
 // RunDryRun returns the SQL that would be executed without actually running it.
 // Useful for review before applying migrations.
-func (r *Runner) RunDryRun(ctx context.Context, plan *Plan) ([]string, error) {
+func (r *Runner) RunDryRun(ctx context.Context, plan *engine.Plan) ([]string, error) {
 	if plan.IsEmpty() {
 		return nil, nil
 	}
@@ -104,7 +105,7 @@ func (r *Runner) RunDryRun(ctx context.Context, plan *Plan) ([]string, error) {
 	for _, m := range plan.Migrations {
 		// Include before hooks
 		beforeHooks := m.BeforeHooks
-		if plan.Direction == Down {
+		if plan.Direction == engine.Down {
 			beforeHooks = m.DownBeforeHooks
 		}
 		if len(beforeHooks) > 0 {
@@ -123,7 +124,7 @@ func (r *Runner) RunDryRun(ctx context.Context, plan *Plan) ([]string, error) {
 
 		// Include after hooks
 		afterHooks := m.AfterHooks
-		if plan.Direction == Down {
+		if plan.Direction == engine.Down {
 			afterHooks = m.DownAfterHooks
 		}
 		if len(afterHooks) > 0 {
@@ -136,7 +137,7 @@ func (r *Runner) RunDryRun(ctx context.Context, plan *Plan) ([]string, error) {
 }
 
 // runOne executes a single migration.
-func (r *Runner) runOne(ctx context.Context, m Migration, dir Direction) error {
+func (r *Runner) runOne(ctx context.Context, m engine.Migration, dir engine.Direction) error {
 	start := time.Now()
 
 	// Collect all SQL statements for checksum computation
@@ -158,7 +159,7 @@ func (r *Runner) runOne(ctx context.Context, m Migration, dir Direction) error {
 	execTime := time.Since(start)
 
 	switch dir {
-	case Up:
+	case engine.Up:
 		return r.versions.RecordApplied(ctx, ApplyRecord{
 			Revision:        m.Revision,
 			Checksum:        m.Checksum,
@@ -167,7 +168,7 @@ func (r *Runner) runOne(ctx context.Context, m Migration, dir Direction) error {
 			SQLChecksum:     ComputeSQLChecksum(allSQL),
 			SquashedThrough: m.SquashedThrough,
 		})
-	case Down:
+	case engine.Down:
 		return r.versions.RecordRollback(ctx, m.Revision)
 	default:
 		return nil
@@ -175,10 +176,10 @@ func (r *Runner) runOne(ctx context.Context, m Migration, dir Direction) error {
 }
 
 // collectSQL generates all SQL statements for a migration without executing them.
-func (r *Runner) collectSQL(m Migration, dir Direction) ([]string, error) {
+func (r *Runner) collectSQL(m engine.Migration, dir engine.Direction) ([]string, error) {
 	var allSQL []string
 
-	if dir == Up {
+	if dir == engine.Up {
 		allSQL = append(allSQL, m.BeforeHooks...)
 	} else {
 		allSQL = append(allSQL, m.DownBeforeHooks...)
@@ -193,7 +194,7 @@ func (r *Runner) collectSQL(m Migration, dir Direction) ([]string, error) {
 		allSQL = append(allSQL, sqls...)
 	}
 
-	if dir == Up {
+	if dir == engine.Up {
 		allSQL = append(allSQL, m.AfterHooks...)
 	} else {
 		allSQL = append(allSQL, m.DownAfterHooks...)
@@ -218,7 +219,7 @@ func ComputeSQLChecksum(statements []string) string {
 // runInTransaction executes a migration within a transaction.
 // Used for PostgreSQL and SQLite which support transactional DDL.
 // The entire migration is atomic - all statements succeed or all fail.
-func (r *Runner) runInTransaction(ctx context.Context, m Migration, dir Direction) error {
+func (r *Runner) runInTransaction(ctx context.Context, m engine.Migration, dir engine.Direction) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return alerr.Wrap(alerr.ErrSQLTransaction, err, "failed to begin transaction")
@@ -234,7 +235,7 @@ func (r *Runner) runInTransaction(ctx context.Context, m Migration, dir Directio
 
 	// Execute before hooks
 	beforeHooks := m.BeforeHooks
-	if dir == Down {
+	if dir == engine.Down {
 		beforeHooks = m.DownBeforeHooks
 	}
 	for _, hook := range beforeHooks {
@@ -261,7 +262,7 @@ func (r *Runner) runInTransaction(ctx context.Context, m Migration, dir Directio
 
 	// Execute after hooks
 	afterHooks := m.AfterHooks
-	if dir == Down {
+	if dir == engine.Down {
 		afterHooks = m.DownAfterHooks
 	}
 	for _, hook := range afterHooks {
@@ -281,10 +282,10 @@ func (r *Runner) runInTransaction(ctx context.Context, m Migration, dir Directio
 
 // runWithoutTransaction executes a migration without a transaction.
 // Used for databases that don't support transactional DDL.
-func (r *Runner) runWithoutTransaction(ctx context.Context, m Migration, dir Direction) error {
+func (r *Runner) runWithoutTransaction(ctx context.Context, m engine.Migration, dir engine.Direction) error {
 	// Execute before hooks
 	beforeHooks := m.BeforeHooks
-	if dir == Down {
+	if dir == engine.Down {
 		beforeHooks = m.DownBeforeHooks
 	}
 	for _, hook := range beforeHooks {
@@ -311,7 +312,7 @@ func (r *Runner) runWithoutTransaction(ctx context.Context, m Migration, dir Dir
 
 	// Execute after hooks
 	afterHooks := m.AfterHooks
-	if dir == Down {
+	if dir == engine.Down {
 		afterHooks = m.DownAfterHooks
 	}
 	for _, hook := range afterHooks {
@@ -325,11 +326,11 @@ func (r *Runner) runWithoutTransaction(ctx context.Context, m Migration, dir Dir
 }
 
 // getOperations returns the appropriate operations based on direction.
-func (r *Runner) getOperations(m Migration, dir Direction) []ast.Operation {
+func (r *Runner) getOperations(m engine.Migration, dir engine.Direction) []ast.Operation {
 	switch dir {
-	case Up:
+	case engine.Up:
 		return m.Operations
-	case Down:
+	case engine.Down:
 		var ops []ast.Operation
 		if len(m.DownOps) > 0 {
 			ops = m.DownOps
@@ -498,7 +499,7 @@ func sortDropTablesByFKDependency(dropTables []*ast.DropTable, allOps []ast.Oper
 	}
 
 	// Perform topological sort
-	sorted, err := TopoSort(nodes)
+	sorted, err := engine.TopoSort(nodes)
 	if err != nil {
 		// Circular dependency - return in reverse alphabetical order as fallback
 		sortStrings := func(s []*ast.DropTable) {
@@ -532,7 +533,7 @@ func (n *dropTableSortNode) Dependencies() []string { return n.deps }
 
 // refToSQLName converts a table reference (e.g., "auth.user") to SQL name format (e.g., "auth_user").
 func refToSQLName(ref, defaultNS string) string {
-	ns, table, _ := parseSimpleRef(ref)
+	ns, table, _ := engine.ParseSimpleRef(ref)
 	if ns == "" {
 		ns = defaultNS
 	}
@@ -896,7 +897,7 @@ func (r *Runner) splitStatements(sql string) []string {
 }
 
 // Migrate is a convenience function that runs all pending migrations.
-func (r *Runner) Migrate(ctx context.Context, all []Migration) error {
+func (r *Runner) Migrate(ctx context.Context, all []engine.Migration) error {
 	// Get applied migrations
 	applied, err := r.versions.GetApplied(ctx)
 	if err != nil {
@@ -908,7 +909,7 @@ func (r *Runner) Migrate(ctx context.Context, all []Migration) error {
 	}
 
 	// Create plan for pending migrations
-	plan, err := PlanMigrations(all, applied, "", Up)
+	plan, err := PlanMigrations(all, applied, "", engine.Up)
 	if err != nil {
 		return err
 	}
@@ -917,7 +918,7 @@ func (r *Runner) Migrate(ctx context.Context, all []Migration) error {
 }
 
 // Rollback is a convenience function that rolls back the last N migrations.
-func (r *Runner) Rollback(ctx context.Context, all []Migration, count int) error {
+func (r *Runner) Rollback(ctx context.Context, all []engine.Migration, count int) error {
 	if count <= 0 {
 		return nil // count=0 means no rollback
 	}
@@ -933,7 +934,7 @@ func (r *Runner) Rollback(ctx context.Context, all []Migration, count int) error
 	}
 
 	// Create rollback plan
-	plan, err := PlanMigrations(all, applied, "", Down)
+	plan, err := PlanMigrations(all, applied, "", engine.Down)
 	if err != nil {
 		return err
 	}
@@ -947,7 +948,7 @@ func (r *Runner) Rollback(ctx context.Context, all []Migration, count int) error
 }
 
 // RollbackTo rolls back to a specific revision (the target stays applied).
-func (r *Runner) RollbackTo(ctx context.Context, all []Migration, target string) error {
+func (r *Runner) RollbackTo(ctx context.Context, all []engine.Migration, target string) error {
 	// Get applied migrations
 	applied, err := r.versions.GetApplied(ctx)
 	if err != nil {
@@ -955,7 +956,7 @@ func (r *Runner) RollbackTo(ctx context.Context, all []Migration, target string)
 	}
 
 	// Create rollback plan
-	plan, err := PlanMigrations(all, applied, target, Down)
+	plan, err := PlanMigrations(all, applied, target, engine.Down)
 	if err != nil {
 		return err
 	}
@@ -964,7 +965,7 @@ func (r *Runner) RollbackTo(ctx context.Context, all []Migration, target string)
 }
 
 // Status returns the status of all migrations.
-func (r *Runner) Status(ctx context.Context, all []Migration) ([]MigrationStatus, error) {
+func (r *Runner) Status(ctx context.Context, all []engine.Migration) ([]engine.MigrationStatus, error) {
 	// Ensure version tracking table exists
 	if err := r.versions.EnsureTable(ctx); err != nil {
 		return nil, err

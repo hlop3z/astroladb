@@ -10,6 +10,7 @@ import (
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/dialect"
 	"github.com/hlop3z/astroladb/internal/engine"
+	"github.com/hlop3z/astroladb/internal/engine/diff"
 	"github.com/hlop3z/astroladb/internal/introspect"
 	"github.com/hlop3z/astroladb/internal/testutil"
 )
@@ -882,7 +883,7 @@ func TestRoundTrip_SchemaDiff_Postgres(t *testing.T) {
 	}
 
 	// Compute diff
-	ops, err := engine.Diff(currentSchema, targetSchema)
+	ops, err := diff.Diff(currentSchema, targetSchema)
 	if err != nil {
 		t.Fatalf("failed to compute diff: %v", err)
 	}
@@ -930,7 +931,7 @@ func TestRoundTrip_SchemaDiff_SQLite(t *testing.T) {
 	}
 
 	// Compute diff
-	ops, err := engine.Diff(currentSchema, targetSchema)
+	ops, err := diff.Diff(currentSchema, targetSchema)
 	if err != nil {
 		t.Fatalf("failed to compute diff: %v", err)
 	}

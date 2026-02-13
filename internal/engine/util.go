@@ -20,3 +20,18 @@ func ToSet[T comparable](items []T) map[T]struct{} {
 	}
 	return m
 }
+
+// ParseSimpleRef parses a simple "ns.table" or "table" reference.
+func ParseSimpleRef(ref string) (ns, table string, isRelative bool) {
+	for i := len(ref) - 1; i >= 0; i-- {
+		if ref[i] == '.' {
+			if i == 0 {
+				// ".table" - relative
+				return "", ref[1:], true
+			}
+			return ref[:i], ref[i+1:], false
+		}
+	}
+	// No dot - just table name
+	return "", ref, false
+}
