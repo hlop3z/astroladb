@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
-	"text/template"
 
 	"github.com/spf13/cobra"
 
@@ -46,19 +44,10 @@ Both namespace and table_name are normalized to lowercase snake_case.`,
 			}
 
 			// Load config to get schemas directory
-			cfg, err := loadConfig()
-			if err != nil {
-				return err
-			}
+			cfg := mustConfig()
 
-			// Create the namespace directory
-			namespaceDir := filepath.Join(cfg.SchemasDir, namespace)
-			if err := os.MkdirAll(namespaceDir, DirPerm); err != nil {
-				return fmt.Errorf("failed to create namespace directory: %w", err)
-			}
-
-			// Create the schema file
-			schemaFile := filepath.Join(namespaceDir, tableName+".js")
+			// Create the schema file path
+			schemaFile := filepath.Join(cfg.SchemasDir, namespace, tableName+".js")
 
 			// Check if file already exists
 			if _, err := os.Stat(schemaFile); err == nil {
@@ -71,8 +60,8 @@ Both namespace and table_name are normalized to lowercase snake_case.`,
 				return err
 			}
 
-			// Write the file
-			if err := os.WriteFile(schemaFile, []byte(content), FilePerm); err != nil {
+			// Write the file (creates namespace directory if needed)
+			if err := writeFileEnsureDir(schemaFile, []byte(content)); err != nil {
 				return fmt.Errorf("failed to write schema file: %w", err)
 			}
 
@@ -97,22 +86,8 @@ Both namespace and table_name are normalized to lowercase snake_case.`,
 
 // generateTableSchema generates the content for a new table schema file.
 func generateTableSchema(namespace, tableName string) (string, error) {
-	tmplContent := mustReadTemplate("templates/table.js.tmpl")
-	tmpl, err := template.New("table").Parse(tmplContent)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse table template: %w", err)
-	}
-
-	var buf bytes.Buffer
-	data := struct {
+	return executeTemplate("templates/table.js.tmpl", struct {
 		Namespace string
 		TableName string
-	}{
-		Namespace: namespace,
-		TableName: tableName,
-	}
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("failed to execute table template: %w", err)
-	}
-	return buf.String(), nil
+	}{namespace, tableName})
 }

@@ -53,13 +53,7 @@ This is useful for debugging stuck migrations or verifying no other process is r
 		Example: `  # Check if migration lock is held
   alab lock status`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				if handleClientError(err) {
-					os.Exit(1)
-				}
-				return err
-			}
+			client := mustClient()
 			defer client.Close()
 
 			info, err := client.MigrationLockStatus()
@@ -118,13 +112,7 @@ other migration is currently running.`,
   # Force release without confirmation
   alab lock release --force`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				if handleClientError(err) {
-					os.Exit(1)
-				}
-				return err
-			}
+			client := mustClient()
 			defer client.Close()
 
 			// Check current lock status first
@@ -163,11 +151,9 @@ other migration is currently running.`,
 
 			// Confirm unless --force
 			if !force {
-				if !ui.Confirm(PromptReleaseLock, false) {
-					fmt.Println(ui.Dim("Release cancelled"))
+				if !confirmOrCancel(PromptReleaseLock, false, "Release cancelled") {
 					return nil
 				}
-				fmt.Println()
 			}
 
 			if err := client.MigrationReleaseLock(); err != nil {
@@ -201,10 +187,7 @@ since the lock file was last generated.`,
 		Example: `  # Verify lock file integrity
   alab lock verify`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := loadConfig()
-			if err != nil {
-				return err
-			}
+			cfg := mustConfig()
 
 			lockPath := lockfile.DefaultPath()
 			if err := lockfile.Verify(cfg.MigrationsDir, lockPath); err != nil {
@@ -233,10 +216,7 @@ Use this after resolving any lock file verification failures.`,
 		Example: `  # Regenerate lock file
   alab lock repair`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := loadConfig()
-			if err != nil {
-				return err
-			}
+			cfg := mustConfig()
 
 			lockPath := lockfile.DefaultPath()
 			if err := lockfile.Repair(cfg.MigrationsDir, lockPath); err != nil {

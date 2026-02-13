@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -160,15 +159,7 @@ func exportFormat(client *astroladb.Client, format, dir string, stdout bool, opt
 	filename := GetExportFilename(format)
 	outputPath := filepath.Join(dir, filename)
 
-	// Create directory if needed
-	dirPath := filepath.Dir(outputPath)
-	if dirPath != "." && dirPath != "" {
-		if err := os.MkdirAll(dirPath, DirPerm); err != nil {
-			return "", fmt.Errorf("failed to create directory %s: %w", dirPath, err)
-		}
-	}
-
-	if err := os.WriteFile(outputPath, data, FilePerm); err != nil {
+	if err := writeFileEnsureDir(outputPath, data); err != nil {
 		return "", fmt.Errorf("failed to write output file: %w", err)
 	}
 

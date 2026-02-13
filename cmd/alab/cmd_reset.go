@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -30,13 +29,7 @@ Drops all tables, re-runs migrations, leaves clean schema with no data. Requires
   # Typical development workflow - reset and seed
   alab reset && alab seed`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				if handleClientError(err) {
-					os.Exit(1)
-				}
-				return err
-			}
+			client := mustClient()
 			defer client.Close()
 
 			// Show warning and get confirmation
@@ -55,11 +48,9 @@ Drops all tables, re-runs migrations, leaves clean schema with no data. Requires
 				fmt.Println(warning)
 				fmt.Println()
 
-				if !ui.Confirm(PromptContinueReset, false) {
-					fmt.Println(ui.Dim(MsgResetCancelled))
+				if !confirmOrCancel(PromptContinueReset, false, MsgResetCancelled) {
 					return nil
 				}
-				fmt.Println()
 			}
 
 			// Drop all tables by executing raw SQL

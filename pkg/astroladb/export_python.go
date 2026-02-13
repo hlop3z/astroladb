@@ -2,7 +2,6 @@ package astroladb
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
@@ -86,29 +85,18 @@ func exportPython(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	sb.WriteString("from enum import Enum\n\n")
 
 	// Sort tables for deterministic output
-	sortedTables := make([]*ast.TableDef, len(tables))
-	copy(sortedTables, tables)
-	sort.Slice(sortedTables, func(i, j int) bool {
-		return sortedTables[i].QualifiedName() < sortedTables[j].QualifiedName()
-	})
+	sortedTables := sortTablesByQualifiedName(tables)
 
 	// First pass: generate enum classes
-	for _, table := range sortedTables {
-		for _, col := range table.Columns {
-			if col.Type == "enum" && len(col.TypeArgs) > 0 {
-				enumName := strutil.ToPascalCase(table.FullName()) + strutil.ToPascalCase(col.Name)
-				sb.WriteString(fmt.Sprintf("class %s(str, Enum):\n", enumName))
-				enumValues := getEnumValues(col)
-				for _, v := range enumValues {
-					// Sanitize enum member name to valid Python identifier
-					memberName := sanitizeIdentifier(strings.ToUpper(v))
-					escaped := strings.ReplaceAll(v, `"`, `\"`)
-					sb.WriteString(fmt.Sprintf("    %s = \"%s\"\n", memberName, escaped))
-				}
-				sb.WriteString("\n")
-			}
+	forEachEnum(sortedTables, func(e enumInfo) {
+		sb.WriteString(fmt.Sprintf("class %s(str, Enum):\n", e.EnumName))
+		for _, v := range e.Values {
+			memberName := sanitizeIdentifier(strings.ToUpper(v))
+			escaped := strings.ReplaceAll(v, `"`, `\"`)
+			sb.WriteString(fmt.Sprintf("    %s = \"%s\"\n", memberName, escaped))
 		}
-	}
+		sb.WriteString("\n")
+	})
 
 	// Second pass: generate dataclasses
 	for _, table := range sortedTables {

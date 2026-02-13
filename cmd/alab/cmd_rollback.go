@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hlop3z/astroladb/internal/ui"
-	"github.com/hlop3z/astroladb/pkg/astroladb"
 )
 
 // rollbackCmd rolls back migrations.
@@ -46,28 +45,20 @@ after a successful rollback.`,
   alab rollback --skip-lock`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := loadConfig()
-			if err != nil {
-				return err
-			}
+			cfg := mustConfig()
 
 			// Show context information
 			if !dryRun {
 				printContextInfo(cfg)
 			}
 
-			client, err := newClient()
-			if err != nil {
-				if handleClientError(err) {
-					os.Exit(1)
-				}
-				return err
-			}
+			client := mustClient()
 			defer client.Close()
 
 			steps := 1
 			if len(args) > 0 {
 				arg := args[0]
+				var err error
 				steps, err = strconv.Atoi(arg)
 				if err != nil || steps < 1 {
 					printRollbackStepsError(arg)
@@ -94,23 +85,12 @@ after a successful rollback.`,
 				fmt.Println(warning)
 				fmt.Println()
 
-				if !ui.Confirm(fmt.Sprintf(PromptRollback, ui.FormatCount(steps, "migration", "migrations")), false) {
-					fmt.Println(ui.Dim(MsgRollbackCancelled))
+				if !confirmOrCancel(fmt.Sprintf(PromptRollback, ui.FormatCount(steps, "migration", "migrations")), false, MsgRollbackCancelled) {
 					return nil
 				}
-				fmt.Println()
 			}
 
-			var opts []astroladb.MigrationOption
-			if dryRun {
-				opts = append(opts, astroladb.DryRunTo(os.Stdout))
-			}
-			if skipLock {
-				opts = append(opts, astroladb.SkipLock())
-			}
-			if lockTimeout > 0 {
-				opts = append(opts, astroladb.LockTimeout(lockTimeout))
-			}
+			opts := buildMigrationOpts(dryRun, skipLock, lockTimeout)
 
 			// Execute rollback with timing
 			start := time.Now()
@@ -129,15 +109,7 @@ after a successful rollback.`,
 					),
 				)
 
-				// Auto-commit migration files (optional with --commit flag)
-				if commit {
-					if err := autoCommitMigrations(cfg.MigrationsDir, "down"); err != nil {
-						fmt.Fprintf(os.Stderr, "\n"+ui.Warning("Warning")+": %v\n", err)
-					} else {
-						fmt.Println()
-						fmt.Println(ui.Success(MsgCommittedToGit))
-					}
-				}
+				autoCommitIfRequested(commit, cfg.MigrationsDir, "down")
 			}
 			return nil
 		},

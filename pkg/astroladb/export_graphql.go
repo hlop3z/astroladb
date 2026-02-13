@@ -3,7 +3,6 @@ package astroladb
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
@@ -92,29 +91,19 @@ func exportGraphQL(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	sb.WriteString("scalar JSON\n\n")
 
 	// Sort tables for deterministic output
-	sortedTables := make([]*ast.TableDef, len(tables))
-	copy(sortedTables, tables)
-	sort.Slice(sortedTables, func(i, j int) bool {
-		return sortedTables[i].QualifiedName() < sortedTables[j].QualifiedName()
-	})
+	sortedTables := sortTablesByQualifiedName(tables)
 
 	// First pass: generate enum types
-	for _, table := range sortedTables {
-		for _, col := range table.Columns {
-			if col.Type == "enum" && len(col.TypeArgs) > 0 {
-				enumName := strutil.ToPascalCase(table.FullName()) + strutil.ToPascalCase(col.Name)
-				if col.Docs != "" {
-					sb.WriteString(fmt.Sprintf("\"\"\"%s\"\"\"\n", col.Docs))
-				}
-				sb.WriteString(fmt.Sprintf("enum %s {\n", enumName))
-				enumValues := getEnumValues(col)
-				for _, v := range enumValues {
-					sb.WriteString(fmt.Sprintf("  %s\n", strings.ToUpper(v)))
-				}
-				sb.WriteString("}\n\n")
-			}
+	forEachEnum(sortedTables, func(e enumInfo) {
+		if e.Column.Docs != "" {
+			sb.WriteString(fmt.Sprintf("\"\"\"%s\"\"\"\n", e.Column.Docs))
 		}
-	}
+		sb.WriteString(fmt.Sprintf("enum %s {\n", e.EnumName))
+		for _, v := range e.Values {
+			sb.WriteString(fmt.Sprintf("  %s\n", strings.ToUpper(v)))
+		}
+		sb.WriteString("}\n\n")
+	})
 
 	// Second pass: generate types
 	for _, table := range sortedTables {
@@ -145,28 +134,6 @@ func exportGraphQL(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	sb.WriteString("}\n")
 
 	return []byte(sb.String()), nil
-}
-
-// sanitizeIdentifier converts a string to a valid identifier by replacing
-// non-alphanumeric characters with underscores.
-func sanitizeIdentifier(s string) string {
-	var b strings.Builder
-	for i, r := range s {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || (r >= '0' && r <= '9' && i > 0) {
-			b.WriteRune(r)
-		} else {
-			b.WriteRune('_')
-		}
-	}
-	result := b.String()
-	if result == "" {
-		return "VALUE"
-	}
-	// Ensure doesn't start with digit
-	if result[0] >= '0' && result[0] <= '9' {
-		result = "_" + result
-	}
-	return result
 }
 
 // escapePyDoc escapes content for Python docstrings.

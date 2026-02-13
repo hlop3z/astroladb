@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hlop3z/astroladb/internal/git"
-	"github.com/hlop3z/astroladb/internal/lockfile"
 	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
 )
@@ -50,10 +49,7 @@ Use --commit to auto-commit after successful migration.`,
   # Verify SQL checksums before applying
   alab migrate --verify-sql`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := loadConfig()
-			if err != nil {
-				return err
-			}
+			cfg := mustConfig()
 
 			// Show context information
 			if !dryRun {
@@ -81,13 +77,7 @@ Use --commit to auto-commit after successful migration.`,
 				}
 			}
 
-			client, err := newClient()
-			if err != nil {
-				if handleClientError(err) {
-					os.Exit(1)
-				}
-				return err
-			}
+			client := mustClient()
 			defer client.Close()
 
 			// Get pending migrations to show count
@@ -153,30 +143,18 @@ Use --commit to auto-commit after successful migration.`,
 
 				// Ask for confirmation (unless dry run or force)
 				if !force {
-					if !ui.Confirm(
+					if !confirmOrCancel(
 						fmt.Sprintf(PromptApplyMigrations, ui.FormatCount(pendingCount, "migration", "migrations")),
-						true,
+						true, MsgMigrationCancelled,
 					) {
-						fmt.Println(ui.Dim(MsgMigrationCancelled))
 						return nil
 					}
-					fmt.Println()
 				}
 			}
 
-			var opts []astroladb.MigrationOption
-
-			if dryRun {
-				opts = append(opts, astroladb.DryRunTo(os.Stdout))
-			}
+			opts := buildMigrationOpts(dryRun, skipLock, lockTimeout)
 			if force {
 				opts = append(opts, astroladb.Force())
-			}
-			if skipLock {
-				opts = append(opts, astroladb.SkipLock())
-			}
-			if lockTimeout > 0 {
-				opts = append(opts, astroladb.LockTimeout(lockTimeout))
 			}
 
 			// Apply migrations with timing
@@ -189,13 +167,7 @@ Use --commit to auto-commit after successful migration.`,
 
 			if !dryRun {
 				// Update lock file
-				cfg, cfgErr := loadConfig()
-				if cfgErr == nil {
-					lockPath := lockfile.DefaultPath()
-					if lockErr := lockfile.Write(cfg.MigrationsDir, lockPath); lockErr != nil {
-						fmt.Fprintf(os.Stderr, "%s: %v\n", ui.Warning("Warning: failed to update lock file"), lockErr)
-					}
-				}
+				updateLockFile(cfg.MigrationsDir)
 
 				// Show success with timing
 				ui.ShowSuccess(
@@ -206,15 +178,7 @@ Use --commit to auto-commit after successful migration.`,
 					),
 				)
 
-				// Auto-commit migration files (optional with --commit flag)
-				if commit {
-					if err := autoCommitMigrations(cfg.MigrationsDir, "up"); err != nil {
-						fmt.Fprintf(os.Stderr, "\n"+ui.Warning("Warning")+": %v\n", err)
-					} else {
-						fmt.Println()
-						fmt.Println(ui.Success(MsgCommittedToGit))
-					}
-				}
+				autoCommitIfRequested(commit, cfg.MigrationsDir, "up")
 			}
 			return nil
 		},

@@ -40,10 +40,7 @@ Use --demo to include example schemas (auth.user, auth.role, blog.post).`,
   # ├── migrations/
   # └── types/`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := loadConfig()
-			if err != nil {
-				return err
-			}
+			cfg := mustConfig()
 
 			// Track created files/directories
 			created := ui.NewList()

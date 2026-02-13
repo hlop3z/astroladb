@@ -3,7 +3,6 @@ package astroladb
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
@@ -90,11 +89,7 @@ func exportGo(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	}
 
 	// Sort tables for deterministic output
-	sortedTables := make([]*ast.TableDef, len(tables))
-	copy(sortedTables, tables)
-	sort.Slice(sortedTables, func(i, j int) bool {
-		return sortedTables[i].QualifiedName() < sortedTables[j].QualifiedName()
-	})
+	sortedTables := sortTablesByQualifiedName(tables)
 
 	for _, table := range sortedTables {
 		generateGoStruct(&buf, table, cfg)

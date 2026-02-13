@@ -49,13 +49,24 @@ type OpenAPIType struct {
 // registry holds all registered types indexed by name.
 var registry = make(map[string]*TypeDef)
 
+// registrationClosed is set after init() completes. All types must be registered during init.
+var registrationClosed bool
+
 // Register adds a type to the registry.
-// Panics if a type with the same name is already registered.
+// Panics if a type with the same name is already registered or if registration is closed.
 func Register(t *TypeDef) {
+	if registrationClosed {
+		panic("type registration is closed: all types must be registered during init()")
+	}
 	if _, exists := registry[t.Name]; exists {
 		panic("type already registered: " + t.Name)
 	}
 	registry[t.Name] = t
+}
+
+// closeRegistration prevents any further type registrations.
+func closeRegistration() {
+	registrationClosed = true
 }
 
 // Get returns the type definition for the given name.
@@ -362,6 +373,8 @@ func init() {
 		},
 		HasArgs: false,
 	})
+
+	closeRegistration()
 }
 
 // -----------------------------------------------------------------------------

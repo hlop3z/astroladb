@@ -201,13 +201,7 @@ func genAddCmd() *cobra.Command {
 				return fmt.Errorf("failed to read response body: %w", err)
 			}
 
-			// Create generators dir
-			if err := os.MkdirAll(DefaultGeneratorsDir, DirPerm); err != nil {
-				return fmt.Errorf("failed to create generators directory: %w", err)
-			}
-
-			// Write file
-			if err := os.WriteFile(destPath, body, FilePerm); err != nil {
+			if err := writeFileEnsureDir(destPath, body); err != nil {
 				return fmt.Errorf("failed to write generator file: %w", err)
 			}
 

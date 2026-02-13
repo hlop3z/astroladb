@@ -234,20 +234,9 @@ func buildColumnList(table *ast.TableDef) []map[string]any {
 			c["default"] = col.Default
 		}
 		// Enum values - TypeArgs[0] contains the entire []string slice
-		if col.Type == "enum" && len(col.TypeArgs) > 0 {
-			if values, ok := col.TypeArgs[0].([]string); ok {
-				c["enum"] = values
-			} else if values, ok := col.TypeArgs[0].([]any); ok {
-				// Goja may convert []string to []any
-				var strValues []string
-				for _, v := range values {
-					if s, ok := v.(string); ok {
-						strValues = append(strValues, s)
-					}
-				}
-				if len(strValues) > 0 {
-					c["enum"] = strValues
-				}
+		if col.Type == "enum" {
+			if enumValues := getEnumValues(col); len(enumValues) > 0 {
+				c["enum"] = enumValues
 			}
 		}
 		cols = append(cols, c)
@@ -410,15 +399,8 @@ func generateColumnExample(col *ast.ColumnDef) any {
 	case "base64":
 		return "SGVsbG8gV29ybGQh"
 	case "enum":
-		if len(col.TypeArgs) > 0 {
-			if values, ok := col.TypeArgs[0].([]string); ok && len(values) > 0 {
-				return values[0] // Return first enum value as example
-			} else if values, ok := col.TypeArgs[0].([]any); ok && len(values) > 0 {
-				// Goja may convert []string to []any
-				if s, ok := values[0].(string); ok {
-					return s
-				}
-			}
+		if enumValues := getEnumValues(col); len(enumValues) > 0 {
+			return enumValues[0]
 		}
 		return "value"
 	default:
@@ -832,22 +814,8 @@ func columnToOpenAPIProperty(col *ast.ColumnDef, table *ast.TableDef, cfg *expor
 		prop["additionalProperties"] = true
 
 	case "enum":
-		// Extract enum values from TypeArgs - TypeArgs[0] contains the entire []string slice
-		if len(col.TypeArgs) > 0 {
-			if enumValues, ok := col.TypeArgs[0].([]string); ok {
-				prop["enum"] = enumValues
-			} else if values, ok := col.TypeArgs[0].([]any); ok {
-				// Goja may convert []string to []any
-				var enumValues []string
-				for _, v := range values {
-					if s, ok := v.(string); ok {
-						enumValues = append(enumValues, s)
-					}
-				}
-				if len(enumValues) > 0 {
-					prop["enum"] = enumValues
-				}
-			}
+		if enumValues := getEnumValues(col); len(enumValues) > 0 {
+			prop["enum"] = enumValues
 		}
 
 	case "computed":
@@ -1126,29 +1094,16 @@ func buildSQLType(col *ast.ColumnDef) map[string]string {
 
 	case "enum":
 		// ENUMs are handled differently per database (special case)
-		// TypeArgs[0] contains the entire []string slice
-		if len(col.TypeArgs) > 0 {
-			var enumValues []string
-			if values, ok := col.TypeArgs[0].([]string); ok {
-				enumValues = values
-			} else if values, ok := col.TypeArgs[0].([]any); ok {
-				// Goja may convert []string to []any
-				for _, v := range values {
-					if s, ok := v.(string); ok {
-						enumValues = append(enumValues, s)
-					}
-				}
+		enumValues := getEnumValues(col)
+		if len(enumValues) > 0 {
+			var quotedValues []string
+			for _, v := range enumValues {
+				escaped := strings.ReplaceAll(v, "'", "''")
+				quotedValues = append(quotedValues, fmt.Sprintf("'%s'", escaped))
 			}
-			if len(enumValues) > 0 {
-				var quotedValues []string
-				for _, v := range enumValues {
-					escaped := strings.ReplaceAll(v, "'", "''")
-					quotedValues = append(quotedValues, fmt.Sprintf("'%s'", escaped))
-				}
-				valuesStr := strings.Join(quotedValues, ", ")
-				sqlType["postgres"] = fmt.Sprintf("VARCHAR(50) CHECK (%s IN (%s))", col.Name, valuesStr)
-				sqlType["sqlite"] = fmt.Sprintf("TEXT CHECK (%s IN (%s))", col.Name, valuesStr)
-			}
+			valuesStr := strings.Join(quotedValues, ", ")
+			sqlType["postgres"] = fmt.Sprintf("VARCHAR(50) CHECK (%s IN (%s))", col.Name, valuesStr)
+			sqlType["sqlite"] = fmt.Sprintf("TEXT CHECK (%s IN (%s))", col.Name, valuesStr)
 		}
 
 	default:

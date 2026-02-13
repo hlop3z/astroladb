@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -64,13 +63,7 @@ With --determinism, verifies SQL output reproducibility:
 
 // checkSchemas validates all schema files.
 func checkSchemas() error {
-	client, err := newSchemaOnlyClient()
-	if err != nil {
-		if !handleClientError(err) {
-			fmt.Fprintln(os.Stderr, ui.Error("error")+": "+err.Error())
-		}
-		os.Exit(1)
-	}
+	client := mustSchemaOnlyClient()
 	defer client.Close()
 
 	if err := client.SchemaCheck(); err != nil {
@@ -86,13 +79,7 @@ func checkSchemas() error {
 
 // checkDeterminism verifies that applied migrations produce the same SQL checksum.
 func checkDeterminism() error {
-	client, err := newClient()
-	if err != nil {
-		if handleClientError(err) {
-			os.Exit(1)
-		}
-		return err
-	}
+	client := mustClient()
 	defer client.Close()
 
 	results, err := client.VerifySQLDeterminism()
@@ -130,27 +117,18 @@ func checkDeterminism() error {
 
 // checkMigrations lints all migration files for safety issues.
 func checkMigrations() error {
-	cfg, err := loadConfig()
+	cfg := mustConfig()
+
+	migFiles, err := readMigrationFiles(cfg.MigrationsDir)
 	if err != nil {
 		return err
 	}
-
-	entries, err := os.ReadDir(cfg.MigrationsDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println(ui.Success("No migrations to check"))
-			return nil
-		}
-		return fmt.Errorf("failed to read migrations directory: %w", err)
+	if len(migFiles) == 0 {
+		fmt.Println(ui.Success("No migrations to check"))
+		return nil
 	}
 
-	client, err := newSchemaOnlyClient()
-	if err != nil {
-		if !handleClientError(err) {
-			fmt.Fprintln(os.Stderr, ui.Error("error")+": "+err.Error())
-		}
-		os.Exit(1)
-	}
+	client := mustSchemaOnlyClient()
 	defer client.Close()
 
 	// Verify lock file if it exists
@@ -160,26 +138,20 @@ func checkMigrations() error {
 	}
 
 	var allWarnings []diff.Warning
-	fileCount := 0
 	hasErrors := false
 
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".js") {
-			continue
-		}
-		fileCount++
-
-		path := filepath.Join(cfg.MigrationsDir, entry.Name())
+	for _, name := range migFiles {
+		path := filepath.Join(cfg.MigrationsDir, name)
 		ops, err := client.ParseMigrationFile(path)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  %s %s: %v\n", ui.Error("ERROR"), entry.Name(), err)
+			fmt.Fprintf(os.Stderr, "  %s %s: %v\n", ui.Error("ERROR"), name, err)
 			hasErrors = true
 			continue
 		}
 
 		warnings := diff.LintOperations(ops)
 		for i := range warnings {
-			warnings[i].Message = fmt.Sprintf("[%s] %s", entry.Name(), warnings[i].Message)
+			warnings[i].Message = fmt.Sprintf("[%s] %s", name, warnings[i].Message)
 		}
 		allWarnings = append(allWarnings, warnings...)
 	}
@@ -200,10 +172,10 @@ func checkMigrations() error {
 			}
 		}
 		fmt.Println()
-		fmt.Fprintf(os.Stderr, "%s\n", ui.Warning(fmt.Sprintf("%d warning(s) in %d migration(s)", len(allWarnings), fileCount)))
+		fmt.Fprintf(os.Stderr, "%s\n", ui.Warning(fmt.Sprintf("%d warning(s) in %d migration(s)", len(allWarnings), len(migFiles))))
 		os.Exit(1)
 	}
 
-	fmt.Println(ui.Success(fmt.Sprintf("All %d migration(s) passed lint checks", fileCount)))
+	fmt.Println(ui.Success(fmt.Sprintf("All %d migration(s) passed lint checks", len(migFiles))))
 	return nil
 }

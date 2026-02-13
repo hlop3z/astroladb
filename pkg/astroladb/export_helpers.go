@@ -3,11 +3,92 @@ package astroladb
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/strutil"
 )
+
+// sortTablesByQualifiedName returns a sorted copy of the table slice for deterministic output.
+func sortTablesByQualifiedName(tables []*ast.TableDef) []*ast.TableDef {
+	sorted := make([]*ast.TableDef, len(tables))
+	copy(sorted, tables)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].QualifiedName() < sorted[j].QualifiedName()
+	})
+	return sorted
+}
+
+// getEnumValues extracts enum values from a column definition.
+func getEnumValues(col *ast.ColumnDef) []string {
+	if len(col.TypeArgs) == 0 {
+		return nil
+	}
+	if values, ok := col.TypeArgs[0].([]string); ok {
+		return values
+	}
+	if values, ok := col.TypeArgs[0].([]any); ok {
+		var result []string
+		for _, v := range values {
+			if s, ok := v.(string); ok {
+				result = append(result, s)
+			}
+		}
+		return result
+	}
+	return nil
+}
+
+// enumInfo holds precomputed information about an enum column for export code generators.
+type enumInfo struct {
+	Table    *ast.TableDef
+	Column   *ast.ColumnDef
+	EnumName string   // PascalCase(fullName) + PascalCase(colName)
+	Values   []string // extracted enum values
+}
+
+// forEachEnum iterates over all enum columns in the given tables and calls fn for each.
+func forEachEnum(tables []*ast.TableDef, fn func(e enumInfo)) {
+	for _, table := range tables {
+		for _, col := range table.Columns {
+			if col.Type == "enum" && len(col.TypeArgs) > 0 {
+				values := getEnumValues(col)
+				if len(values) == 0 {
+					continue
+				}
+				fn(enumInfo{
+					Table:    table,
+					Column:   col,
+					EnumName: strutil.ToPascalCase(table.FullName()) + strutil.ToPascalCase(col.Name),
+					Values:   values,
+				})
+			}
+		}
+	}
+}
+
+// sanitizeIdentifier converts a string to a valid identifier by replacing
+// non-alphanumeric characters with underscores. Used by Python and GraphQL exporters.
+func sanitizeIdentifier(s string) string {
+	var b strings.Builder
+	for i, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || (r >= '0' && r <= '9' && i > 0) {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	result := b.String()
+	if result == "" {
+		return "VALUE"
+	}
+	// Ensure doesn't start with digit
+	if result[0] >= '0' && result[0] <= '9' {
+		result = "_" + result
+	}
+	return result
+}
 
 // escapeJSDoc escapes content for JSDoc comments (TypeScript).
 func escapeJSDoc(s string) string {
@@ -39,10 +120,7 @@ func buildRelationFields(table *ast.TableDef, allTables []*ast.TableDef, cfg *ex
 		// Find the referenced table type name
 		typeName := ""
 		for _, t := range allTables {
-			qn := t.QualifiedName()
-			fn := t.FullName()
-			sqlName := t.Namespace + "_" + t.Name
-			if qn == refTable || fn == refTable || sqlName == refTable || t.Name == refTable {
+			if t.MatchesReference(refTable) {
 				typeName = strutil.ToPascalCase(t.FullName())
 				break
 			}
@@ -57,8 +135,6 @@ func buildRelationFields(table *ast.TableDef, allTables []*ast.TableDef, cfg *ex
 	}
 
 	// Has-many: other tables have FK columns referencing this table
-	thisSQL := table.FullName()
-	thisQualified := table.QualifiedName()
 	for _, other := range allTables {
 		if other == table || other.Namespace == "" {
 			continue // skip self and join tables
@@ -67,8 +143,7 @@ func buildRelationFields(table *ast.TableDef, allTables []*ast.TableDef, cfg *ex
 			if col.Reference == nil {
 				continue
 			}
-			ref := col.Reference.Table
-			if ref == thisQualified || ref == thisSQL || ref == table.Namespace+"."+table.Name || ref == table.Namespace+"_"+table.Name {
+			if table.MatchesReference(col.Reference.Table) {
 				// Use FK column name without "_id" suffix, ensure snake_case (no pluralization)
 				fieldName := strutil.ToSnakeCase(strings.TrimSuffix(col.Name, "_id"))
 				fields = append(fields, relationField{

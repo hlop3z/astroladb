@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hlop3z/astroladb/internal/chain"
-	"github.com/hlop3z/astroladb/internal/lockfile"
 	"github.com/hlop3z/astroladb/internal/ui"
 	"github.com/hlop3z/astroladb/pkg/astroladb"
 )
@@ -48,38 +47,26 @@ the baseline and skips it. New environments apply only the baseline.`,
 }
 
 func runSquash(dryRun bool) error {
-	cfg, err := loadConfig()
+	cfg := mustConfig()
+
+	// Read existing migrations
+	migFiles, err := readMigrationFiles(cfg.MigrationsDir)
 	if err != nil {
 		return err
 	}
-
-	// Read existing migrations
-	entries, err := os.ReadDir(cfg.MigrationsDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println(ui.Success("No migrations to squash"))
-			return nil
-		}
-		return fmt.Errorf("failed to read migrations directory: %w", err)
+	if len(migFiles) == 0 {
+		fmt.Println(ui.Success("No migrations to squash"))
+		return nil
 	}
 
-	var migFiles []string
+	// Extract last revision number from filenames
 	var lastRevision string
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".js") {
-			continue
-		}
-		migFiles = append(migFiles, e.Name())
-		name := strings.TrimSuffix(e.Name(), ".js")
+	for _, f := range migFiles {
+		name := strings.TrimSuffix(f, ".js")
 		parts := strings.SplitN(name, "_", 2)
 		if len(parts) > 0 {
 			lastRevision = parts[0]
 		}
-	}
-
-	if len(migFiles) == 0 {
-		fmt.Println(ui.Success("No migrations to squash"))
-		return nil
 	}
 
 	if len(migFiles) == 1 {
@@ -88,13 +75,7 @@ func runSquash(dryRun bool) error {
 	}
 
 	// Load schema and generate baseline content (schema-only client for baseline generation)
-	schemaClient, err := newSchemaOnlyClient()
-	if err != nil {
-		if !handleClientError(err) {
-			fmt.Fprintln(os.Stderr, ui.Error("error")+": "+err.Error())
-		}
-		os.Exit(1)
-	}
+	schemaClient := mustSchemaOnlyClient()
 	defer schemaClient.Close()
 
 	ops, err := schemaClient.GenerateBaselineOps()
@@ -202,8 +183,7 @@ func runSquash(dryRun bool) error {
 	}
 
 	// Update lock file
-	lockPath := lockfile.DefaultPath()
-	_ = lockfile.Write(cfg.MigrationsDir, lockPath)
+	updateLockFile(cfg.MigrationsDir)
 
 	// Build success message
 	successMsg := fmt.Sprintf("Squashed %s into baseline\n  Archived to: %s\n  Baseline: %s\n  Squashed through: %s",

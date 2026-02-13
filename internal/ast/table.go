@@ -146,6 +146,15 @@ func (t *TableDef) QualifiedName() string {
 	return t.Namespace + "." + t.Name
 }
 
+// MatchesReference returns true if ref matches any of the table's name forms:
+// QualifiedName (namespace.name), FullName (namespace_name), or bare Name.
+func (t *TableDef) MatchesReference(ref string) bool {
+	return ref == t.QualifiedName() ||
+		ref == t.FullName() ||
+		(t.Namespace != "" && ref == t.Namespace+"_"+t.Name) ||
+		ref == t.Name
+}
+
 // GetColumn returns the column with the given name, or nil if not found.
 func (t *TableDef) GetColumn(name string) *ColumnDef {
 	for _, col := range t.Columns {
@@ -172,6 +181,20 @@ func (t *TableDef) PrimaryKey() *ColumnDef {
 	return nil
 }
 
+// checkDuplicateColumns returns an error if any column name appears more than once.
+func (t *TableDef) checkDuplicateColumns() error {
+	seen := make(map[string]bool)
+	for _, col := range t.Columns {
+		if seen[col.Name] {
+			return alerr.New(alerr.ErrSchemaDuplicate, "duplicate column name").
+				WithTable(t.Namespace, t.Name).
+				WithColumn(col.Name)
+		}
+		seen[col.Name] = true
+	}
+	return nil
+}
+
 // ValidateBasic checks that the table has a name, at least one column,
 // and no duplicate column names. It does NOT validate identifier syntax,
 // column types, indexes, or foreign keys — use Validate() for that.
@@ -183,20 +206,13 @@ func (t *TableDef) ValidateBasic() error {
 		return alerr.New(alerr.ErrSchemaInvalid, "table must have at least one column").
 			WithTable(t.Namespace, t.Name)
 	}
-	colSeen := make(map[string]bool)
 	for _, col := range t.Columns {
 		if col.Name == "" {
 			return alerr.New(alerr.ErrSchemaInvalid, "column name is required").
 				WithTable(t.Namespace, t.Name)
 		}
-		if colSeen[col.Name] {
-			return alerr.New(alerr.ErrSchemaDuplicate, "duplicate column name").
-				WithTable(t.Namespace, t.Name).
-				WithColumn(col.Name)
-		}
-		colSeen[col.Name] = true
 	}
-	return nil
+	return t.checkDuplicateColumns()
 }
 
 // Validate checks that the table definition is well-formed.
@@ -217,14 +233,10 @@ func (t *TableDef) Validate() error {
 			WithTable(t.Namespace, t.Name)
 	}
 	// Check for duplicate column names
-	seen := make(map[string]bool)
+	if err := t.checkDuplicateColumns(); err != nil {
+		return err
+	}
 	for _, col := range t.Columns {
-		if seen[col.Name] {
-			return alerr.New(alerr.ErrSchemaInvalid, "duplicate column name").
-				WithTable(t.Namespace, t.Name).
-				WithColumn(col.Name)
-		}
-		seen[col.Name] = true
 		if err := col.Validate(); err != nil {
 			return alerr.Wrap(alerr.ErrSchemaInvalid, err, "invalid column").
 				WithTable(t.Namespace, t.Name).

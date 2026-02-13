@@ -2,7 +2,6 @@ package astroladb
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
@@ -42,17 +41,8 @@ func NewTypeScriptConverter() *TypeScriptConverter {
 // ConvertType converts a column definition to TypeScript type.
 func (c *TypeScriptConverter) ConvertType(col *ast.ColumnDef) string {
 	// Handle enum specially - create union type from values
-	if col.Type == "enum" && len(col.TypeArgs) > 0 {
-		var enumValues []string
-		if values, ok := col.TypeArgs[0].([]string); ok {
-			enumValues = values
-		} else if values, ok := col.TypeArgs[0].([]any); ok {
-			for _, v := range values {
-				if s, ok := v.(string); ok {
-					enumValues = append(enumValues, s)
-				}
-			}
-		}
+	if col.Type == "enum" {
+		enumValues := getEnumValues(col)
 		if len(enumValues) > 0 {
 			var quotedValues []string
 			for _, v := range enumValues {
@@ -101,11 +91,7 @@ func exportTypeScript(tables []*ast.TableDef, cfg *exportContext) ([]byte, error
 	sb.WriteString("// Do not edit manually\n\n")
 
 	// Sort tables for deterministic output
-	sortedTables := make([]*ast.TableDef, len(tables))
-	copy(sortedTables, tables)
-	sort.Slice(sortedTables, func(i, j int) bool {
-		return sortedTables[i].QualifiedName() < sortedTables[j].QualifiedName()
-	})
+	sortedTables := sortTablesByQualifiedName(tables)
 
 	for i, table := range sortedTables {
 		if i > 0 {

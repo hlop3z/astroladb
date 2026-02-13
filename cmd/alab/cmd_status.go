@@ -44,13 +44,7 @@ Use --text for non-interactive output.`,
   # Output as JSON for CI/CD
   alab status --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				if handleClientError(err) {
-					os.Exit(1)
-				}
-				return err
-			}
+			client := mustClient()
 			defer client.Close()
 
 			// Get migration status

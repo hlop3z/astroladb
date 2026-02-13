@@ -68,7 +68,7 @@ func (e *MigrationError) Unwrap() error {
 
 // Is reports whether this error matches the target error.
 func (e *MigrationError) Is(target error) bool {
-	return errors.Is(target, ErrMigrationFailed)
+	return target == ErrMigrationFailed
 }
 
 // SchemaError provides detailed information about a schema validation error.
@@ -134,7 +134,7 @@ func (e *SchemaError) Unwrap() error {
 
 // Is reports whether this error matches the target error.
 func (e *SchemaError) Is(target error) bool {
-	return errors.Is(target, ErrSchemaInvalid)
+	return target == ErrSchemaInvalid
 }
 
 // ConnectionError provides detailed information about a database connection error.
@@ -161,7 +161,7 @@ func (e *ConnectionError) Unwrap() error {
 
 // Is reports whether this error matches the target error.
 func (e *ConnectionError) Is(target error) bool {
-	return errors.Is(target, ErrConnectionFailed)
+	return target == ErrConnectionFailed
 }
 
 // ErrChainIntegrity is returned when the migration chain integrity check fails.
@@ -184,5 +184,5 @@ func (e *ChainError) Error() string {
 
 // Is reports whether this error matches the target error.
 func (e *ChainError) Is(target error) bool {
-	return errors.Is(target, ErrChainIntegrity)
+	return target == ErrChainIntegrity
 }

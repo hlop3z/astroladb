@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 	"unicode"
 
@@ -138,15 +136,7 @@ Migration names are automatically normalized to snake_case and prefixed with a s
 
 // createEmptyMigration creates an empty migration file.
 func createEmptyMigration(name string) error {
-	cfg, err := loadConfig()
-	if err != nil {
-		return err
-	}
-
-	// Ensure migrations directory exists
-	if err := os.MkdirAll(cfg.MigrationsDir, DirPerm); err != nil {
-		return fmt.Errorf("failed to create migrations directory: %w", err)
-	}
+	cfg := mustConfig()
 
 	// Determine next revision number
 	revision, err := nextRevision(cfg.MigrationsDir)
@@ -154,18 +144,11 @@ func createEmptyMigration(name string) error {
 		return err
 	}
 
-	// Generate migration content using template
-	tmplContent := mustReadTemplate("templates/migration.js.tmpl")
-	tmpl, err := template.New("migration").Parse(tmplContent)
-	if err != nil {
-		return fmt.Errorf("failed to parse migration template: %w", err)
-	}
-
 	// Find previous revision for down_revision linkage
 	prevRevision := previousRevision(cfg.MigrationsDir)
 
-	var buf bytes.Buffer
-	data := struct {
+	// Generate migration content using template
+	content, err := executeTemplate("templates/migration.js.tmpl", struct {
 		Name         string
 		Timestamp    string
 		UpRevision   string
@@ -175,17 +158,16 @@ func createEmptyMigration(name string) error {
 		Timestamp:    time.Now().UTC().Format(TimeJSON),
 		UpRevision:   revision,
 		DownRevision: prevRevision,
+	})
+	if err != nil {
+		return err
 	}
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return fmt.Errorf("failed to execute migration template: %w", err)
-	}
-	content := buf.String()
 
 	// Write migration file
 	filename := fmt.Sprintf("%s_%s.js", revision, name)
 	path := filepath.Join(cfg.MigrationsDir, filename)
 
-	if err := os.WriteFile(path, []byte(content), FilePerm); err != nil {
+	if err := writeFileEnsureDir(path, []byte(content)); err != nil {
 		return fmt.Errorf("failed to write migration file: %w", err)
 	}
 

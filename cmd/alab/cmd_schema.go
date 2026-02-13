@@ -36,13 +36,7 @@ Displays tables, columns, indexes, and foreign keys. Output formats: table (defa
 				os.Exit(1)
 			}
 
-			client, err := newClient()
-			if err != nil {
-				if handleClientError(err) {
-					os.Exit(1)
-				}
-				return err
-			}
+			client := mustClient()
 			defer client.Close()
 
 			// Get schema at the specified revision

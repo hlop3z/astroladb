@@ -2,7 +2,6 @@ package astroladb
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
@@ -96,32 +95,22 @@ func exportRust(tables []*ast.TableDef, cfg *exportContext) ([]byte, error) {
 	sb.WriteString("\n")
 
 	// Sort tables for deterministic output
-	sortedTables := make([]*ast.TableDef, len(tables))
-	copy(sortedTables, tables)
-	sort.Slice(sortedTables, func(i, j int) bool {
-		return sortedTables[i].QualifiedName() < sortedTables[j].QualifiedName()
-	})
+	sortedTables := sortTablesByQualifiedName(tables)
 
 	// First pass: generate enum types
-	for _, table := range sortedTables {
-		for _, col := range table.Columns {
-			if col.Type == "enum" && len(col.TypeArgs) > 0 {
-				enumName := strutil.ToPascalCase(table.FullName()) + strutil.ToPascalCase(col.Name)
-				if cfg.UseMik {
-					sb.WriteString("#[derive(Type)]\n")
-				} else {
-					sb.WriteString("#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]\n")
-					sb.WriteString("#[serde(rename_all = \"snake_case\")]\n")
-				}
-				sb.WriteString(fmt.Sprintf("pub enum %s {\n", enumName))
-				enumValues := getEnumValues(col)
-				for _, v := range enumValues {
-					sb.WriteString(fmt.Sprintf("    %s,\n", strutil.ToPascalCase(v)))
-				}
-				sb.WriteString("}\n\n")
-			}
+	forEachEnum(sortedTables, func(e enumInfo) {
+		if cfg.UseMik {
+			sb.WriteString("#[derive(Type)]\n")
+		} else {
+			sb.WriteString("#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]\n")
+			sb.WriteString("#[serde(rename_all = \"snake_case\")]\n")
 		}
-	}
+		sb.WriteString(fmt.Sprintf("pub enum %s {\n", e.EnumName))
+		for _, v := range e.Values {
+			sb.WriteString(fmt.Sprintf("    %s,\n", strutil.ToPascalCase(v)))
+		}
+		sb.WriteString("}\n\n")
+	})
 
 	// Second pass: generate structs
 	for _, table := range sortedTables {
@@ -222,24 +211,4 @@ func columnToRustType(col *ast.ColumnDef, table *ast.TableDef, cfg *exportContex
 		return fmt.Sprintf("Option<%s>", baseType)
 	}
 	return baseType
-}
-
-// getEnumValues extracts enum values from a column definition.
-func getEnumValues(col *ast.ColumnDef) []string {
-	if len(col.TypeArgs) == 0 {
-		return nil
-	}
-	if values, ok := col.TypeArgs[0].([]string); ok {
-		return values
-	}
-	if values, ok := col.TypeArgs[0].([]any); ok {
-		var result []string
-		for _, v := range values {
-			if s, ok := v.(string); ok {
-				result = append(result, s)
-			}
-		}
-		return result
-	}
-	return nil
 }
