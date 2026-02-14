@@ -93,5 +93,5 @@ func NewMissingReferenceError(method string) *Error {
 	return New(ErrMissingReference,
 		method+"() requires a table reference\n"+
 			"       Use "+method+"('namespace.table') or "+method+"('.table') for same namespace",
-	).With("method", method)
+	)
 }
