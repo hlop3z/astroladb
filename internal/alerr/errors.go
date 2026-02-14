@@ -31,6 +31,7 @@ const (
 	ErrMissingNamespace  Code = "E2006" // Reference is missing namespace prefix
 	ErrMissingLength     Code = "E2007" // String column requires length
 	ErrTypeMismatchVal   Code = "E2008" // Default value type doesn't match column type
+	ErrMissingReference  Code = "E2009" // belongs_to/many_to_many requires a reference
 
 	// Migration errors (E3xxx) - problems during migration operations
 	ErrMigrationFailed   Code = "E3001" // Migration execution failed

@@ -32,4 +32,10 @@ var (
 		Cause: "decimal() requires precision and scale arguments",
 		Help:  "try c.decimal(\"price\", 10, 2) for DECIMAL(10,2)",
 	}
+
+	// Relationship errors (column-level, schema API)
+	ErrMsgBelongsToRequiresRef = BuilderError{
+		Cause: "belongs_to() requires a table reference",
+		Help:  "try col.belongs_to('namespace.table') or col.belongs_to('.table') for same namespace",
+	}
 )

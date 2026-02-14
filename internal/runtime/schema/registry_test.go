@@ -279,7 +279,7 @@ func TestClear(t *testing.T) {
 func TestAddManyToMany(t *testing.T) {
 	reg := NewSchemaRegistry()
 
-	reg.AddManyToMany("blog", "posts", "tags")
+	reg.AddManyToMany("blog", "posts", "tags", "")
 
 	// Verify it's added to metadata
 	meta := reg.Metadata()
@@ -581,7 +581,7 @@ func TestSchemaRegistry_CompleteWorkflow(t *testing.T) {
 	reg.RegisterOperation(op)
 
 	// Add relationships
-	reg.AddManyToMany("blog", "posts", "tags")
+	reg.AddManyToMany("blog", "posts", "tags", "")
 	reg.AddPolymorphic("social", "comments", "commentable", []string{"posts", "videos"})
 
 	// Verify state

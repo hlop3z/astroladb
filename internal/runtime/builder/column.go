@@ -159,6 +159,11 @@ func (cb *ColBuilder) ToObject() *goja.Object {
 
 	// belongs_to(ref) - FK relationship (key becomes alias_id)
 	_ = obj.Set("belongs_to", func(ref string) *goja.Object {
+		// Validate: reference cannot be empty
+		if ref == "" {
+			panic(cb.vm.ToValue(ErrMsgBelongsToRequiresRef.String()))
+		}
+		// Validate: reference must have namespace
 		if !alerr.HasNamespace(ref) {
 			panic(cb.vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
 		}

@@ -211,21 +211,70 @@ func (s *Schema) validateReferences() error {
 			// Resolve the reference
 			resolvedRef, err := s.resolveReference(refTable, table.Namespace)
 			if err != nil {
-				return alerr.New(alerr.ErrInvalidReference, "foreign key references unknown table").
+				// Build error with helpful suggestions
+				// Note: empty references are already validated during JS execution,
+				// so this only catches invalid table names
+				e := alerr.New(alerr.ErrInvalidReference, "foreign key references unknown table").
 					WithTable(table.Namespace, table.Name).
 					WithColumn(col.Name).
 					With("referenced_table", refTable)
+
+				// Add source file if available
+				if table.SourceFile != "" {
+					e.WithFile(table.SourceFile, 0)
+				}
+
+				// Collect all available table names for fuzzy matching
+				var availableTables []string
+				for tableName := range s.Tables {
+					availableTables = append(availableTables, tableName)
+				}
+
+				// Try fuzzy matching to suggest similar table names
+				if suggestion := alerr.SuggestSimilar(refTable, availableTables); suggestion != "" {
+					e.WithNote(suggestion)
+				}
+
+				// Add helpful hints based on the reference format
+				if !alerr.HasNamespace(refTable) {
+					e.WithHelp("table references must include namespace: 'namespace.table' or '.table' for same namespace")
+				} else {
+					e.WithHelp("ensure the referenced table exists in your schema")
+				}
+
+				return e
 			}
 
 			// Check that the referenced column exists
 			refCol := col.Reference.TargetColumn()
 			refTableDef, _ := s.GetTable(resolvedRef)
 			if refTableDef != nil && !refTableDef.HasColumn(refCol) {
-				return alerr.New(alerr.ErrInvalidReference, "foreign key references unknown column").
+				e := alerr.New(alerr.ErrInvalidReference, "foreign key references unknown column").
 					WithTable(table.Namespace, table.Name).
 					WithColumn(col.Name).
 					With("referenced_table", refTable).
 					With("referenced_column", refCol)
+
+				// Add source file if available
+				if table.SourceFile != "" {
+					e.WithFile(table.SourceFile, 0)
+				}
+
+				// Collect available columns for fuzzy matching
+				var availableColumns []string
+				for _, c := range refTableDef.Columns {
+					availableColumns = append(availableColumns, c.Name)
+				}
+
+				// Suggest similar column names
+				if suggestion := alerr.SuggestSimilar(refCol, availableColumns); suggestion != "" {
+					e.WithNote(suggestion)
+				} else {
+					e.WithNote("referenced table '" + refTable + "' does not have column '" + refCol + "'")
+				}
+
+				e.WithHelp("check the column name in the referenced table or use 'id' for primary key")
+				return e
 			}
 		}
 	}

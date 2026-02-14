@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
@@ -100,11 +101,12 @@ func formatAlabError(err *alerr.Error) string {
 		linePadding = strings.Repeat(" ", len(lineStr)) + " "
 	}
 
-	// Context details (excluding already shown items)
+	// Context details (excluding already shown items and internal fields)
 	excludeKeys := map[string]bool{
 		"file": true, "line": true, "column": true,
 		"source": true, "span_start": true, "span_end": true,
 		"notes": true, "helps": true, "label": true,
+		"method": true, // Internal field, redundant with help message
 	}
 
 	var details []string
@@ -131,9 +133,12 @@ func formatAlabError(err *alerr.Error) string {
 	// Notes
 	if notes, ok := ctx["notes"].([]string); ok {
 		for _, note := range notes {
-			b.WriteString("   ")
-			b.WriteString(Pipe())
-			b.WriteString("\n")
+			// Only add leading pipe if there's no source context (which already adds closing pipe)
+			if !hasSource {
+				b.WriteString("   ")
+				b.WriteString(Pipe())
+				b.WriteString("\n")
+			}
 			b.WriteString(Note("note"))
 			b.WriteString(": ")
 			b.WriteString(note)
@@ -172,17 +177,47 @@ func formatAlabError(err *alerr.Error) string {
 
 // cleanCauseMessage removes Goja stack trace from error messages and styles help text.
 // Strips " at github.com/.../func (native)" patterns for cleaner output.
-// Parses structured errors in "CAUSE|HELP" format for proper styling.
+// Strips error codes like [E2009] from cause messages (already shown in main error).
+// Parses structured errors in "CAUSE|HELP" format or "message\n       Use..." format for proper styling.
 func cleanCauseMessage(msg string) string {
 	// Find Goja stack trace pattern " at github.com/..." and truncate there
 	if idx := strings.Index(msg, " at github.com"); idx != -1 {
 		msg = strings.TrimSpace(msg[:idx])
 	}
 
+	// Clean Goja syntax errors: Extract useful message from Goja's verbose format
+	// "SyntaxError: SyntaxError: (anonymous): Line 7:3 Unexpected identifier (and 6 more errors)"
+	// -> "unexpected identifier (and 6 more errors)"
+	if strings.HasPrefix(msg, "SyntaxError: SyntaxError: ") {
+		msg = strings.TrimPrefix(msg, "SyntaxError: SyntaxError: ")
+		msg = strings.TrimPrefix(msg, "(anonymous): ")
+		// Strip "Line X:Y " prefix (line already shown in error location)
+		linePrefix := regexp.MustCompile(`^Line \d+:\d+ `)
+		msg = linePrefix.ReplaceAllString(msg, "")
+		// Lowercase first letter for consistent style
+		if len(msg) > 0 {
+			msg = strings.ToLower(msg[:1]) + msg[1:]
+		}
+	}
+
+	// Strip error code prefix like "[E2009] " from cause (already shown in main error line)
+	if strings.HasPrefix(msg, "[E") && len(msg) > 7 && msg[6] == ']' {
+		msg = strings.TrimSpace(msg[7:])
+	}
+
 	// Parse structured error format "CAUSE|HELP"
 	if idx := strings.Index(msg, "|"); idx != -1 {
 		cause := strings.TrimSpace(msg[:idx])
 		help := strings.TrimSpace(msg[idx+1:])
+		return cause + "\n " + Help("help") + ": " + help
+	}
+
+	// Parse newline format "message\n       Use..." (used by alerr.NewXXXError functions)
+	if idx := strings.Index(msg, "\n       Use "); idx != -1 {
+		cause := strings.TrimSpace(msg[:idx])
+		help := strings.TrimSpace(msg[idx+1:])
+		// Remove leading spaces from help text
+		help = strings.TrimPrefix(help, "       ")
 		return cause + "\n " + Help("help") + ": " + help
 	}
 

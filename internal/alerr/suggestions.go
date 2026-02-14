@@ -87,3 +87,11 @@ func NewMissingLengthError(colName string) *Error {
 			"       Use t.string(\""+colName+"\", length)",
 	).With("column", colName)
 }
+
+// NewMissingReferenceError creates an error for belongs_to/many_to_many without reference.
+func NewMissingReferenceError(method string) *Error {
+	return New(ErrMissingReference,
+		method+"() requires a table reference\n"+
+			"       Use "+method+"('namespace.table') or "+method+"('.table') for same namespace",
+	).With("method", method)
+}

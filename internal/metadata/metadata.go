@@ -135,7 +135,7 @@ func (m *Metadata) AddTable(t *ast.TableDef) {
 }
 
 // AddManyToMany registers a many-to-many relationship and generates the join table.
-func (m *Metadata) AddManyToMany(sourceNS, sourceTable, targetRef string) *JoinTableMeta {
+func (m *Metadata) AddManyToMany(sourceNS, sourceTable, targetRef, sourceFile string) *JoinTableMeta {
 	// Parse target reference (e.g., "auth.roles")
 	targetNS, targetTable := parseRef(targetRef)
 
@@ -171,8 +171,9 @@ func (m *Metadata) AddManyToMany(sourceNS, sourceTable, targetRef string) *JoinT
 
 	// Create the table definition
 	joinTable.Definition = &ast.TableDef{
-		Namespace: "", // Join tables don't have a namespace
-		Name:      joinTableName,
+		Namespace:  "", // Join tables don't have a namespace
+		Name:       joinTableName,
+		SourceFile: sourceFile, // Track which file defined the many_to_many relationship
 		Columns: []*ast.ColumnDef{
 			{
 				Name:      sourceFK,

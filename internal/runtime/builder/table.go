@@ -222,6 +222,10 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 	//   belongs_to("auth.user").optional()                         -> user_id, nullable
 	//   belongs_to("auth.user").as("author").optional().on_delete("cascade")
 	_ = obj.Set("belongs_to", func(ref string) *goja.Object {
+		// Validate: reference cannot be empty
+		if ref == "" {
+			panic(tb.vm.ToValue(alerr.NewMissingReferenceError("t.belongs_to").Error()))
+		}
 		// Validate: reference must have namespace
 		if !alerr.HasNamespace(ref) {
 			panic(tb.vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
@@ -282,6 +286,14 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 
 	// many_to_many(ref, opts)
 	_ = obj.Set("many_to_many", func(ref string, opts ...map[string]any) {
+		// Validate: reference cannot be empty
+		if ref == "" {
+			panic(tb.vm.ToValue(alerr.NewMissingReferenceError("many_to_many").Error()))
+		}
+		// Validate: reference must have namespace
+		if !alerr.HasNamespace(ref) {
+			panic(tb.vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
+		}
 		// many_to_many generates a join table automatically
 		// Store as relationship metadata for later processing
 		rel := &RelationshipDef{

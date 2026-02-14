@@ -144,7 +144,7 @@ func TestAddManyToMany(t *testing.T) {
 	t.Run("creates_join_table", func(t *testing.T) {
 		m := New()
 
-		jt := m.AddManyToMany("auth", "users", "auth.roles")
+		jt := m.AddManyToMany("auth", "users", "auth.roles", "")
 
 		if jt == nil {
 			t.Fatal("AddManyToMany() returned nil")
@@ -159,7 +159,7 @@ func TestAddManyToMany(t *testing.T) {
 	t.Run("records_relationship", func(t *testing.T) {
 		m := New()
 
-		m.AddManyToMany("auth", "users", "auth.roles")
+		m.AddManyToMany("auth", "users", "auth.roles", "")
 
 		if len(m.ManyToMany) != 1 {
 			t.Fatalf("AddManyToMany() m.ManyToMany = %d, want 1", len(m.ManyToMany))
@@ -178,7 +178,7 @@ func TestAddManyToMany(t *testing.T) {
 	t.Run("generates_fk_columns", func(t *testing.T) {
 		m := New()
 
-		jt := m.AddManyToMany("auth", "users", "auth.roles")
+		jt := m.AddManyToMany("auth", "users", "auth.roles", "")
 
 		rel := m.ManyToMany[0]
 		if rel.SourceFK != "users_id" {
@@ -202,7 +202,7 @@ func TestAddManyToMany(t *testing.T) {
 	t.Run("generates_indexes", func(t *testing.T) {
 		m := New()
 
-		jt := m.AddManyToMany("auth", "users", "auth.roles")
+		jt := m.AddManyToMany("auth", "users", "auth.roles", "")
 
 		if jt.Definition == nil {
 			t.Fatal("AddManyToMany().Definition is nil")
@@ -230,7 +230,7 @@ func TestAddManyToMany(t *testing.T) {
 	t.Run("stores_in_join_tables_map", func(t *testing.T) {
 		m := New()
 
-		jt := m.AddManyToMany("auth", "users", "auth.roles")
+		jt := m.AddManyToMany("auth", "users", "auth.roles", "")
 
 		stored, ok := m.JoinTables[jt.Name]
 		if !ok {
@@ -287,8 +287,8 @@ func TestGetJoinTables(t *testing.T) {
 	t.Run("returns_all_definitions", func(t *testing.T) {
 		m := New()
 
-		m.AddManyToMany("auth", "users", "auth.roles")
-		m.AddManyToMany("blog", "posts", "blog.tags")
+		m.AddManyToMany("auth", "users", "auth.roles", "")
+		m.AddManyToMany("blog", "posts", "blog.tags", "")
 
 		tables := m.GetJoinTables()
 
@@ -351,7 +351,7 @@ func TestSaveAndLoad(t *testing.T) {
 			Name:      "users",
 			Columns:   []*ast.ColumnDef{{Name: "id", Type: "uuid"}},
 		})
-		m.AddManyToMany("auth", "users", "auth.roles")
+		m.AddManyToMany("auth", "users", "auth.roles", "")
 		m.AddPolymorphic("blog", "comments", "commentable", []string{"blog.posts"})
 
 		if err := m.Save(dir); err != nil {

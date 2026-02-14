@@ -353,6 +353,8 @@ func (s *Sandbox) registerTableFunc() func(goja.FunctionCall) goja.Value {
 
 		tableDef := s.parseTableDef(namespace, name, defObj)
 		if tableDef != nil {
+			// Set source file for error reporting
+			tableDef.SourceFile = s.currentFile
 			s.tables = append(s.tables, tableDef)
 		}
 
@@ -398,7 +400,7 @@ func (s *Sandbox) parseTableDef(namespace, name string, defObj any) *ast.TableDe
 					if relType, ok := rel["type"].(string); ok && relType == "many_to_many" {
 						if target, ok := rel["target"].(string); ok {
 							// Register many_to_many relationship in metadata
-							s.meta.AddManyToMany(namespace, name, target)
+							s.meta.AddManyToMany(namespace, name, target, s.currentFile)
 						}
 					}
 				}

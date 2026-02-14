@@ -83,8 +83,8 @@ func (r *SchemaRegistry) Clear() {
 }
 
 // AddManyToMany registers a many-to-many relationship in metadata.
-func (r *SchemaRegistry) AddManyToMany(namespace, tableName, target string) {
-	r.meta.AddManyToMany(namespace, tableName, target)
+func (r *SchemaRegistry) AddManyToMany(namespace, tableName, target, sourceFile string) {
+	r.meta.AddManyToMany(namespace, tableName, target, sourceFile)
 }
 
 // AddPolymorphic registers a polymorphic relationship in metadata.
@@ -179,7 +179,8 @@ func (r *SchemaRegistry) parseColumnsWithRelationships(namespace, tableName stri
 			if rel, ok := m["relationship"].(map[string]any); ok {
 				if relType, ok := rel["type"].(string); ok && relType == "many_to_many" {
 					if target, ok := rel["target"].(string); ok {
-						r.AddManyToMany(namespace, tableName, target)
+						// Note: legacy registry code doesn't track source files
+						r.AddManyToMany(namespace, tableName, target, "")
 					}
 				}
 			}

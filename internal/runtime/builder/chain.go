@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/dop251/goja"
+
+	"github.com/hlop3z/astroladb/internal/alerr"
 )
 
 // -----------------------------------------------------------------------------
@@ -109,6 +111,14 @@ func (tc *TableChain) ToChainableObject() *goja.Object {
 
 	// many_to_many(ref)
 	_ = obj.Set("many_to_many", func(ref string) *goja.Object {
+		// Validate: reference cannot be empty
+		if ref == "" {
+			panic(tc.vm.ToValue(alerr.NewMissingReferenceError("many_to_many").Error()))
+		}
+		// Validate: reference must have namespace
+		if !alerr.HasNamespace(ref) {
+			panic(tc.vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
+		}
 		tc.Relationships = append(tc.Relationships, &RelationshipDef{
 			Type:   "many_to_many",
 			Target: ref,

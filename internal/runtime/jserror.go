@@ -35,10 +35,14 @@ func ParseJSError(err error) *JSErrorInfo {
 
 	// Handle syntax errors from the compiler
 	if syntaxErr, ok := err.(*goja.CompilerSyntaxError); ok {
+		// Use Error() for the message (will be cleaned by cleanCauseMessage)
 		info.Message = syntaxErr.Error()
-		// CompilerSyntaxError contains position info in the error message
-		// Format: "file:line:col: SyntaxError: message"
-		parsePositionFromMessage(info)
+		// Get line and column from structured position info (more robust than parsing)
+		if syntaxErr.File != nil {
+			pos := syntaxErr.File.Position(syntaxErr.Offset)
+			info.Line = pos.Line
+			info.Column = pos.Column
+		}
 		return info
 	}
 
@@ -47,6 +51,11 @@ func ParseJSError(err error) *JSErrorInfo {
 		info.Message = exception.Value().String()
 		info.Stack = exception.String()
 		parseStackTrace(info)
+		// If stack trace didn't find line numbers, try extracting from message
+		// (syntax errors embed line numbers in the message)
+		if info.Line == 0 {
+			parsePositionFromMessage(info)
+		}
 		return info
 	}
 
@@ -64,11 +73,12 @@ func ParseJSError(err error) *JSErrorInfo {
 // parsePositionFromMessage extracts line:column from error messages.
 // Common formats:
 //   - "at line 5:10"
+//   - "Line 7:3 Unexpected..." (Goja syntax errors)
 //   - "file:5:10: error message"
 //   - "(line 5)"
 func parsePositionFromMessage(info *JSErrorInfo) {
-	// Try "line X:Y" or "line X, column Y" patterns
-	lineColRe := regexp.MustCompile(`line\s+(\d+)(?:[,:\s]+(?:column\s+)?(\d+))?`)
+	// Try "line X:Y" or "Line X:Y" patterns (case-insensitive for Goja compatibility)
+	lineColRe := regexp.MustCompile(`(?i)line\s+(\d+)(?:[,:\s]+(?:column\s+)?(\d+))?`)
 	if matches := lineColRe.FindStringSubmatch(info.Message); len(matches) >= 2 {
 		info.Line, _ = strconv.Atoi(matches[1])
 		if len(matches) >= 3 && matches[2] != "" {
@@ -271,6 +281,11 @@ var restrictedGlobalHints = map[string]string{
 
 // addJSErrorHelp adds contextual help based on the error message.
 func addJSErrorHelp(err *alerr.Error, message string) {
+	// Skip generic help if message is a structured error (starts with [E####])
+	if strings.HasPrefix(message, "[E") && len(message) > 6 && message[6] == ']' {
+		return
+	}
+
 	msg := strings.ToLower(message)
 
 	// Check for restricted global access first (most actionable hints)
@@ -292,7 +307,8 @@ func addJSErrorHelp(err *alerr.Error, message string) {
 		err.WithNote("attempted to call something that is not a function")
 		err.WithHelp("check the method name and ensure it exists on the object")
 	case strings.Contains(msg, "syntax"):
-		err.WithNote("JavaScript syntax error - check for missing brackets, quotes, or commas")
+		// No note for syntax errors - the cause message is self-explanatory
+		break
 	case strings.Contains(msg, "unexpected token"):
 		err.WithNote("unexpected character in JavaScript code")
 		err.WithHelp("check for typos or missing punctuation")

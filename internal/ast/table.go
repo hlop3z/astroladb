@@ -143,6 +143,9 @@ type TableDef struct {
 	SortBy     []string // Default ordering (e.g., ["-created_at", "name"])
 	Searchable []string // Columns for fulltext search
 	Filterable []string // Columns allowed in WHERE clauses
+
+	// Source location (for error reporting)
+	SourceFile string // Path to the schema file that defined this table
 }
 
 // FullName returns the full table name in namespace_tablename format.
@@ -304,6 +307,11 @@ type ColumnDef struct {
 	Name     string // Column name (snake_case)
 	Type     string // Type name (id, string, integer, etc.)
 	TypeArgs []any  // Type arguments (e.g., length for string, precision/scale for decimal)
+
+	// Source location (for error reporting)
+	Line   int    // Line number in source file (0 if unknown)
+	Column int    // Column number in source file (0 if unknown)
+	Source string // The source code line (for error display)
 
 	// Nullability
 	Nullable    bool // True if column allows NULL (default is NOT NULL)
