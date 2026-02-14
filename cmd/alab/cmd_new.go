@@ -75,6 +75,11 @@ Migration names are automatically normalized to snake_case and prefixed with a s
 				return createEmptyMigration(name)
 			}
 
+			// Validate schemas before generating migration
+			if err := checkSchemas(); err != nil {
+				return err
+			}
+
 			// Try to auto-generate from schema diff
 			client, err := newClient()
 			if err != nil {

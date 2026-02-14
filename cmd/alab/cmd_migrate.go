@@ -22,9 +22,7 @@ func migrateCmd() *cobra.Command {
 		Short: "Apply pending migrations",
 		Long: `Apply pending migrations to the database.
 
-Safety features: Git integration checks uncommitted changes, destructive operations require confirmation,
-dry run mode previews SQL without executing, and distributed locking prevents concurrent migrations.
-Use --commit to auto-commit after successful migration.`,
+Includes safety checks: git tracking, destructive operation warnings, dry run mode, and distributed locking.`,
 		Example: `  # Apply all pending migrations with confirmation
   alab migrate
 
@@ -67,6 +65,7 @@ Use --commit to auto-commit after successful migration.`,
 					warnings := git.FormatPreMigrateWarnings(check)
 					if warnings != "" {
 						fmt.Fprint(os.Stderr, warnings)
+						fmt.Println()
 					}
 				}
 
@@ -101,9 +100,9 @@ Use --commit to auto-commit after successful migration.`,
 
 			// Show pending migrations count
 			if !dryRun {
-				fmt.Println(ui.RenderTitle(TitleApplyMigrations))
+				fmt.Println(ui.SectionTitle("Apply Migrations"))
 				fmt.Println()
-				fmt.Printf("  %s\n\n", ui.Warning(ui.FormatCount(pendingCount, "pending migration", "pending migrations")))
+				fmt.Printf("  %s\n\n", ui.Info(ui.FormatCount(pendingCount, "pending migration", "pending migrations")))
 			}
 
 			// Check for destructive operations - requires --confirm-destroy (not --force)
@@ -121,7 +120,7 @@ Use --commit to auto-commit after successful migration.`,
 					fmt.Println(ui.RenderWarningPanel(
 						TitleDestructiveOpsDetected,
 						list.String()+"\n"+
-							ui.Note(WarnDestructiveOps+"\n")+
+							ui.Note(WarnDestructiveOps)+"\n"+
 							ui.Help(HelpUseConfirmDestroy),
 					))
 					os.Exit(1)

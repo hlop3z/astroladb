@@ -96,25 +96,17 @@ func FormatPreMigrateWarnings(check *PreMigrateCheck) string {
 		return ""
 	}
 
-	var b strings.Builder
+	list := ui.NewList()
 
-	if len(check.Errors) > 0 {
-		b.WriteString("Errors:\n")
-		for _, e := range check.Errors {
-			b.WriteString(fmt.Sprintf("  - %s\n", e))
-		}
-		b.WriteString("\n")
+	for _, e := range check.Errors {
+		list.AddError(e)
 	}
 
-	if len(check.Warnings) > 0 {
-		b.WriteString("Warnings:\n")
-		for _, w := range check.Warnings {
-			b.WriteString(fmt.Sprintf("  - %s\n", w))
-		}
-		b.WriteString("\n")
+	for _, w := range check.Warnings {
+		list.AddWarning(w)
 	}
 
-	return b.String()
+	return list.String() + "\n"
 }
 
 // FormatChainIntegrityError formats a chain integrity error.
