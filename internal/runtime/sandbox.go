@@ -720,7 +720,7 @@ func (s *Sandbox) Run(code string) error {
 		if _, ok := err.(*goja.InterruptedError); ok {
 			s.tainted = true
 		}
-		return s.wrapJSError(err, alerr.ErrJSExecution, "JavaScript execution failed")
+		return s.wrapJSError(err, alerr.ErrJSExecution, alerr.MsgJSExecutionFailed)
 	}
 
 	// Clear any pending interrupt to prevent race condition
@@ -745,7 +745,7 @@ func (s *Sandbox) RunWithResult(code string) (goja.Value, error) {
 		if _, ok := err.(*goja.InterruptedError); ok {
 			s.tainted = true
 		}
-		return nil, s.wrapJSError(err, alerr.ErrJSExecution, "JavaScript execution failed")
+		return nil, s.wrapJSError(err, alerr.ErrJSExecution, "alerr.MsgJSExecutionFailed")
 	}
 
 	// Clear any pending interrupt to prevent race condition
@@ -880,7 +880,7 @@ func (s *Sandbox) RunWithTimeout(code string, timeout time.Duration) error {
 			return timeoutErr
 		}
 
-		return s.wrapJSError(err, alerr.ErrJSExecution, "JavaScript execution failed")
+		return s.wrapJSError(err, alerr.ErrJSExecution, "alerr.MsgJSExecutionFailed")
 	}
 
 	// Clear any pending interrupt

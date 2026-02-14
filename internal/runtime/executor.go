@@ -50,7 +50,7 @@ func (e *JSExecutor) Execute(code string, errorContext *ErrorContext) error {
 
 	_, err := e.vm.RunString(code)
 	if err != nil {
-		return wrapJSError(err, alerr.ErrJSExecution, "JavaScript execution failed", errorContext)
+		return wrapJSError(err, alerr.ErrJSExecution, "alerr.MsgJSExecutionFailed", errorContext)
 	}
 	return nil
 }
@@ -65,7 +65,7 @@ func (e *JSExecutor) ExecuteWithResult(code string, errorContext *ErrorContext) 
 
 	result, err := e.vm.RunString(code)
 	if err != nil {
-		return nil, wrapJSError(err, alerr.ErrJSExecution, "JavaScript execution failed", errorContext)
+		return nil, wrapJSError(err, alerr.ErrJSExecution, "alerr.MsgJSExecutionFailed", errorContext)
 	}
 	return result, nil
 }
@@ -91,7 +91,7 @@ func (e *JSExecutor) ExecuteWithTimeout(code string, timeout time.Duration, erro
 			return timeoutErr
 		}
 
-		return wrapJSError(err, alerr.ErrJSExecution, "JavaScript execution failed", errorContext)
+		return wrapJSError(err, alerr.ErrJSExecution, "alerr.MsgJSExecutionFailed", errorContext)
 	}
 
 	// Clear any pending interrupt

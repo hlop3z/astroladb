@@ -307,8 +307,7 @@ func addJSErrorHelp(err *alerr.Error, message string) {
 		err.WithNote("attempted to call something that is not a function")
 		err.WithHelp("check the method name and ensure it exists on the object")
 	case strings.Contains(msg, "syntax"):
-		// No note for syntax errors - the cause message is self-explanatory
-		break
+		err.WithNote("JavaScript syntax error - check for missing brackets, quotes, or commas")
 	case strings.Contains(msg, "unexpected token"):
 		err.WithNote("unexpected character in JavaScript code")
 		err.WithHelp("check for typos or missing punctuation")

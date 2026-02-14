@@ -39,7 +39,7 @@ func TestNew(t *testing.T) {
 		{
 			name:    "JS runtime error",
 			code:    ErrJSExecution,
-			message: "JavaScript execution failed",
+			message: "MsgJSExecutionFailed",
 		},
 	}
 

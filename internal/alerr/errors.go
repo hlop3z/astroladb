@@ -70,6 +70,12 @@ const (
 	EInternalError Code = "E9001" // Internal error
 )
 
+// Common error messages - centralized to ensure consistency
+const (
+	// JavaScript execution failed
+	MsgJSExecutionFailed = "Alab execution failed"
+)
+
 // Error is the standard error type for Alab.
 // It provides structured error information with codes, context, and wrapping support.
 type Error struct {
