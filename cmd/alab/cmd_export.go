@@ -118,7 +118,7 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
 				}
 
 				ui.ShowSuccess(
-					TitleExportComplete,
+					Msg.Export.Complete,
 					fmt.Sprintf("Exported %s:\n%s",
 						ui.FormatCount(len(exportedFiles), "file", "files"),
 						"  "+joinLines(lines, "\n  "),
@@ -131,7 +131,7 @@ OpenAPI/GraphQL generate single files. Other formats split by namespace into sub
 	}
 
 	cmd.Flags().StringVarP(&format, "format", "f", "openapi", "Export format (openapi, graphql, typescript, go, python, rust, all)")
-	cmd.Flags().StringVar(&dir, "dir", DefaultExportsDir, "Output directory")
+	cmd.Flags().StringVar(&dir, "dir", "exports", "Output directory")
 	cmd.Flags().BoolVar(&stdout, "stdout", false, "Print to stdout")
 	cmd.Flags().BoolVar(&relations, "relations", false, "Generate WithRelations type variants")
 

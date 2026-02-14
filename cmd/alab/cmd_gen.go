@@ -217,7 +217,7 @@ func genAddCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&force, "force", false, FlagDescOverwrite)
+	cmd.Flags().BoolVar(&force, "force", false, "Overwrite existing file")
 
 	setupCommandHelp(cmd)
 	return cmd

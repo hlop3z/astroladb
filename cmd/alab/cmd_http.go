@@ -236,10 +236,10 @@ func createHTMLFile() error {
 	}
 
 	ui.ShowSuccess(
-		TitleHTMLFileCreated,
+		Msg.Server.HTMLCreated,
 		fmt.Sprintf("Created %s\n%s",
 			ui.FilePath(filename),
-			ui.Help(HelpCustomizeSwagger),
+			ui.Help(Msg.Server.CustomizeHelp),
 		),
 	)
 	return nil
@@ -331,7 +331,7 @@ func startServer(port int) error {
 	baseURL := fmt.Sprintf("http://localhost%s", addr)
 
 	// Show server info panel
-	fmt.Println(ui.RenderTitle(TitleAPIDocServer))
+	fmt.Println(ui.RenderTitle(Msg.Server.Title))
 	fmt.Println()
 
 	list := ui.NewList()

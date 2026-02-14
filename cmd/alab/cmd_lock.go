@@ -61,13 +61,13 @@ This is useful for debugging stuck migrations or verifying no other process is r
 				return err
 			}
 
-			fmt.Println(ui.RenderTitle(TitleLockStatus))
+			fmt.Println(ui.RenderTitle(Msg.Lock.Status))
 			fmt.Println()
 
 			if !info.Locked {
 				fmt.Println(ui.RenderSuccessPanel(
-					TitleLockAvailable,
-					MsgNoMigrationRunning,
+					Msg.Lock.Available,
+					Msg.Lock.NoRunning,
 				))
 			} else {
 				lockedAt := "unknown"
@@ -80,9 +80,9 @@ This is useful for debugging stuck migrations or verifying no other process is r
 				list.AddInfo(fmt.Sprintf("Locked at: %s", lockedAt))
 
 				fmt.Println(ui.RenderWarningPanel(
-					TitleLockHeld,
+					Msg.Lock.Held,
 					list.String()+"\n"+
-						ui.Help(HelpReleaseLockCmd),
+						ui.Help("If this is a stuck lock, use: alab lock release"),
 				))
 			}
 
@@ -123,14 +123,14 @@ other migration is currently running.`,
 
 			if !info.Locked {
 				fmt.Println(ui.RenderSuccessPanel(
-					TitleNoLockToRelease,
-					MsgLockNotHeld,
+					Msg.Lock.NoLockToRelease,
+					Msg.Lock.NotHeld,
 				))
 				return nil
 			}
 
 			// Show warning
-			fmt.Println(ui.RenderTitle(TitleReleaseLock))
+			fmt.Println(ui.RenderTitle(Msg.Lock.ReleaseTitle))
 			fmt.Println()
 
 			lockedAt := "unknown"
@@ -143,15 +143,15 @@ other migration is currently running.`,
 			list.AddInfo(fmt.Sprintf("Locked at: %s", lockedAt))
 
 			fmt.Println(ui.RenderWarningPanel(
-				TitleLockWillBeReleased,
+				Msg.Lock.WillBeReleased,
 				list.String()+"\n"+
-					ui.Warning(HelpOnlyReleaseIfSure),
+					ui.Warning(Msg.Lock.ReleaseHelp),
 			))
 			fmt.Println()
 
 			// Confirm unless --force
 			if !force {
-				if !confirmOrCancel(PromptReleaseLock, false, "Release cancelled") {
+				if !confirmOrCancel(Msg.Lock.ReleasePrompt, false, "Release cancelled") {
 					return nil
 				}
 			}
@@ -161,15 +161,15 @@ other migration is currently running.`,
 			}
 
 			fmt.Println(ui.RenderSuccessPanel(
-				TitleLockReleased,
-				MsgLockForcefullyReleased,
+				Msg.Lock.Released,
+				Msg.Lock.ForcedRelease,
 			))
 
 			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&force, "force", false, FlagDescForceConfirm)
+	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
 
 	setupCommandHelp(cmd)
 	return cmd

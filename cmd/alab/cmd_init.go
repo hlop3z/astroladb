@@ -104,7 +104,7 @@ Use --demo to include example schemas (auth.user, auth.role, blog.post).`,
 			}
 
 			ui.ShowSuccess(
-				TitleProjectInitialized,
+				Msg.Init.Complete,
 				"Created:\n"+created.String()+"\n"+ui.Help(nextSteps),
 			)
 			return nil

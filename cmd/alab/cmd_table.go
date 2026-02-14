@@ -72,7 +72,7 @@ Both namespace and table_name are normalized to lowercase snake_case.`,
 			list.AddInfo(fmt.Sprintf("Table:     %s", ui.Primary(tableName)))
 
 			ui.ShowSuccess(
-				TitleSchemaFileCreated,
+				Msg.Table.Created,
 				list.String()+"\n"+
 					ui.Help("Next steps:\n  1. Edit the schema file to define columns\n  2. Run 'alab new <name>' to generate a migration"),
 			)

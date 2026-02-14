@@ -145,8 +145,8 @@ Use --text for non-interactive output.`,
 		},
 	}
 
-	cmd.Flags().BoolVar(&jsonOutput, "json", false, FlagDescJSON)
-	cmd.Flags().BoolVar(&textOutput, "text", false, FlagDescText)
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON for CI/CD")
+	cmd.Flags().BoolVar(&textOutput, "text", false, "Output as plain text (non-interactive)")
 	cmd.Flags().StringVar(&at, "at", "", "Migration revision (e.g., 003)")
 
 	setupCommandHelp(cmd)

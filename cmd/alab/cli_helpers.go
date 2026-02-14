@@ -194,7 +194,7 @@ func autoCommitIfRequested(commit bool, migrationsDir, direction string) {
 		fmt.Fprintf(os.Stderr, "\n"+ui.Warning("Warning")+": %v\n", err)
 	} else {
 		fmt.Println()
-		fmt.Println(ui.Success(MsgCommittedToGit))
+		fmt.Println(ui.Success(Msg.Migration.Apply.Committed))
 	}
 }
 

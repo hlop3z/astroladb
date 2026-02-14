@@ -94,7 +94,7 @@ Includes safety checks: git tracking, destructive operation warnings, dry run mo
 
 			// If no pending migrations, show success and exit
 			if pendingCount == 0 {
-				ui.ShowSuccess(MsgMigrationsUpToDate, MsgNoUpToDate)
+				ui.ShowSuccess(Msg.Migration.Apply.UpToDate, Msg.Migration.Apply.NoUpToDate)
 				return nil
 			}
 
@@ -118,10 +118,10 @@ Includes safety checks: git tracking, destructive operation warnings, dry run mo
 					}
 
 					fmt.Println(ui.RenderWarningPanel(
-						TitleDestructiveOpsDetected,
+						Msg.Migration.Destructive.Title,
 						list.String()+"\n"+
-							ui.Note(WarnDestructiveOps)+"\n"+
-							ui.Help(HelpUseConfirmDestroy),
+							ui.Note(Msg.Migration.Destructive.Warning)+"\n"+
+							ui.Help(Msg.Migration.Destructive.ConfirmHelp),
 					))
 					os.Exit(1)
 				}
@@ -143,8 +143,8 @@ Includes safety checks: git tracking, destructive operation warnings, dry run mo
 				// Ask for confirmation (unless dry run or force)
 				if !force {
 					if !confirmOrCancel(
-						fmt.Sprintf(PromptApplyMigrations, ui.FormatCount(pendingCount, "migration", "migrations")),
-						true, MsgMigrationCancelled,
+						fmt.Sprintf(Msg.Migration.Apply.Prompt, ui.FormatCount(pendingCount, "migration", "migrations")),
+						true, Msg.Migration.Apply.Cancelled,
 					) {
 						return nil
 					}
@@ -170,7 +170,7 @@ Includes safety checks: git tracking, destructive operation warnings, dry run mo
 
 				// Show success with timing
 				ui.ShowSuccess(
-					TitleMigrationsApplied,
+					Msg.Migration.Apply.Title,
 					fmt.Sprintf("Applied %s in %s",
 						ui.FormatCount(pendingCount, "migration", "migrations"),
 						ui.FormatDuration(elapsed),
@@ -184,12 +184,12 @@ Includes safety checks: git tracking, destructive operation warnings, dry run mo
 	}
 
 	cmd.Flags().BoolVar(&dryRun, "dry", false, FlagDescDryRun)
-	cmd.Flags().BoolVar(&force, "force", false, FlagDescForce)
-	cmd.Flags().BoolVar(&confirmDestroy, "confirm-destroy", false, FlagDescConfirmDestroy)
+	cmd.Flags().BoolVar(&force, "force", false, "Skip safety warnings")
+	cmd.Flags().BoolVar(&confirmDestroy, "confirm-destroy", false, "Confirm DROP operations")
 	cmd.Flags().BoolVar(&commit, "commit", false, FlagDescCommit)
 	cmd.Flags().BoolVar(&skipLock, "skip-lock", false, FlagDescSkipLock)
 	cmd.Flags().DurationVar(&lockTimeout, "lock-timeout", 0, FlagDescLockTimeout)
-	cmd.Flags().BoolVar(&verifySQL, "verify-sql", false, FlagDescVerifySQL)
+	cmd.Flags().BoolVar(&verifySQL, "verify-sql", false, "Verify SQL checksums before applying")
 
 	setupCommandHelp(cmd)
 	return cmd

@@ -68,24 +68,24 @@ after a successful rollback.`,
 
 			// Show warning and get confirmation for rollback
 			if !dryRun {
-				fmt.Println(ui.RenderTitle(TitleRollbackMigrations))
+				fmt.Println(ui.RenderTitle(Msg.Migration.Rollback.Title))
 				fmt.Println()
 
 				list := ui.NewList()
 				list.AddError(fmt.Sprintf("Rollback %s", ui.FormatCount(steps, "migration", "migrations")))
-				list.AddError(WarnExecuteDownMigr)
-				list.AddInfo(WarnRevertToRevision)
+				list.AddError("This will execute DOWN migrations")
+				list.AddInfo("Database state will revert to previous revision")
 
 				warning := ui.RenderWarningPanel(
-					TitleDestructiveOperation,
+					"Destructive Operation",
 					list.String()+"\n"+
-						ui.Warning(HelpMakeBackup+"\n")+
-						ui.Help(HelpUseDryRun),
+						ui.Warning("Make sure you have a backup\n")+
+						ui.Help(Msg.Migration.Rollback.DryHelp),
 				)
 				fmt.Println(warning)
 				fmt.Println()
 
-				if !confirmOrCancel(fmt.Sprintf(PromptRollback, ui.FormatCount(steps, "migration", "migrations")), false, MsgRollbackCancelled) {
+				if !confirmOrCancel(fmt.Sprintf(Msg.Migration.Rollback.Prompt, ui.FormatCount(steps, "migration", "migrations")), false, Msg.Migration.Rollback.Cancelled) {
 					return nil
 				}
 			}
@@ -102,7 +102,7 @@ after a successful rollback.`,
 			if !dryRun {
 				// Show success with timing
 				ui.ShowSuccess(
-					TitleRollbackComplete,
+					Msg.Migration.Rollback.Complete,
 					fmt.Sprintf("Rolled back %s in %s",
 						ui.FormatCount(steps, "migration", "migrations"),
 						ui.FormatDuration(elapsed),
