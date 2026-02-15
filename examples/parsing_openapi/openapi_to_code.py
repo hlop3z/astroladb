@@ -18,6 +18,7 @@ class Column:
     name: str
     type: str
     sql_type: dict[str, str] = field(default_factory=dict)
+    type_args: list[Any] | None = None
     format: str | None = None
     nullable: bool = False
     read_only: bool = False
@@ -55,6 +56,34 @@ class Column:
     @property
     def is_app_only(self) -> bool:
         return self.storage == "app_only"
+
+    @property
+    def decimal_precision(self) -> int | None:
+        """Extract precision from decimal type_args (e.g., [19, 4] -> 19)."""
+        if self.type_args and len(self.type_args) >= 1:
+            return int(self.type_args[0])
+        return None
+
+    @property
+    def decimal_scale(self) -> int | None:
+        """Extract scale from decimal type_args (e.g., [19, 4] -> 4)."""
+        if self.type_args and len(self.type_args) >= 2:
+            return int(self.type_args[1])
+        return None
+
+    @property
+    def string_length(self) -> int | None:
+        """Extract length from string type_args (e.g., [255] -> 255)."""
+        if self.type_args and len(self.type_args) >= 1:
+            return int(self.type_args[0])
+        return None
+
+    @property
+    def enum_values(self) -> list[str] | None:
+        """Extract values from enum type_args (e.g., [['a', 'b']] -> ['a', 'b'])."""
+        if self.type_args and len(self.type_args) >= 1:
+            return self.type_args[0]
+        return None
 
 
 @dataclass
@@ -136,6 +165,7 @@ def _parse_column(name: str, prop: dict[str, Any]) -> Column:
         name=name,
         type=prop.get("type", ""),
         sql_type=xdb.get("sql_type", {}),
+        type_args=xdb.get("type_args"),
         format=prop.get("format"),
         nullable=prop.get("nullable", False),
         read_only=prop.get("readOnly", False),

@@ -187,6 +187,71 @@ func TestExportOpenAPI_XDBExtension(t *testing.T) {
 	}
 }
 
+func TestExportOpenAPI_TypeArgs(t *testing.T) {
+	tables := []*ast.TableDef{testTable()}
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
+
+	data, err := exportOpenAPI(tables, cfg)
+	if err != nil {
+		t.Fatalf("exportOpenAPI failed: %v", err)
+	}
+
+	var spec map[string]any
+	json.Unmarshal(data, &spec)
+
+	components := spec["components"].(map[string]any)
+	schemas := components["schemas"].(map[string]any)
+	userSchema := schemas["AuthUser"].(map[string]any)
+	properties := userSchema["properties"].(map[string]any)
+
+	// Test string type_args
+	emailProp := properties["email"].(map[string]any)
+	emailXDB := emailProp["x-db"].(map[string]any)
+	emailTypeArgs := emailXDB["type_args"].([]any)
+	if len(emailTypeArgs) != 1 {
+		t.Fatalf("email type_args length = %d, want 1", len(emailTypeArgs))
+	}
+	if emailTypeArgs[0] != float64(255) {
+		t.Errorf("email type_args[0] = %v, want 255", emailTypeArgs[0])
+	}
+
+	// Test decimal type_args
+	balanceProp := properties["balance"].(map[string]any)
+	balanceXDB := balanceProp["x-db"].(map[string]any)
+	balanceTypeArgs := balanceXDB["type_args"].([]any)
+	if len(balanceTypeArgs) != 2 {
+		t.Fatalf("balance type_args length = %d, want 2", len(balanceTypeArgs))
+	}
+	if balanceTypeArgs[0] != float64(19) {
+		t.Errorf("balance type_args[0] = %v, want 19", balanceTypeArgs[0])
+	}
+	if balanceTypeArgs[1] != float64(4) {
+		t.Errorf("balance type_args[1] = %v, want 4", balanceTypeArgs[1])
+	}
+
+	// Test enum type_args
+	statusProp := properties["status"].(map[string]any)
+	statusXDB := statusProp["x-db"].(map[string]any)
+	statusTypeArgs := statusXDB["type_args"].([]any)
+	if len(statusTypeArgs) != 1 {
+		t.Fatalf("status type_args length = %d, want 1", len(statusTypeArgs))
+	}
+	enumValues := statusTypeArgs[0].([]any)
+	if len(enumValues) != 3 {
+		t.Fatalf("enum values length = %d, want 3", len(enumValues))
+	}
+	if enumValues[0] != "active" || enumValues[1] != "pending" || enumValues[2] != "suspended" {
+		t.Errorf("enum values = %v, want [active, pending, suspended]", enumValues)
+	}
+
+	// Test that id (no type args) doesn't have type_args field
+	idProp := properties["id"].(map[string]any)
+	idXDB := idProp["x-db"].(map[string]any)
+	if _, exists := idXDB["type_args"]; exists {
+		t.Errorf("id should not have type_args field")
+	}
+}
+
 // ===========================================================================
 // TypeScript Export Tests
 // ===========================================================================

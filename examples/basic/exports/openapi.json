@@ -34,7 +34,11 @@
               "sql_type": {
                 "postgres": "NUMERIC(10,2)",
                 "sqlite": "TEXT"
-              }
+              },
+              "type_args": [
+                19,
+                4
+              ]
             }
           },
           "bio": {
@@ -142,7 +146,14 @@
               "sql_type": {
                 "postgres": "VARCHAR(50) CHECK (role IN ('admin', 'editor', 'viewer'))",
                 "sqlite": "TEXT CHECK (role IN ('admin', 'editor', 'viewer'))"
-              }
+              },
+              "type_args": [
+                [
+                  "admin",
+                  "editor",
+                  "viewer"
+                ]
+              ]
             }
           },
           "score": {
@@ -191,17 +202,20 @@
               "sql_type": {
                 "postgres": "VARCHAR(50)",
                 "sqlite": "TEXT"
-              }
+              },
+              "type_args": [
+                50
+              ]
             }
           }
         },
         "required": [
-          "balance",
           "id",
+          "username",
+          "balance",
+          "created_at",
           "is_active",
           "role",
-          "username",
-          "created_at",
           "updated_at"
         ],
         "type": "object",
@@ -268,6 +282,15 @@
                       {
                         "columns": [
                           {
+                            "name": "id",
+                            "type": "uuid"
+                          },
+                          {
+                            "name": "username",
+                            "type": "string",
+                            "unique": true
+                          },
+                          {
                             "name": "age",
                             "nullable": true,
                             "type": "integer"
@@ -293,12 +316,15 @@
                             "type": "date"
                           },
                           {
-                            "name": "external_id",
-                            "nullable": true,
-                            "type": "uuid"
+                            "default": {
+                              "expr": "NOW()"
+                            },
+                            "name": "created_at",
+                            "type": "datetime"
                           },
                           {
-                            "name": "id",
+                            "name": "external_id",
+                            "nullable": true,
                             "type": "uuid"
                           },
                           {
@@ -335,18 +361,6 @@
                             "name": "settings",
                             "nullable": true,
                             "type": "json"
-                          },
-                          {
-                            "name": "username",
-                            "type": "string",
-                            "unique": true
-                          },
-                          {
-                            "default": {
-                              "expr": "NOW()"
-                            },
-                            "name": "created_at",
-                            "type": "datetime"
                           },
                           {
                             "default": {

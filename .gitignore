@@ -83,6 +83,7 @@ pnpm-debug.log*
 # ========================================
 .claude/
 .notes/
+bin/
 
 tests/**/migrations
 tmpclaude-*

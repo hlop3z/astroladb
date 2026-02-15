@@ -892,6 +892,11 @@ func buildPropertyXDB(col *ast.ColumnDef, table *ast.TableDef, meta *metadata.Me
 		xdb["semantic"] = semantic
 	}
 
+	// Type arguments (for string(N), decimal(P,S), enum([...]))
+	if len(col.TypeArgs) > 0 {
+		xdb["type_args"] = col.TypeArgs
+	}
+
 	// Generated columns (like id)
 	if col.PrimaryKey && col.Type == "id" {
 		xdb["generated"] = true
