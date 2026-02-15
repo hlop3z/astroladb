@@ -277,6 +277,8 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 				Max:        colDef.Max,
 				Docs:       colDef.Docs,
 				Deprecated: colDef.Deprecated,
+				ReadOnly:   colDef.ReadOnly,
+				WriteOnly:  colDef.WriteOnly,
 				Hidden:     colDef.Hidden,
 				XRef:       colDef.XRef,
 				Computed:   colDef.Computed,
@@ -574,12 +576,10 @@ func (s *Sandbox) parseColumnDef(obj any) *ast.ColumnDef {
 
 	// Parse validation
 	if min, ok := m["min"].(float64); ok {
-		minInt := int(min)
-		col.Min = &minInt
+		col.Min = &min
 	}
 	if max, ok := m["max"].(float64); ok {
-		maxInt := int(max)
-		col.Max = &maxInt
+		col.Max = &max
 	}
 	if pattern, ok := m["pattern"].(string); ok {
 		col.Pattern = pattern
@@ -594,6 +594,14 @@ func (s *Sandbox) parseColumnDef(obj any) *ast.ColumnDef {
 	}
 	if deprecated, ok := m["deprecated"].(string); ok {
 		col.Deprecated = deprecated
+	}
+
+	// Parse access control
+	if readOnly, ok := m["read_only"].(bool); ok {
+		col.ReadOnly = readOnly
+	}
+	if writeOnly, ok := m["write_only"].(bool); ok {
+		col.WriteOnly = writeOnly
 	}
 
 	// Parse computed expression

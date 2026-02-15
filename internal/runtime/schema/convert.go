@@ -36,6 +36,8 @@ func (c *ColumnConverter) ToAST(col *builder.ColumnDef) *ast.ColumnDef {
 		Pattern:    col.Pattern,
 		Docs:       col.Docs,
 		Deprecated: col.Deprecated,
+		ReadOnly:   col.ReadOnly,
+		WriteOnly:  col.WriteOnly,
 	}
 
 	// Set default if present
@@ -56,14 +58,12 @@ func (c *ColumnConverter) ToAST(col *builder.ColumnDef) *ast.ColumnDef {
 		astCol.BackfillSet = true
 	}
 
-	// Convert min/max (float64* to int*)
+	// Preserve min/max as float64 (no truncation)
 	if col.Min != nil {
-		minInt := int(*col.Min)
-		astCol.Min = &minInt
+		astCol.Min = col.Min
 	}
 	if col.Max != nil {
-		maxInt := int(*col.Max)
-		astCol.Max = &maxInt
+		astCol.Max = col.Max
 	}
 
 	// Convert reference

@@ -25,6 +25,8 @@ type ColumnDef struct {
 	Max            *float64
 	Docs           string
 	Deprecated     string
+	ReadOnly       bool
+	WriteOnly      bool
 	Reference      *RefDef
 	Hidden         bool   // x_hidden for OpenAPI
 	XRef           string // Original reference (e.g., "auth.user")
@@ -109,6 +111,12 @@ func columnDefToMap(col *ColumnDef) map[string]any {
 	}
 	if col.Deprecated != "" {
 		m["deprecated"] = col.Deprecated
+	}
+	if col.ReadOnly {
+		m["read_only"] = true
+	}
+	if col.WriteOnly {
+		m["write_only"] = true
 	}
 	if col.Hidden {
 		m["x_hidden"] = true

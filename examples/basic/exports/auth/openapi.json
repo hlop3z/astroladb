@@ -71,6 +71,7 @@
               "default": {
                 "expr": "NOW()"
               },
+              "read_only": true,
               "semantic": "created_at",
               "sql_type": {
                 "postgres": "TIMESTAMPTZ",
@@ -95,6 +96,7 @@
             "type": "string",
             "x-db": {
               "primary_key": true,
+              "read_only": true,
               "semantic": "id",
               "sql_type": {
                 "postgres": "UUID",
@@ -188,6 +190,7 @@
               "default": {
                 "expr": "NOW()"
               },
+              "read_only": true,
               "semantic": "updated_at",
               "sql_type": {
                 "postgres": "TIMESTAMPTZ",

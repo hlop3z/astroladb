@@ -334,14 +334,18 @@ type ColumnDef struct {
 	BackfillSet bool // Track if backfill was explicitly set
 
 	// Validation constraints (-> DB CHECK + OpenAPI)
-	Min     *int   // string: minLength, number: minimum
-	Max     *int   // string: maxLength, number: maximum
-	Pattern string // Regex pattern for validation
-	Format  string // OpenAPI format (email, uri, uuid, etc.)
+	Min     *float64 // string: minLength, number: minimum
+	Max     *float64 // string: maxLength, number: maximum
+	Pattern string   // Regex pattern for validation
+	Format  string   // OpenAPI format (email, uri, uuid, etc.)
 
 	// Documentation (-> SQL COMMENT + OpenAPI)
 	Docs       string // Description for the column
 	Deprecated string // Deprecation notice (if column is deprecated)
+
+	// Access control (-> OpenAPI readOnly/writeOnly)
+	ReadOnly  bool // Column is read-only (computed, generated, server-set)
+	WriteOnly bool // Column is write-only (passwords, secrets, tokens)
 
 	// Computed columns (virtual, database-computed)
 	Computed any  // fn.* expression or raw SQL map for computed columns

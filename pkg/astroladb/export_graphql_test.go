@@ -597,7 +597,7 @@ func TestGenerateColumnExample_Enum(t *testing.T) {
 }
 
 func TestGenerateColumnExample_IntegerWithMin(t *testing.T) {
-	min := 10
+	min := 10.0
 	col := &ast.ColumnDef{
 		Name: "custom_value", // Use a name that doesn't match semantic patterns
 		Type: "integer",

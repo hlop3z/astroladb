@@ -376,7 +376,7 @@ func generateColumnExample(col *ast.ColumnDef) any {
 		return "Sample text"
 	case "integer":
 		if col.Min != nil {
-			return *col.Min
+			return int(*col.Min)
 		}
 		return 42
 	case "float", "decimal":
@@ -562,6 +562,62 @@ func buildSchemaXDB(table *ast.TableDef, allTables []*ast.TableDef, meta *metada
 		xdb["relationships"] = relationships
 	}
 
+	// Foreign key constraints (table-level, not just column.Reference)
+	if len(table.ForeignKeys) > 0 {
+		fks := make([]map[string]any, 0, len(table.ForeignKeys))
+		for _, fk := range table.ForeignKeys {
+			fkDef := map[string]any{
+				"columns":     fk.Columns,
+				"ref_table":   fk.RefTable,
+				"ref_columns": fk.RefColumns,
+			}
+			if fk.Name != "" {
+				fkDef["name"] = fk.Name
+			}
+			if fk.OnDelete != "" {
+				fkDef["on_delete"] = fk.OnDelete
+			}
+			if fk.OnUpdate != "" {
+				fkDef["on_update"] = fk.OnUpdate
+			}
+			fks = append(fks, fkDef)
+		}
+		xdb["foreign_keys"] = fks
+	}
+
+	// CHECK constraints
+	if len(table.Checks) > 0 {
+		checks := make([]map[string]any, 0, len(table.Checks))
+		for _, check := range table.Checks {
+			checkDef := map[string]any{
+				"expression": check.Expression,
+			}
+			if check.Name != "" {
+				checkDef["name"] = check.Name
+			}
+			checks = append(checks, checkDef)
+		}
+		xdb["checks"] = checks
+	}
+
+	// Column order (preserves original order for DDL generation)
+	colOrder := make([]string, 0, len(table.Columns))
+	for _, col := range table.Columns {
+		colOrder = append(colOrder, col.Name)
+	}
+	xdb["column_order"] = colOrder
+
+	// Documentation
+	if table.Docs != "" {
+		xdb["description"] = table.Docs
+	}
+
+	// Deprecation (with reason)
+	if table.Deprecated != "" {
+		xdb["deprecated"] = true
+		xdb["deprecated_reason"] = table.Deprecated
+	}
+
 	return xdb
 }
 
@@ -638,6 +694,9 @@ func buildIndexes(table *ast.TableDef) []map[string]any {
 		}
 		if idx.Unique {
 			idxDef["unique"] = true
+		}
+		if idx.Where != "" {
+			idxDef["where"] = idx.Where
 		}
 		indexes = append(indexes, idxDef)
 	}
@@ -862,14 +921,14 @@ func columnToOpenAPIProperty(col *ast.ColumnDef, table *ast.TableDef, cfg *expor
 		prop["nullable"] = true
 	}
 
-	// Mark generated/readonly columns
-	if col.PrimaryKey || col.Name == "created_at" || col.Name == "updated_at" {
+	// Mark generated/readonly columns (explicit flag OR automatic detection)
+	if col.ReadOnly || col.PrimaryKey || col.Name == "created_at" || col.Name == "updated_at" ||
+		col.Computed != nil || (col.Virtual && col.Computed == nil) || col.Name == "deleted_at" {
 		prop["readOnly"] = true
 	}
 
-	// Mark password as writeOnly
-	if col.Type == "string" && (col.Name == "password" || col.Name == "password_hash" ||
-		strings.Contains(col.Name, "password")) {
+	// Mark write-only columns (explicit flag OR automatic detection)
+	if col.WriteOnly || isWriteOnlyColumn(col) {
 		prop["writeOnly"] = true
 	}
 
@@ -895,6 +954,16 @@ func buildPropertyXDB(col *ast.ColumnDef, table *ast.TableDef, meta *metadata.Me
 	// Type arguments (for string(N), decimal(P,S), enum([...]))
 	if len(col.TypeArgs) > 0 {
 		xdb["type_args"] = col.TypeArgs
+	}
+
+	// Explicit unique constraint flag
+	if col.Unique {
+		xdb["unique"] = true
+	}
+
+	// Explicit primary key flag
+	if col.PrimaryKey {
+		xdb["primary_key"] = true
 	}
 
 	// Generated columns (like id)
@@ -962,6 +1031,40 @@ func buildPropertyXDB(col *ast.ColumnDef, table *ast.TableDef, meta *metadata.Me
 		if polyInfo := findPolymorphicInfo(col.Name, table.QualifiedName(), meta); polyInfo != nil {
 			xdb["polymorphic"] = polyInfo
 		}
+	}
+
+	// Validation metadata (minimum, maximum, pattern, format)
+	if col.Min != nil {
+		xdb["minimum"] = *col.Min
+	}
+	if col.Max != nil {
+		xdb["maximum"] = *col.Max
+	}
+	if col.Pattern != "" {
+		xdb["pattern"] = col.Pattern
+	}
+	if col.Format != "" {
+		xdb["format"] = col.Format
+	}
+
+	// Documentation
+	if col.Docs != "" {
+		xdb["description"] = col.Docs
+	}
+
+	// Deprecation (with reason)
+	if col.Deprecated != "" {
+		xdb["deprecated"] = true
+		xdb["deprecated_reason"] = col.Deprecated
+	}
+
+	// Access control (explicit flags OR automatic detection)
+	if col.ReadOnly || col.PrimaryKey || col.Name == "created_at" || col.Name == "updated_at" ||
+		col.Computed != nil || (col.Virtual && col.Computed == nil) || col.Name == "deleted_at" {
+		xdb["read_only"] = true
+	}
+	if col.WriteOnly || isWriteOnlyColumn(col) {
+		xdb["write_only"] = true
 	}
 
 	return xdb
@@ -1122,4 +1225,28 @@ func buildSQLType(col *ast.ColumnDef) map[string]string {
 	}
 
 	return sqlType
+}
+
+// isWriteOnlyColumn returns true if the column should be marked as writeOnly based on naming conventions.
+func isWriteOnlyColumn(col *ast.ColumnDef) bool {
+	if col.Type != "string" {
+		return false
+	}
+
+	name := col.Name
+
+	// Exact matches
+	if name == "password" || name == "password_hash" || name == "api_key" ||
+		name == "api_token" || name == "secret" || name == "secret_key" ||
+		name == "access_token" || name == "refresh_token" {
+		return true
+	}
+
+	// Substring matches (for variations like user_password, auth_token, etc.)
+	if strings.Contains(name, "password") || strings.Contains(name, "token") ||
+		strings.Contains(name, "_key") || strings.Contains(name, "secret") {
+		return true
+	}
+
+	return false
 }

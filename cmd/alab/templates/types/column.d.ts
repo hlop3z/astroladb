@@ -851,6 +851,26 @@ export interface ColColumnBuilder {
   deprecated(reason: string): ColColumnBuilder;
 
   /**
+   * Marks this column as read-only.
+   * Read-only columns cannot be modified by API clients (computed, server-generated, etc.).
+   * Sets OpenAPI readOnly property and x-db.read_only flag.
+   * @example
+   * { server_timestamp: col.datetime().read_only() }
+   * { computed_hash: col.string(64).read_only() }
+   */
+  read_only(): ColColumnBuilder;
+
+  /**
+   * Marks this column as write-only.
+   * Write-only columns are never returned in API responses (passwords, secrets, etc.).
+   * Sets OpenAPI writeOnly property and x-db.write_only flag.
+   * @example
+   * { api_secret: col.string(128).write_only() }
+   * { encryption_key: col.string(256).write_only() }
+   */
+  write_only(): ColColumnBuilder;
+
+  /**
    * Marks this column as a computed/generated column.
    * Use fn.* helpers to build expressions.
    * @param expr - An fn.* expression
@@ -910,6 +930,22 @@ export interface ColRelationshipBuilder {
    * @param reason - Explanation and migration guidance
    */
   deprecated(reason: string): ColRelationshipBuilder;
+
+  /**
+   * Marks this foreign key column as read-only.
+   * Read-only columns cannot be modified by API clients.
+   * @example
+   * { system_user: col.belongs_to("auth.user").read_only() }
+   */
+  read_only(): ColRelationshipBuilder;
+
+  /**
+   * Marks this foreign key column as write-only.
+   * Write-only columns are never returned in API responses.
+   * @example
+   * { secret_ref: col.belongs_to("secrets.vault").write_only() }
+   */
+  write_only(): ColRelationshipBuilder;
 }
 
 /**

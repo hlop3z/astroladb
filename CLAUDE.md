@@ -85,6 +85,23 @@ AstrolaDB is a **polyglot code generator** with a Go core that embeds a JavaScri
 
 ## Critical Implementation Details
 
+### JavaScript DSL Conventions
+
+#### Naming Convention: snake_case
+
+ALL DSL methods and properties use snake_case, NOT camelCase.
+
+Examples:
+
+- ✅ `col.primary_key()`, `col.read_only()`, `table.sort_by()`
+- ❌ `col.primaryKey()`, `col.readOnly()`, `table.sortBy()`
+
+This applies to:
+
+- Column methods: `.belongs_to()`, `.created_at`, `.updated_at`
+- Table methods: `.sort_by()`, `.searchable()`, `.filterable()`
+- All future DSL additions
+
 ### JavaScript Runtime & Error Handling
 
 **Schema Execution Flow:**

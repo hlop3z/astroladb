@@ -58,8 +58,12 @@ def recreate_column_definition(schema: Schema, table_name: str, column_name: str
 
 def main():
     # Load the OpenAPI schema from the basic example (which has more columns)
+    # Use relative path from parsing_openapi directory
     openapi_path = Path(__file__).parent.parent.parent / "basic" / "exports" / "openapi.json"
-    schema = Schema(openapi_path)
+    if not openapi_path.exists():
+        # Fallback: try relative from current directory
+        openapi_path = Path("../basic/exports/openapi.json")
+    schema = Schema(str(openapi_path))
 
     print("=" * 70)
     print("Recreating Column Definitions from OpenAPI")

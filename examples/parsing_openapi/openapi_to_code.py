@@ -40,6 +40,14 @@ class Column:
     virtual: bool = False
     storage: str | None = None
     computed: dict | None = None
+    unique: bool = False
+    primary_key: bool = False
+    # Phase 1: Validation and documentation metadata
+    minimum: float | None = None
+    maximum: float | None = None
+    description: str | None = None
+    deprecated: bool = False
+    deprecated_reason: str | None = None
 
     @property
     def pg_type(self) -> str:
@@ -94,6 +102,7 @@ class Index:
     columns: list[str]
     unique: bool = False
     primary: bool = False
+    where: str | None = None
 
 
 @dataclass
@@ -111,6 +120,26 @@ class Relationship:
 
 
 @dataclass
+class ForeignKey:
+    """A table-level foreign key constraint."""
+
+    columns: list[str]
+    ref_table: str
+    ref_columns: list[str]
+    name: str | None = None
+    on_delete: str | None = None
+    on_update: str | None = None
+
+
+@dataclass
+class Check:
+    """A CHECK constraint."""
+
+    expression: str
+    name: str | None = None
+
+
+@dataclass
 class Table:
     """A database table parsed from an OpenAPI schema + its x-db extension."""
 
@@ -125,6 +154,9 @@ class Table:
     soft_delete: bool = False
     searchable: list[str] = field(default_factory=list)
     join_table: dict[str, Any] | None = None
+    foreign_keys: list[ForeignKey] = field(default_factory=list)
+    checks: list[Check] = field(default_factory=list)
+    column_order: list[str] = field(default_factory=list)
 
     def __getitem__(self, col: str) -> Column:
         return self.columns[col]
@@ -187,6 +219,14 @@ def _parse_column(name: str, prop: dict[str, Any]) -> Column:
         virtual=xdb.get("virtual", False),
         storage=xdb.get("storage"),
         computed=xdb.get("computed"),
+        unique=xdb.get("unique", False),
+        primary_key=xdb.get("primary_key", False),
+        # Phase 1: Validation and documentation metadata
+        minimum=prop.get("minimum"),
+        maximum=prop.get("maximum"),
+        description=prop.get("description"),
+        deprecated=prop.get("deprecated", False),
+        deprecated_reason=xdb.get("deprecated_reason"),
     )
 
 
@@ -197,6 +237,7 @@ def _parse_index(raw: dict[str, Any]) -> Index:
         columns=raw["columns"],
         unique=raw.get("unique", False),
         primary=raw.get("primary", False),
+        where=raw.get("where"),
     )
 
 
@@ -214,6 +255,26 @@ def _parse_relationship(name: str, raw: dict[str, Any]) -> Relationship:
     )
 
 
+def _parse_foreign_key(raw: dict[str, Any]) -> ForeignKey:
+    """Turn one foreign key definition into a ForeignKey."""
+    return ForeignKey(
+        columns=raw["columns"],
+        ref_table=raw["ref_table"],
+        ref_columns=raw["ref_columns"],
+        name=raw.get("name"),
+        on_delete=raw.get("on_delete"),
+        on_update=raw.get("on_update"),
+    )
+
+
+def _parse_check(raw: dict[str, Any]) -> Check:
+    """Turn one check constraint into a Check."""
+    return Check(
+        expression=raw["expression"],
+        name=raw.get("name"),
+    )
+
+
 def _parse_table(name: str, defn: dict[str, Any]) -> Table:
     """Turn one OpenAPI schema definition into a Table."""
     xdb = defn.get("x-db", {})
@@ -228,6 +289,10 @@ def _parse_table(name: str, defn: dict[str, Any]) -> Table:
         rel_name: _parse_relationship(rel_name, rel_def)
         for rel_name, rel_def in xdb.get("relationships", {}).items()
     }
+    foreign_keys = [
+        _parse_foreign_key(fk_def) for fk_def in xdb.get("foreign_keys", [])
+    ]
+    checks = [_parse_check(check_def) for check_def in xdb.get("checks", [])]
 
     return Table(
         schema_name=name,
@@ -241,6 +306,9 @@ def _parse_table(name: str, defn: dict[str, Any]) -> Table:
         soft_delete=xdb.get("soft_delete", False),
         searchable=xdb.get("searchable", []),
         join_table=xdb.get("join_table"),
+        foreign_keys=foreign_keys,
+        checks=checks,
+        column_order=xdb.get("column_order", []),
     )
 
 

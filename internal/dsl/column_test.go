@@ -183,8 +183,8 @@ func TestColumnBuilder_Min(t *testing.T) {
 	if got.Min == nil {
 		t.Fatal("Min() should set Min to non-nil")
 	}
-	if *got.Min != 0 {
-		t.Errorf("Min = %d, want 0", *got.Min)
+	if *got.Min != 0.0 {
+		t.Errorf("Min = %v, want 0.0", *got.Min)
 	}
 }
 
@@ -196,8 +196,8 @@ func TestColumnBuilder_Max(t *testing.T) {
 	if got.Max == nil {
 		t.Fatal("Max() should set Max to non-nil")
 	}
-	if *got.Max != 150 {
-		t.Errorf("Max = %d, want 150", *got.Max)
+	if *got.Max != 150.0 {
+		t.Errorf("Max = %v, want 150.0", *got.Max)
 	}
 }
 
@@ -206,11 +206,11 @@ func TestColumnBuilder_MinMax_Combined(t *testing.T) {
 	cb.Min(1).Max(100)
 	got := cb.Build()
 
-	if got.Min == nil || *got.Min != 1 {
-		t.Errorf("Min = %v, want 1", got.Min)
+	if got.Min == nil || *got.Min != 1.0 {
+		t.Errorf("Min = %v, want 1.0", got.Min)
 	}
-	if got.Max == nil || *got.Max != 100 {
-		t.Errorf("Max = %v, want 100", got.Max)
+	if got.Max == nil || *got.Max != 100.0 {
+		t.Errorf("Max = %v, want 100.0", got.Max)
 	}
 }
 

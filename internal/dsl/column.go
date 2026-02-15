@@ -117,14 +117,16 @@ func OnUpdate(action string) RefOption {
 // Min sets the minimum constraint.
 // For strings: minimum length. For numbers: minimum value.
 func (c *ColumnBuilder) Min(n int) *ColumnBuilder {
-	c.def.Min = &n
+	f := float64(n)
+	c.def.Min = &f
 	return c
 }
 
 // Max sets the maximum constraint.
 // For strings: maximum length. For numbers: maximum value.
 func (c *ColumnBuilder) Max(n int) *ColumnBuilder {
-	c.def.Max = &n
+	f := float64(n)
+	c.def.Max = &f
 	return c
 }
 

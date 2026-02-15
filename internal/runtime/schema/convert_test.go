@@ -102,13 +102,13 @@ func TestToAST(t *testing.T) {
 			t.Fatal("Expected Min to be set")
 		}
 		if *result.Min != 18 {
-			t.Errorf("Min = %d, want %d", *result.Min, 18)
+			t.Errorf("Min = %v, want %v", *result.Min, 18.0)
 		}
 		if result.Max == nil {
 			t.Fatal("Expected Max to be set")
 		}
 		if *result.Max != 100 {
-			t.Errorf("Max = %d, want %d", *result.Max, 100)
+			t.Errorf("Max = %v, want %v", *result.Max, 100.0)
 		}
 	})
 

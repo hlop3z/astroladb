@@ -11,8 +11,8 @@ import (
 
 // testTable creates a sample table for testing exports.
 func testTable() *ast.TableDef {
-	minAge := 0
-	maxAge := 150
+	minAge := 0.0
+	maxAge := 150.0
 	return &ast.TableDef{
 		Namespace: "auth",
 		Name:      "user",
@@ -249,6 +249,126 @@ func TestExportOpenAPI_TypeArgs(t *testing.T) {
 	idXDB := idProp["x-db"].(map[string]any)
 	if _, exists := idXDB["type_args"]; exists {
 		t.Errorf("id should not have type_args field")
+	}
+}
+
+func TestExportOpenAPI_CompleteForeignKeysAndChecks(t *testing.T) {
+	table := &ast.TableDef{
+		Namespace: "test",
+		Name:      "orders",
+		Columns: []*ast.ColumnDef{
+			{Name: "id", Type: "uuid", PrimaryKey: true},
+			{Name: "user_id", Type: "uuid"},
+			{Name: "amount", Type: "decimal", TypeArgs: []any{10, 2}},
+		},
+		ForeignKeys: []*ast.ForeignKeyDef{
+			{
+				Name:       "fk_orders_user",
+				Columns:    []string{"user_id"},
+				RefTable:   "auth_user",
+				RefColumns: []string{"id"},
+				OnDelete:   "CASCADE",
+				OnUpdate:   "NO ACTION",
+			},
+		},
+		Checks: []*ast.CheckDef{
+			{
+				Name:       "positive_amount",
+				Expression: "amount > 0",
+			},
+		},
+	}
+
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
+	data, err := exportOpenAPI([]*ast.TableDef{table}, cfg)
+	if err != nil {
+		t.Fatalf("exportOpenAPI failed: %v", err)
+	}
+
+	var spec map[string]any
+	json.Unmarshal(data, &spec)
+
+	// Navigate to TestOrders schema
+	components := spec["components"].(map[string]any)
+	schemas := components["schemas"].(map[string]any)
+	schema := schemas["TestOrders"].(map[string]any)
+	xdb := schema["x-db"].(map[string]any)
+
+	// Verify foreign_keys
+	fks, ok := xdb["foreign_keys"].([]any)
+	if !ok || len(fks) != 1 {
+		t.Fatalf("expected 1 foreign key, got %v", fks)
+	}
+	fk := fks[0].(map[string]any)
+	if fk["name"] != "fk_orders_user" {
+		t.Errorf("fk name = %v, want fk_orders_user", fk["name"])
+	}
+	if fk["on_delete"] != "CASCADE" {
+		t.Errorf("fk on_delete = %v, want CASCADE", fk["on_delete"])
+	}
+
+	// Verify checks
+	checks, ok := xdb["checks"].([]any)
+	if !ok || len(checks) != 1 {
+		t.Fatalf("expected 1 check, got %v", checks)
+	}
+	check := checks[0].(map[string]any)
+	if check["expression"] != "amount > 0" {
+		t.Errorf("check expression = %v, want 'amount > 0'", check["expression"])
+	}
+
+	// Verify column_order
+	colOrder, ok := xdb["column_order"].([]any)
+	if !ok || len(colOrder) != 3 {
+		t.Fatalf("expected 3 columns in order, got %v", colOrder)
+	}
+	if colOrder[0] != "id" || colOrder[1] != "user_id" || colOrder[2] != "amount" {
+		t.Errorf("column_order = %v, want [id, user_id, amount]", colOrder)
+	}
+}
+
+func TestExportOpenAPI_ExplicitColumnFlags(t *testing.T) {
+	table := &ast.TableDef{
+		Namespace: "test",
+		Name:      "users",
+		Columns: []*ast.ColumnDef{
+			{Name: "id", Type: "uuid", PrimaryKey: true},
+			{Name: "email", Type: "string", TypeArgs: []any{255}, Unique: true},
+			{Name: "username", Type: "string", TypeArgs: []any{50}},
+		},
+	}
+
+	cfg := &exportContext{ExportConfig: &ExportConfig{}}
+	data, _ := exportOpenAPI([]*ast.TableDef{table}, cfg)
+
+	var spec map[string]any
+	json.Unmarshal(data, &spec)
+
+	// Navigate to properties
+	components := spec["components"].(map[string]any)
+	schemas := components["schemas"].(map[string]any)
+	schema := schemas["TestUsers"].(map[string]any)
+	properties := schema["properties"].(map[string]any)
+
+	// Verify id has primary_key flag
+	idProp := properties["id"].(map[string]any)
+	idXDB := idProp["x-db"].(map[string]any)
+	if pk, ok := idXDB["primary_key"].(bool); !ok || !pk {
+		t.Error("id should have primary_key: true")
+	}
+
+	// Verify email has unique flag
+	emailProp := properties["email"].(map[string]any)
+	emailXDB := emailProp["x-db"].(map[string]any)
+	if unique, ok := emailXDB["unique"].(bool); !ok || !unique {
+		t.Error("email should have unique: true")
+	}
+
+	// Verify username does NOT have unique flag
+	usernameProp := properties["username"].(map[string]any)
+	usernameXDB := usernameProp["x-db"].(map[string]any)
+	if _, exists := usernameXDB["unique"]; exists {
+		t.Error("username should not have unique flag")
 	}
 }
 

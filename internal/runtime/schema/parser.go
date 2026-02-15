@@ -66,14 +66,12 @@ func (p *SchemaParser) ParseColumnDef(obj any) *ast.ColumnDef {
 		col.Reference = p.ParseReference(ref)
 	}
 
-	// Parse validation
+	// Parse validation (preserve float64, no truncation)
 	if min, ok := m["min"].(float64); ok {
-		minInt := int(min)
-		col.Min = &minInt
+		col.Min = &min
 	}
 	if max, ok := m["max"].(float64); ok {
-		maxInt := int(max)
-		col.Max = &maxInt
+		col.Max = &max
 	}
 	if pattern, ok := m["pattern"].(string); ok {
 		col.Pattern = pattern

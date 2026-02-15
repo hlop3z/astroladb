@@ -490,6 +490,18 @@ func createChainBuilder(vm *goja.Runtime, col *ColumnDef, includeRelOpts bool, c
 		return obj
 	})
 
+	// read_only() - marks column as read-only (computed, generated, server-set)
+	_ = obj.Set("read_only", func() *goja.Object {
+		col.ReadOnly = true
+		return obj
+	})
+
+	// write_only() - marks column as write-only (passwords, secrets, tokens)
+	_ = obj.Set("write_only", func() *goja.Object {
+		col.WriteOnly = true
+		return obj
+	})
+
 	// computed(expr) - marks column as a computed/virtual column
 	if len(convertExpr) > 0 && convertExpr[0] != nil {
 		converter := convertExpr[0]
@@ -575,6 +587,18 @@ func (tb *TableBuilder) relationshipBuilder(ref string, col *ColumnDef, idx *Ind
 	// deprecated(reason)
 	_ = obj.Set("deprecated", func(reason string) *goja.Object {
 		col.Deprecated = reason
+		return obj
+	})
+
+	// read_only() - marks column as read-only
+	_ = obj.Set("read_only", func() *goja.Object {
+		col.ReadOnly = true
+		return obj
+	})
+
+	// write_only() - marks column as write-only
+	_ = obj.Set("write_only", func() *goja.Object {
+		col.WriteOnly = true
 		return obj
 	})
 
