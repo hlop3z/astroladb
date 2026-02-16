@@ -67,14 +67,6 @@ func DefaultConfig() *Config {
 	}
 }
 
-// NewConfigWithMode creates a config with a specific output mode.
-// Used for --json flag or testing.
-func NewConfigWithMode(mode OutputMode) *Config {
-	cfg := DefaultConfig()
-	cfg.Mode = mode
-	return cfg
-}
-
 // IsTTY returns true if running in interactive terminal mode.
 func (c *Config) IsTTY() bool {
 	return c.Mode == ModeTTY

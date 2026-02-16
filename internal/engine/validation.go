@@ -7,6 +7,7 @@ import (
 
 	"github.com/hlop3z/astroladb/internal/alerr"
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // ConstraintViolation represents a constraint that would fail if applied to existing data.
@@ -179,8 +180,8 @@ func validateAlterNotNull(ctx context.Context, db *sql.DB, op *ast.AlterColumn, 
 	// Count NULL values in column
 	query := fmt.Sprintf(
 		"SELECT COUNT(*) FROM %s WHERE %s IS NULL",
-		quoteName(tableName, dialect),
-		quoteName(columnName, dialect),
+		strutil.QuoteSQL(tableName),
+		strutil.QuoteSQL(columnName),
 	)
 
 	var nullCount int64
@@ -196,8 +197,8 @@ func validateAlterNotNull(ctx context.Context, db *sql.DB, op *ast.AlterColumn, 
 	// Get sample NULL row IDs for debugging
 	sampleQuery := fmt.Sprintf(
 		"SELECT id FROM %s WHERE %s IS NULL LIMIT 3",
-		quoteName(tableName, dialect),
-		quoteName(columnName, dialect),
+		strutil.QuoteSQL(tableName),
+		strutil.QuoteSQL(columnName),
 	)
 
 	rows, err := db.QueryContext(ctx, sampleQuery)
@@ -255,14 +256,14 @@ func validateUniqueIndex(ctx context.Context, db *sql.DB, op *ast.CreateIndex, d
 		if i > 0 {
 			columnList += ", "
 		}
-		columnList += quoteName(col, dialect)
+		columnList += strutil.QuoteSQL(col)
 	}
 
 	// Find duplicate values
 	query := fmt.Sprintf(
 		"SELECT COUNT(*) FROM (SELECT %s, COUNT(*) as cnt FROM %s GROUP BY %s HAVING COUNT(*) > 1) as duplicates",
 		columnList,
-		quoteName(tableName, dialect),
+		strutil.QuoteSQL(tableName),
 		columnList,
 	)
 
@@ -329,8 +330,8 @@ func validateForeignKey(ctx context.Context, db *sql.DB, op *ast.AddForeignKey, 
 			sourceColumns += ", "
 			refColumns += ", "
 		}
-		sourceColumns += quoteName(col, dialect)
-		refColumns += quoteName(op.RefColumns[i], dialect)
+		sourceColumns += strutil.QuoteSQL(col)
+		refColumns += strutil.QuoteSQL(op.RefColumns[i])
 	}
 
 	// Check if source table has rows
@@ -349,8 +350,8 @@ func validateForeignKey(ctx context.Context, db *sql.DB, op *ast.AddForeignKey, 
 		   SELECT 1 FROM %s ref
 		   WHERE src.%s = ref.%s
 		 )`,
-		quoteName(tableName, dialect),
-		quoteName(refTable, dialect),
+		strutil.QuoteSQL(tableName),
+		strutil.QuoteSQL(refTable),
 		op.Columns[0], // Simplified for single-column FK
 		op.RefColumns[0],
 	)

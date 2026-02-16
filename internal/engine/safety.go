@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // DestructiveOperation represents an operation that could cause data loss.
@@ -174,7 +175,7 @@ func tableExists(ctx context.Context, db *sql.DB, tableName string, dialect stri
 
 // countRows counts the number of rows in a table.
 func countRows(ctx context.Context, db *sql.DB, tableName string, dialect string) (int64, error) {
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", quoteName(tableName, dialect))
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", strutil.QuoteSQL(tableName))
 
 	var count int64
 	err := db.QueryRowContext(ctx, query).Scan(&count)
@@ -188,8 +189,8 @@ func countRows(ctx context.Context, db *sql.DB, tableName string, dialect string
 func columnHasData(ctx context.Context, db *sql.DB, tableName, columnName string, dialect string) (bool, error) {
 	query := fmt.Sprintf(
 		"SELECT 1 FROM %s WHERE %s IS NOT NULL LIMIT 1",
-		quoteName(tableName, dialect),
-		quoteName(columnName, dialect),
+		strutil.QuoteSQL(tableName),
+		strutil.QuoteSQL(columnName),
 	)
 
 	var hasData int
@@ -201,16 +202,4 @@ func columnHasData(ctx context.Context, db *sql.DB, tableName, columnName string
 		return false, err
 	}
 	return true, nil
-}
-
-// quoteName quotes an identifier for SQL.
-func quoteName(name string, dialect string) string {
-	switch dialect {
-	case "sqlite":
-		return fmt.Sprintf(`"%s"`, name)
-	case "postgres", "postgresql":
-		return fmt.Sprintf(`"%s"`, name)
-	default:
-		return name
-	}
 }

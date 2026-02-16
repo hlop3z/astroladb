@@ -483,23 +483,6 @@ type SQLExpr struct {
 	Expr string `json:"expr"`
 }
 
-// NewSQLExpr creates a new SQLExpr with the given expression.
-func NewSQLExpr(expr string) *SQLExpr {
-	return &SQLExpr{Expr: expr}
-}
-
-// IsSQLExpr checks if the given value is a SQLExpr.
-func IsSQLExpr(v any) bool {
-	_, ok := v.(*SQLExpr)
-	return ok
-}
-
-// AsSQLExpr converts a value to SQLExpr if it is one.
-func AsSQLExpr(v any) (*SQLExpr, bool) {
-	expr, ok := v.(*SQLExpr)
-	return expr, ok
-}
-
 // ConvertSQLExprValue converts JS values (like sql("...") results) to Go types.
 // If v is a map[string]any with {_type: "sql_expr", expr: "..."}, returns *SQLExpr.
 // Otherwise returns v unchanged.

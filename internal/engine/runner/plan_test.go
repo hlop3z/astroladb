@@ -271,27 +271,6 @@ func TestPlanMigrationsDownIrreversible(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// PlanSingle Tests
-// -----------------------------------------------------------------------------
-
-func TestPlanSingle(t *testing.T) {
-	m := engine.Migration{Revision: "001", Name: "create_users"}
-
-	upPlan := PlanSingle(m, engine.Up)
-	if len(upPlan.Migrations) != 1 {
-		t.Errorf("PlanSingle(Up) = %d migrations, want 1", len(upPlan.Migrations))
-	}
-	if upPlan.Direction != engine.Up {
-		t.Errorf("PlanSingle(Up).Direction = %v, want Up", upPlan.Direction)
-	}
-
-	downPlan := PlanSingle(m, engine.Down)
-	if downPlan.Direction != engine.Down {
-		t.Errorf("PlanSingle(Down).Direction = %v, want Down", downPlan.Direction)
-	}
-}
-
-// -----------------------------------------------------------------------------
 // GenerateDownOps Tests
 // -----------------------------------------------------------------------------
 
@@ -496,69 +475,6 @@ func TestGenerateDownOpsIrreversible(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// HasIrreversibleOps Tests
-// -----------------------------------------------------------------------------
-
-func TestHasIrreversibleOps(t *testing.T) {
-	tests := []struct {
-		name string
-		ops  []ast.Operation
-		want bool
-	}{
-		{
-			name: "all_reversible",
-			ops: []ast.Operation{
-				&ast.CreateTable{TableOp: ast.TableOp{Namespace: "a", Name: "b"}, Columns: []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}}},
-				&ast.AddColumn{TableRef: ast.TableRef{Namespace: "a", Table_: "b"}, Column: &ast.ColumnDef{Name: "c", Type: "string"}},
-			},
-			want: false,
-		},
-		{
-			name: "has_drop_table",
-			ops: []ast.Operation{
-				&ast.CreateTable{TableOp: ast.TableOp{Namespace: "a", Name: "b"}, Columns: []*ast.ColumnDef{{Name: "id", Type: "id", PrimaryKey: true}}},
-				&ast.DropTable{TableOp: ast.TableOp{Namespace: "a", Name: "old"}},
-			},
-			want: true,
-		},
-		{
-			name: "has_drop_column",
-			ops: []ast.Operation{
-				&ast.DropColumn{TableRef: ast.TableRef{Namespace: "a", Table_: "b"}, Name: "col"},
-			},
-			want: true,
-		},
-		{
-			name: "has_alter_column",
-			ops: []ast.Operation{
-				&ast.AlterColumn{TableRef: ast.TableRef{Namespace: "a", Table_: "b"}, Name: "col", NewType: "text"},
-			},
-			want: true,
-		},
-		{
-			name: "has_raw_sql",
-			ops: []ast.Operation{
-				&ast.RawSQL{SQL: "UPDATE users SET active = true"},
-			},
-			want: true,
-		},
-		{
-			name: "empty",
-			ops:  []ast.Operation{},
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := HasIrreversibleOps(tt.ops); got != tt.want {
-				t.Errorf("HasIrreversibleOps() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-// -----------------------------------------------------------------------------
 // GetStatus Tests
 // -----------------------------------------------------------------------------
 
@@ -694,10 +610,6 @@ func TestGenerateDownOpsAlterColumnReversible(t *testing.T) {
 		t.Errorf("reverse SetNullable = %v, want %v", alter.SetNullable, &oldNullable)
 	}
 
-	// With OldColumn present, it should NOT be irreversible
-	if HasIrreversibleOps(ops) {
-		t.Error("AlterColumn with OldColumn should be reversible")
-	}
 }
 
 func TestGenerateDownOpsAlterColumnWithoutOldColumn(t *testing.T) {
@@ -714,9 +626,6 @@ func TestGenerateDownOpsAlterColumnWithoutOldColumn(t *testing.T) {
 		t.Fatalf("GenerateDownOps() without OldColumn should return 0 ops, got %d", len(downOps))
 	}
 
-	if !HasIrreversibleOps(ops) {
-		t.Error("AlterColumn without OldColumn should be irreversible")
-	}
 }
 
 func TestGenerateDownOpsDropColumnIrreversible(t *testing.T) {
@@ -725,10 +634,6 @@ func TestGenerateDownOpsDropColumnIrreversible(t *testing.T) {
 			TableRef: ast.TableRef{Namespace: "public", Table_: "users"},
 			Name:     "old_field",
 		},
-	}
-
-	if !HasIrreversibleOps(ops) {
-		t.Error("DropColumn should be flagged as irreversible")
 	}
 
 	downOps := GenerateDownOps(ops)

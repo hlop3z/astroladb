@@ -166,15 +166,6 @@ func planDown(all []engine.Migration, applied []AppliedMigration, target string)
 	return plan, nil
 }
 
-// PlanSingle creates a plan for a single migration.
-// Useful for executing individual migrations out of order (dangerous!).
-func PlanSingle(m engine.Migration, dir engine.Direction) *engine.Plan {
-	return &engine.Plan{
-		Direction:  dir,
-		Migrations: []engine.Migration{m},
-	}
-}
-
 // GetStatus returns the status of all migrations.
 func GetStatus(all []engine.Migration, applied []AppliedMigration) []engine.MigrationStatus {
 	// Build maps for quick lookup
@@ -365,14 +356,4 @@ func generateDownOp(op ast.Operation) ast.Operation {
 	default:
 		return nil
 	}
-}
-
-// HasIrreversibleOps checks if any operations cannot be auto-reversed.
-func HasIrreversibleOps(ops []ast.Operation) bool {
-	for _, op := range ops {
-		if generateDownOp(op) == nil {
-			return true
-		}
-	}
-	return false
 }

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 const (
@@ -51,7 +52,7 @@ func InjectLockTimeout(sql string, inTransaction bool, dialect string) string {
 	// SQLite doesn't support SET commands - just wrap in transaction if needed
 	if dialect == "sqlite" {
 		if inTransaction {
-			return fmt.Sprintf("BEGIN;\n  %s\nCOMMIT;", indent(sql, 2))
+			return fmt.Sprintf("BEGIN;\n  %s\nCOMMIT;", strutil.Indent(sql, 2))
 		}
 		return sql
 	}
@@ -63,7 +64,7 @@ func InjectLockTimeout(sql string, inTransaction bool, dialect string) string {
 			"BEGIN;\n  SET lock_timeout = '%s';\n  SET statement_timeout = '%s';\n\n  %s\nCOMMIT;",
 			DefaultLockTimeout,
 			DefaultStatementTimeout,
-			indent(sql, 2),
+			strutil.Indent(sql, 2),
 		)
 	}
 
@@ -199,20 +200,8 @@ END $$;`,
 	)
 }
 
-// indent adds indentation to each line of a multi-line string.
-func indent(s string, spaces int) string {
-	prefix := strings.Repeat(" ", spaces)
-	lines := strings.Split(s, "\n")
-	for i, line := range lines {
-		if line != "" {
-			lines[i] = prefix + line
-		}
-	}
-	return strings.Join(lines, "\n")
-}
-
 // WrapInTransaction wraps SQL in a transaction block.
 // Utility function for DDL and Data phases.
 func WrapInTransaction(sql string) string {
-	return fmt.Sprintf("BEGIN;\n%s\nCOMMIT;", indent(sql, 2))
+	return fmt.Sprintf("BEGIN;\n%s\nCOMMIT;", strutil.Indent(sql, 2))
 }

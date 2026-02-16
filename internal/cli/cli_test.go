@@ -34,29 +34,6 @@ func TestOutputMode(t *testing.T) {
 	}
 }
 
-func TestNewConfigWithMode(t *testing.T) {
-	tests := []struct {
-		name string
-		mode OutputMode
-	}{
-		{"TTY mode", ModeTTY},
-		{"Plain mode", ModePlain},
-		{"JSON mode", ModeJSON},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := NewConfigWithMode(tt.mode)
-			if cfg.Mode != tt.mode {
-				t.Errorf("Mode = %v, want %v", cfg.Mode, tt.mode)
-			}
-			if cfg.Writer == nil {
-				t.Error("Writer should not be nil")
-			}
-		})
-	}
-}
-
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 

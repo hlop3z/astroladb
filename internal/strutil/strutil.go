@@ -128,14 +128,6 @@ func FKColumn(table string) string {
 	return table + "_id"
 }
 
-// FKName returns the foreign key constraint name.
-// Example: FKName("posts", "user_id", "users") -> "fk_posts_user_id"
-func FKName(table, column, ref string) string {
-	// ref is included for context but we use table_column pattern
-	_ = ref
-	return "fk_" + table + "_" + column
-}
-
 // IndexName returns the index name for a table and columns.
 // Example: IndexName("users", "email") -> "idx_users_email"
 // Example: IndexName("users", "first_name", "last_name") -> "idx_users_first_name_last_name"
@@ -143,106 +135,6 @@ func IndexName(table string, cols ...string) string {
 	parts := []string{"idx", table}
 	parts = append(parts, cols...)
 	return strings.Join(parts, "_")
-}
-
-// UniqueIndexName returns the unique index name for a table and columns.
-// Example: UniqueIndexName("users", "email") -> "uniq_users_email"
-func UniqueIndexName(table string, cols ...string) string {
-	parts := []string{"uniq", table}
-	parts = append(parts, cols...)
-	return strings.Join(parts, "_")
-}
-
-// UniqueConstraintName returns the unique constraint name for a table and columns.
-// Example: UniqueConstraintName("users", "email") -> "uniq_users_email"
-func UniqueConstraintName(table string, cols ...string) string {
-	parts := []string{"uniq", table}
-	parts = append(parts, cols...)
-	return strings.Join(parts, "_")
-}
-
-// CheckConstraintName returns the check constraint name for a table and column/name.
-// Example: CheckConstraintName("users", "status") -> "chk_users_status"
-func CheckConstraintName(table string, name string) string {
-	return "chk_" + table + "_" + name
-}
-
-// JoinTableName returns the join table name for a many-to-many relationship.
-// Tables are sorted alphabetically to ensure consistent naming.
-// Example: JoinTableName("users", "roles") -> "roles_users"
-// Example: JoinTableName("roles", "users") -> "roles_users"
-func JoinTableName(tableA, tableB string) string {
-	if tableA < tableB {
-		return tableA + "_" + tableB
-	}
-	return tableB + "_" + tableA
-}
-
-// -----------------------------------------------------------------------------
-// Validation Helpers
-// -----------------------------------------------------------------------------
-
-// IsSnakeCase returns true if the string is valid snake_case.
-// Valid snake_case: lowercase letters, numbers, and underscores.
-// Cannot start or end with underscore, no consecutive underscores.
-func IsSnakeCase(s string) bool {
-	if s == "" {
-		return false
-	}
-
-	// Cannot start or end with underscore
-	if s[0] == '_' || s[len(s)-1] == '_' {
-		return false
-	}
-
-	prevUnderscore := false
-	for _, r := range s {
-		if r == '_' {
-			if prevUnderscore {
-				return false // consecutive underscores
-			}
-			prevUnderscore = true
-			continue
-		}
-		prevUnderscore = false
-
-		if !unicode.IsLower(r) && !unicode.IsDigit(r) {
-			return false
-		}
-	}
-
-	return true
-}
-
-// IsUpperCase returns true if all letters in the string are uppercase.
-// Non-letter characters are ignored.
-// Example: "ALL_CAPS" -> true, "MixedCase" -> false
-func IsUpperCase(s string) bool {
-	if s == "" {
-		return false
-	}
-
-	hasLetter := false
-	for _, r := range s {
-		if unicode.IsLetter(r) {
-			hasLetter = true
-			if !unicode.IsUpper(r) {
-				return false
-			}
-		}
-	}
-
-	return hasLetter
-}
-
-// ContainsUpper returns true if the string contains any uppercase letter.
-func ContainsUpper(s string) bool {
-	for _, r := range s {
-		if unicode.IsUpper(r) {
-			return true
-		}
-	}
-	return false
 }
 
 // -----------------------------------------------------------------------------
@@ -272,4 +164,26 @@ func ParseRef(ref string) (namespace, table string) {
 func ExtractTableName(ref string) string {
 	_, table := ParseRef(ref)
 	return table
+}
+
+// -----------------------------------------------------------------------------
+// Formatting
+// -----------------------------------------------------------------------------
+
+// Indent indents each non-empty line of text with the given number of spaces.
+func Indent(text string, spaces int) string {
+	prefix := strings.Repeat(" ", spaces)
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if line != "" {
+			lines[i] = prefix + line
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// QuoteSQL quotes a SQL identifier with double quotes, escaping embedded quotes.
+func QuoteSQL(name string) string {
+	escaped := strings.ReplaceAll(name, `"`, `""`)
+	return `"` + escaped + `"`
 }
