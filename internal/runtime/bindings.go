@@ -379,24 +379,10 @@ func (s *Sandbox) createAlterColumnBuilderObject(op *ast.AlterColumn) *goja.Obje
 	return obj
 }
 
-// parseRef parses a table reference into namespace and table name.
-// Input must be non-empty and in "namespace.table" or "table" format.
-func parseRef(ref string) (namespace, table string) {
-	if ref == "" {
-		return "", ""
-	}
-	for i := len(ref) - 1; i >= 0; i-- {
-		if ref[i] == '.' {
-			return ref[:i], ref[i+1:]
-		}
-	}
-	return "", ref
-}
-
 // mustParseRef parses a table reference and validates the parts.
 // Panics with a descriptive message if validation fails (for use inside Goja callbacks).
 func mustParseRef(ref string, vm *goja.Runtime) (namespace, table string) {
-	ns, tbl := parseRef(ref)
+	ns, tbl := strutil.ParseRef(ref)
 	if tbl != "" {
 		if err := ast.ValidateIdentifier(tbl); err != nil {
 			panic(vm.ToValue("invalid table name in reference: " + err.Error()))

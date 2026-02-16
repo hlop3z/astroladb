@@ -60,12 +60,10 @@ type RelationshipDef struct {
 	JunctionTarget string   // Target table ref for junction (optional)
 }
 
-func extractTableName(ref string) string {
-	// Find the table part after the last dot
-	for i := len(ref) - 1; i >= 0; i-- {
-		if ref[i] == '.' {
-			return ref[i+1:]
-		}
-	}
-	return ref
+// simpleTypes lists column types that take no extra arguments.
+// Used by both ColBuilder and TableBuilder to register type methods in a loop.
+var simpleTypes = []string{
+	"text", "integer", "float", "boolean",
+	"date", "time", "datetime",
+	"uuid", "json", "base64",
 }

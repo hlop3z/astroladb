@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // -----------------------------------------------------------------------------
@@ -464,7 +465,7 @@ func TestSaveToFile(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// parseRef Tests
+// ParseRef Tests (now in strutil)
 // -----------------------------------------------------------------------------
 
 func TestParseRef(t *testing.T) {
@@ -476,17 +477,17 @@ func TestParseRef(t *testing.T) {
 		{"auth.users", "auth", "users"},
 		{"blog.posts", "blog", "posts"},
 		{"users", "", "users"},
-		{"a.b.c", "a", "b.c"}, // Only first dot is split
+		{"a.b.c", "a.b", "c"}, // Last dot is split (table is always last segment)
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.ref, func(t *testing.T) {
-			ns, table := parseRef(tt.ref)
+			ns, table := strutil.ParseRef(tt.ref)
 			if ns != tt.wantNS {
-				t.Errorf("parseRef(%q) namespace = %q, want %q", tt.ref, ns, tt.wantNS)
+				t.Errorf("ParseRef(%q) namespace = %q, want %q", tt.ref, ns, tt.wantNS)
 			}
 			if table != tt.wantTable {
-				t.Errorf("parseRef(%q) table = %q, want %q", tt.ref, table, tt.wantTable)
+				t.Errorf("ParseRef(%q) table = %q, want %q", tt.ref, table, tt.wantTable)
 			}
 		})
 	}

@@ -37,189 +37,66 @@ func NewFnBuilder(vm *goja.Runtime) *FnBuilder {
 func (fb *FnBuilder) ToObject() *goja.Object {
 	obj := fb.vm.NewObject()
 
-	// ===========================================
-	// Column Reference
-	// ===========================================
-
 	// col(name) - Reference a column by name
 	_ = obj.Set("col", func(name string) *FnExpr {
 		return &FnExpr{Col: name}
 	})
 
-	// ===========================================
-	// String Functions
-	// ===========================================
+	// Single-arg functions: fn(arg)
+	singleArgFns := []string{
+		"upper", "lower", "trim", "length",
+		"abs", "round", "floor", "ceil",
+		"year", "month", "day",
+		"years_since", "days_since",
+	}
+	for _, name := range singleArgFns {
+		fnName := name
+		_ = obj.Set(fnName, func(arg any) *FnExpr {
+			return &FnExpr{Fn: fnName, Args: fb.convertArgs([]any{arg})}
+		})
+	}
 
-	// concat(...args) - Concatenate strings
+	// Two-arg functions: fn(a, b)
+	twoArgFns := []string{
+		"add", "sub", "mul", "div",
+		"nullif", "if_null",
+		"gt", "gte", "lt", "lte", "eq",
+	}
+	for _, name := range twoArgFns {
+		fnName := name
+		_ = obj.Set(fnName, func(a, b any) *FnExpr {
+			return &FnExpr{Fn: fnName, Args: fb.convertArgs([]any{a, b})}
+		})
+	}
+
+	// Special cases: variadic, 3-arg, 0-arg, or unique signatures
+
+	// concat(...args)
 	_ = obj.Set("concat", func(args ...any) *FnExpr {
 		return &FnExpr{Fn: "concat", Args: fb.convertArgs(args)}
 	})
 
-	// upper(arg) - Convert to uppercase
-	_ = obj.Set("upper", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "upper", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// lower(arg) - Convert to lowercase
-	_ = obj.Set("lower", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "lower", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// trim(arg) - Remove leading/trailing whitespace
-	_ = obj.Set("trim", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "trim", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// length(arg) - Get string length
-	_ = obj.Set("length", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "length", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// substring(str, start, length) - Extract substring
+	// substring(str, start, length)
 	_ = obj.Set("substring", func(str any, start, length int) *FnExpr {
 		return &FnExpr{Fn: "substring", Args: fb.convertArgs([]any{str, start, length})}
 	})
 
-	// ===========================================
-	// Math Functions
-	// ===========================================
-
-	// add(a, b) - Addition
-	_ = obj.Set("add", func(a, b any) *FnExpr {
-		return &FnExpr{Fn: "add", Args: fb.convertArgs([]any{a, b})}
-	})
-
-	// sub(a, b) - Subtraction
-	_ = obj.Set("sub", func(a, b any) *FnExpr {
-		return &FnExpr{Fn: "sub", Args: fb.convertArgs([]any{a, b})}
-	})
-
-	// mul(a, b) - Multiplication
-	_ = obj.Set("mul", func(a, b any) *FnExpr {
-		return &FnExpr{Fn: "mul", Args: fb.convertArgs([]any{a, b})}
-	})
-
-	// div(a, b) - Division
-	_ = obj.Set("div", func(a, b any) *FnExpr {
-		return &FnExpr{Fn: "div", Args: fb.convertArgs([]any{a, b})}
-	})
-
-	// abs(arg) - Absolute value
-	_ = obj.Set("abs", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "abs", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// round(arg) - Round to nearest integer
-	_ = obj.Set("round", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "round", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// floor(arg) - Round down
-	_ = obj.Set("floor", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "floor", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// ceil(arg) - Round up
-	_ = obj.Set("ceil", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "ceil", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// ===========================================
-	// Date/Time Functions
-	// ===========================================
-
-	// year(arg) - Extract year from date/datetime
-	_ = obj.Set("year", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "year", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// month(arg) - Extract month from date/datetime
-	_ = obj.Set("month", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "month", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// day(arg) - Extract day from date/datetime
-	_ = obj.Set("day", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "day", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// now() - Current timestamp
+	// now()
 	_ = obj.Set("now", func() *FnExpr {
 		return &FnExpr{Fn: "now"}
 	})
 
-	// years_since(date) - Years elapsed since date
-	_ = obj.Set("years_since", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "years_since", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// days_since(date) - Days elapsed since date
-	_ = obj.Set("days_since", func(arg any) *FnExpr {
-		return &FnExpr{Fn: "days_since", Args: fb.convertArgs([]any{arg})}
-	})
-
-	// ===========================================
-	// Null Handling Functions
-	// ===========================================
-
-	// coalesce(...args) - Return first non-null value
+	// coalesce(...args)
 	_ = obj.Set("coalesce", func(args ...any) *FnExpr {
 		return &FnExpr{Fn: "coalesce", Args: fb.convertArgs(args)}
 	})
 
-	// nullif(a, b) - Return NULL if a equals b
-	_ = obj.Set("nullif", func(a, b any) *FnExpr {
-		return &FnExpr{Fn: "nullif", Args: fb.convertArgs([]any{a, b})}
-	})
-
-	// if_null(arg, default) - Return default if arg is NULL
-	_ = obj.Set("if_null", func(arg, defaultVal any) *FnExpr {
-		return &FnExpr{Fn: "if_null", Args: fb.convertArgs([]any{arg, defaultVal})}
-	})
-
-	// ===========================================
-	// Conditional Functions
-	// ===========================================
-
-	// if_then(condition, thenVal, elseVal) - CASE WHEN condition THEN thenVal ELSE elseVal END
+	// if_then(condition, thenVal, elseVal)
 	_ = obj.Set("if_then", func(condition, thenVal, elseVal any) *FnExpr {
 		return &FnExpr{Fn: "if_then", Args: fb.convertArgs([]any{condition, thenVal, elseVal})}
 	})
 
-	// ===========================================
-	// Comparison Functions (for conditions)
-	// ===========================================
-
-	// gt(a, b) - a > b
-	_ = obj.Set("gt", func(a, b any) *FnExpr {
-		return &FnExpr{Fn: "gt", Args: fb.convertArgs([]any{a, b})}
-	})
-
-	// gte(a, b) - a >= b
-	_ = obj.Set("gte", func(a, b any) *FnExpr {
-		return &FnExpr{Fn: "gte", Args: fb.convertArgs([]any{a, b})}
-	})
-
-	// lt(a, b) - a < b
-	_ = obj.Set("lt", func(a, b any) *FnExpr {
-		return &FnExpr{Fn: "lt", Args: fb.convertArgs([]any{a, b})}
-	})
-
-	// lte(a, b) - a <= b
-	_ = obj.Set("lte", func(a, b any) *FnExpr {
-		return &FnExpr{Fn: "lte", Args: fb.convertArgs([]any{a, b})}
-	})
-
-	// eq(a, b) - a = b
-	_ = obj.Set("eq", func(a, b any) *FnExpr {
-		return &FnExpr{Fn: "eq", Args: fb.convertArgs([]any{a, b})}
-	})
-
-	// ===========================================
-	// Raw SQL Escape Hatch
-	// ===========================================
-
-	// sql({ postgres: "...", sqlite: "..." }) - Raw SQL per dialect
+	// sql({ postgres: "...", sqlite: "..." })
 	_ = obj.Set("sql", func(exprs map[string]any) *FnExpr {
 		sqlExprs := SQLExprs{}
 		if v, ok := exprs["postgres"].(string); ok {

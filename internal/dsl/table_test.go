@@ -2,6 +2,8 @@ package dsl
 
 import (
 	"testing"
+
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 func TestNewTableBuilder(t *testing.T) {
@@ -609,30 +611,26 @@ func TestTableBuilder_CompleteTable(t *testing.T) {
 	}
 }
 
-func TestParseRefParts(t *testing.T) {
+func TestParseRef(t *testing.T) {
 	tests := []struct {
-		ref          string
-		wantNS       string
-		wantTable    string
-		wantRelative bool
+		ref       string
+		wantNS    string
+		wantTable string
 	}{
-		{"auth.users", "auth", "users", false},
-		{".roles", "", "roles", true},
-		{"posts", "", "posts", false},
-		{"", "", "", false},
+		{"auth.users", "auth", "users"},
+		{".roles", "", "roles"},
+		{"posts", "", "posts"},
+		{"", "", ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.ref, func(t *testing.T) {
-			ns, table, isRelative := parseRefParts(tt.ref)
+			ns, table := strutil.ParseRef(tt.ref)
 			if ns != tt.wantNS {
 				t.Errorf("namespace = %q, want %q", ns, tt.wantNS)
 			}
 			if table != tt.wantTable {
 				t.Errorf("table = %q, want %q", table, tt.wantTable)
-			}
-			if isRelative != tt.wantRelative {
-				t.Errorf("isRelative = %v, want %v", isRelative, tt.wantRelative)
 			}
 		})
 	}

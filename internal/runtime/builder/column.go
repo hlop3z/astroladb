@@ -2,17 +2,11 @@ package builder
 
 import (
 	"github.com/dop251/goja"
-
-	"github.com/hlop3z/astroladb/internal/alerr"
 )
 
 // -----------------------------------------------------------------------------
 // ColBuilder - Standalone column factory for object-based table definitions
 // -----------------------------------------------------------------------------
-
-// ColDef is an alias for ColumnDef used by the col.* global.
-// The Name field is ignored when used with ColBuilder (name comes from object key).
-type ColDef = ColumnDef
 
 // ColBuilder provides the col.* global for creating column definitions.
 type ColBuilder struct {
@@ -24,23 +18,9 @@ func NewColBuilder(vm *goja.Runtime) *ColBuilder {
 	return &ColBuilder{vm: vm}
 }
 
-// colOpt is an alias for ColOpt since ColDef = ColumnDef.
-type colOpt = ColOpt
-
-// Internal convenience aliases that reference the shared with* functions.
-var (
-	colWithLength     = withLength
-	colWithArgs       = withArgs
-	colWithDefault    = withDefault
-	colWithPrimaryKey = withPrimaryKey
-)
-
-// colOptsFromSemantic is an alias for optsFromSemantic since ColDef = ColumnDef.
-var colOptsFromSemantic = optsFromSemantic
-
-// createColDef creates a ColDef and returns a chainable JS object.
-func (cb *ColBuilder) createColDef(colType string, opts ...colOpt) *goja.Object {
-	col := &ColDef{
+// createColumnDef creates a ColumnDef and returns a chainable JS object.
+func (cb *ColBuilder) createColumnDef(colType string, opts ...ColOpt) *goja.Object {
+	col := &ColumnDef{
 		Type:     colType,
 		Nullable: false,
 	}
@@ -51,7 +31,7 @@ func (cb *ColBuilder) createColDef(colType string, opts ...colOpt) *goja.Object 
 }
 
 // colDefBuilder creates a fluent builder object for column definition chaining.
-func (cb *ColBuilder) colDefBuilder(col *ColDef) *goja.Object {
+func (cb *ColBuilder) colDefBuilder(col *ColumnDef) *goja.Object {
 	obj := createChainBuilder(cb.vm, col, false, cb.convertExpr)
 	// Store the column definition for extraction (required for col.* API)
 	_ = obj.Set("_colDef", col)
@@ -59,7 +39,7 @@ func (cb *ColBuilder) colDefBuilder(col *ColDef) *goja.Object {
 }
 
 // relDefBuilder creates a fluent builder for relationship definitions.
-func (cb *ColBuilder) relDefBuilder(col *ColDef) *goja.Object {
+func (cb *ColBuilder) relDefBuilder(col *ColumnDef) *goja.Object {
 	obj := createChainBuilder(cb.vm, col, true, cb.convertExpr)
 	// Store the column definition for extraction (required for col.* API)
 	_ = obj.Set("_colDef", col)
@@ -72,61 +52,31 @@ func (cb *ColBuilder) ToObject() *goja.Object {
 
 	// id() - UUID primary key
 	_ = obj.Set("id", func() *goja.Object {
-		return cb.createColDef("uuid", colWithPrimaryKey())
+		return cb.createColumnDef("uuid", withPrimaryKey())
 	})
 
 	// string(length) - length is required
 	_ = obj.Set("string", func(length int) *goja.Object {
-		if length <= 0 {
-			panic(cb.vm.ToValue(ErrMsgStringRequiresLength.String()))
-		}
-		return cb.createColDef("string", colWithLength(length))
+		validateStringLength(cb.vm, length, "")
+		return cb.createColumnDef("string", withLength(length))
 	})
 
-	// text()
-	_ = obj.Set("text", func() *goja.Object { return cb.createColDef("text") })
-
-	// integer()
-	_ = obj.Set("integer", func() *goja.Object { return cb.createColDef("integer") })
-
-	// float()
-	_ = obj.Set("float", func() *goja.Object { return cb.createColDef("float") })
+	// Simple types (no extra args)
+	for _, t := range simpleTypes {
+		typeName := t
+		_ = obj.Set(typeName, func() *goja.Object { return cb.createColumnDef(typeName) })
+	}
 
 	// decimal(precision, scale)
 	_ = obj.Set("decimal", func(precision, scale int) *goja.Object {
-		if precision <= 0 || scale < 0 {
-			panic(cb.vm.ToValue(ErrMsgDecimalRequiresArgs.String()))
-		}
-		return cb.createColDef("decimal", colWithArgs(precision, scale))
+		validateDecimalArgs(cb.vm, precision, scale, false)
+		return cb.createColumnDef("decimal", withArgs(precision, scale))
 	})
-
-	// boolean()
-	_ = obj.Set("boolean", func() *goja.Object { return cb.createColDef("boolean") })
-
-	// date()
-	_ = obj.Set("date", func() *goja.Object { return cb.createColDef("date") })
-
-	// time()
-	_ = obj.Set("time", func() *goja.Object { return cb.createColDef("time") })
-
-	// datetime()
-	_ = obj.Set("datetime", func() *goja.Object { return cb.createColDef("datetime") })
-
-	// uuid()
-	_ = obj.Set("uuid", func() *goja.Object { return cb.createColDef("uuid") })
-
-	// json()
-	_ = obj.Set("json", func() *goja.Object { return cb.createColDef("json") })
-
-	// base64()
-	_ = obj.Set("base64", func() *goja.Object { return cb.createColDef("base64") })
 
 	// enum(values) - values is required and must not be empty
 	_ = obj.Set("enum", func(values []string) *goja.Object {
-		if len(values) == 0 {
-			panic(cb.vm.ToValue(ErrMsgEnumRequiresValues.String()))
-		}
-		return cb.createColDef("enum", colWithArgs(values))
+		validateEnumValues(cb.vm, values)
+		return cb.createColumnDef("enum", withArgs(values))
 	})
 
 	// ===========================================
@@ -145,14 +95,14 @@ func (cb *ColBuilder) ToObject() *goja.Object {
 						defaultVal = v
 					}
 				}
-				return cb.createColDef("boolean", colWithDefault(defaultVal))
+				return cb.createColumnDef("boolean", withDefault(defaultVal))
 			})
 			continue
 		}
 
 		// All other semantic types: typeName() - no column name argument
 		_ = obj.Set(tn, func() *goja.Object {
-			return cb.createColDef(semantic.BaseType, colOptsFromSemantic(semantic)...)
+			return cb.createColumnDef(semantic.BaseType, optsFromSemantic(semantic)...)
 		})
 	}
 
@@ -162,16 +112,9 @@ func (cb *ColBuilder) ToObject() *goja.Object {
 
 	// belongs_to(ref) - FK relationship (key becomes alias_id)
 	_ = obj.Set("belongs_to", func(ref string) *goja.Object {
-		// Validate: reference cannot be empty
-		if ref == "" {
-			panic(cb.vm.ToValue(ErrMsgBelongsToRequiresRef.String()))
-		}
-		// Validate: reference must have namespace
-		if !alerr.HasNamespace(ref) {
-			panic(cb.vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
-		}
+		validateRef(cb.vm, ref, "col.belongs_to")
 
-		col := &ColDef{
+		col := &ColumnDef{
 			Type:           "uuid",
 			IsRelationship: true,
 			Reference: &RefDef{
@@ -185,11 +128,9 @@ func (cb *ColBuilder) ToObject() *goja.Object {
 
 	// one_to_one(ref) - Unique FK relationship
 	_ = obj.Set("one_to_one", func(ref string) *goja.Object {
-		if !alerr.HasNamespace(ref) {
-			panic(cb.vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
-		}
+		validateRef(cb.vm, ref, "col.one_to_one")
 
-		col := &ColDef{
+		col := &ColumnDef{
 			Type:           "uuid",
 			Unique:         true,
 			IsRelationship: true,
@@ -205,9 +146,9 @@ func (cb *ColBuilder) ToObject() *goja.Object {
 	// belongs_to_any(refs) - Polymorphic relationship (creates _type and _id columns)
 	// The key name in the object becomes the polymorphic alias
 	_ = obj.Set("belongs_to_any", func(refs []string) *goja.Object {
-		// Create a special ColDef that marks this as polymorphic
+		// Create a special ColumnDef that marks this as polymorphic
 		// The sandbox will expand this into two columns: {alias}_type and {alias}_id
-		col := &ColDef{
+		col := &ColumnDef{
 			Type:           "polymorphic",
 			IsRelationship: true,
 			TypeArgs:       make([]any, len(refs)),
@@ -241,7 +182,7 @@ func (cb *ColBuilder) convertExpr(expr any) any {
 }
 
 // polyDefBuilder creates a builder for polymorphic relationship definitions.
-func (cb *ColBuilder) polyDefBuilder(col *ColDef) *goja.Object {
+func (cb *ColBuilder) polyDefBuilder(col *ColumnDef) *goja.Object {
 	obj := cb.vm.NewObject()
 
 	// Store the column definition for extraction

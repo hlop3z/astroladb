@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // Pure DSL writers for migration content generation.
@@ -184,7 +185,7 @@ func (c *Client) writeBelongsTo(sb *strings.Builder, col *ast.ColumnDef) {
 
 	// Determine if an alias is needed by checking if column name differs from default
 	// Default column name for belongs_to("ns.table") is "table_id"
-	expectedColName := extractTableName(col.Reference.Table) + "_id"
+	expectedColName := strutil.ExtractTableName(col.Reference.Table) + "_id"
 	if col.Name != expectedColName {
 		// Extract alias from column name (remove _id suffix)
 		alias := strings.TrimSuffix(col.Name, "_id")
@@ -204,12 +205,6 @@ func (c *Client) writeBelongsTo(sb *strings.Builder, col *ast.ColumnDef) {
 
 	call.WriteString("\n")
 	sb.WriteString(call.String())
-}
-
-// extractTableName extracts the table name from a reference like "ns.table" or "table".
-func extractTableName(ref string) string {
-	parts := strings.Split(ref, ".")
-	return parts[len(parts)-1]
 }
 
 // writeDropTable writes a drop_table DSL call.

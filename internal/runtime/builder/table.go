@@ -6,6 +6,7 @@ import (
 	"github.com/dop251/goja"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // -----------------------------------------------------------------------------
@@ -54,6 +55,46 @@ func NewTableBuilderWithColumns(vm *goja.Runtime, columns []*ColumnDef, indexes 
 // -----------------------------------------------------------------------------
 // Functional options for column configuration
 // -----------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+// Shared validation helpers (used by both ColBuilder and TableBuilder)
+// -----------------------------------------------------------------------------
+
+// validateRef panics if ref is empty or missing namespace.
+func validateRef(vm *goja.Runtime, ref, method string) {
+	if ref == "" {
+		panic(vm.ToValue(alerr.NewMissingReferenceError(method).Error()))
+	}
+	if !alerr.HasNamespace(ref) {
+		panic(vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
+	}
+}
+
+// validateStringLength panics if length is invalid.
+// For table context (name != ""), uses alerr for semantic error with column name.
+// For col context (name == ""), uses BuilderError.
+func validateStringLength(vm *goja.Runtime, length int, name string) {
+	if length <= 0 {
+		if name != "" {
+			panic(vm.ToValue(alerr.NewMissingLengthError(name).Error()))
+		}
+		panic(vm.ToValue(ErrMsgStringRequiresLength.String()))
+	}
+}
+
+// validateDecimalArgs panics if precision/scale are invalid.
+func validateDecimalArgs(vm *goja.Runtime, precision, scale int, isTable bool) {
+	if precision <= 0 || scale < 0 {
+		panic(vm.ToValue(ErrDecimalRequiresArgs(isTable).String()))
+	}
+}
+
+// validateEnumValues panics if values slice is empty.
+func validateEnumValues(vm *goja.Runtime, values []string) {
+	if len(values) == 0 {
+		panic(vm.ToValue(ErrMsgEnumRequiresValues.String()))
+	}
+}
 
 // ColOpt is a functional option for configuring column properties.
 type ColOpt func(*ColumnDef)
@@ -133,6 +174,103 @@ func (tb *TableBuilder) addColumn(name, colType string, opts ...ColOpt) *goja.Ob
 	return tb.columnBuilder(col)
 }
 
+// addTimestamps appends created_at and updated_at datetime columns with NOW() defaults.
+func (tb *TableBuilder) addTimestamps() {
+	tb.Columns = append(tb.Columns, &ColumnDef{
+		Name:    "created_at",
+		Type:    "datetime",
+		Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
+	})
+	tb.Columns = append(tb.Columns, &ColumnDef{
+		Name:    "updated_at",
+		Type:    "datetime",
+		Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
+	})
+}
+
+// addSoftDelete appends a nullable deleted_at datetime column.
+func (tb *TableBuilder) addSoftDelete() {
+	tb.Columns = append(tb.Columns, &ColumnDef{
+		Name:     "deleted_at",
+		Type:     "datetime",
+		Nullable: true,
+	})
+}
+
+// addSortable appends an integer position column with default 0.
+func (tb *TableBuilder) addSortable() {
+	tb.Columns = append(tb.Columns, &ColumnDef{
+		Name:    "position",
+		Type:    "integer",
+		Default: 0,
+	})
+}
+
+// resolveUniqueColumns resolves column names, appending _id suffix for relationship aliases.
+func (tb *TableBuilder) resolveUniqueColumns(columns []string) []string {
+	existingCols := make(map[string]bool)
+	for _, c := range tb.Columns {
+		existingCols[c.Name] = true
+	}
+
+	cols := make([]string, len(columns))
+	for i, col := range columns {
+		if strings.HasSuffix(col, "_id") || strings.HasSuffix(col, "_type") {
+			cols[i] = col
+		} else if existingCols[col+"_id"] {
+			cols[i] = col + "_id"
+		} else {
+			cols[i] = col
+		}
+	}
+	return cols
+}
+
+// addPolymorphicColumns appends _type (string) and _id (uuid) columns for a polymorphic relationship.
+func (tb *TableBuilder) addPolymorphicColumns(as string) {
+	tb.Columns = append(tb.Columns, &ColumnDef{
+		Name:     as + "_type",
+		Type:     "string",
+		TypeArgs: []any{100},
+	})
+	tb.Columns = append(tb.Columns, &ColumnDef{
+		Name: as + "_id",
+		Type: "uuid",
+	})
+}
+
+// registerCommonHelpers registers methods shared between toBaseObject and ToChainableObject.
+// When chainable is true, methods return obj for chaining; when false, they return void.
+func (tb *TableBuilder) registerCommonHelpers(obj *goja.Object, chainable bool) {
+	if chainable {
+		_ = obj.Set("timestamps", func() *goja.Object { tb.addTimestamps(); return obj })
+		_ = obj.Set("soft_delete", func() *goja.Object { tb.addSoftDelete(); return obj })
+		_ = obj.Set("sortable", func() *goja.Object { tb.addSortable(); return obj })
+		_ = obj.Set("index", func(columns ...string) *goja.Object {
+			tb.Indexes = append(tb.Indexes, &IndexDef{Columns: columns})
+			return obj
+		})
+		_ = obj.Set("unique", func(columns ...string) *goja.Object {
+			tb.Indexes = append(tb.Indexes, &IndexDef{Columns: tb.resolveUniqueColumns(columns), Unique: true})
+			return obj
+		})
+		_ = obj.Set("docs", func(description string) *goja.Object { tb.Docs = description; return obj })
+		_ = obj.Set("deprecated", func(reason string) *goja.Object { tb.Deprecated = reason; return obj })
+	} else {
+		_ = obj.Set("timestamps", func() { tb.addTimestamps() })
+		_ = obj.Set("soft_delete", func() { tb.addSoftDelete() })
+		_ = obj.Set("sortable", func() { tb.addSortable() })
+		_ = obj.Set("index", func(columns ...string) {
+			tb.Indexes = append(tb.Indexes, &IndexDef{Columns: columns})
+		})
+		_ = obj.Set("unique", func(columns ...string) {
+			tb.Indexes = append(tb.Indexes, &IndexDef{Columns: tb.resolveUniqueColumns(columns), Unique: true})
+		})
+		_ = obj.Set("docs", func(description string) { tb.Docs = description })
+		_ = obj.Set("deprecated", func(reason string) { tb.Deprecated = reason })
+	}
+}
+
 // ToMigrationObject converts the builder to a JavaScript object with LOW-LEVEL types only.
 // Used by migrations where only explicit types are allowed (no semantic types).
 // This ensures migrations are explicit and stable even if semantic type definitions change.
@@ -152,89 +290,29 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 
 	// string(name, length) - length is required
 	_ = obj.Set("string", func(name string, length int) *goja.Object {
-		if length <= 0 {
-			panic(tb.vm.ToValue(alerr.NewMissingLengthError(name).Error()))
-		}
+		validateStringLength(tb.vm, length, name)
 		return tb.addColumn(name, "string", withLength(length))
 	})
 
-	// text(name)
-	_ = obj.Set("text", func(name string) *goja.Object { return tb.addColumn(name, "text") })
-
-	// integer(name)
-	_ = obj.Set("integer", func(name string) *goja.Object { return tb.addColumn(name, "integer") })
-
-	// float(name)
-	_ = obj.Set("float", func(name string) *goja.Object { return tb.addColumn(name, "float") })
+	// Simple types (no extra args) - each takes (name string)
+	for _, t := range simpleTypes {
+		typeName := t
+		_ = obj.Set(typeName, func(name string) *goja.Object { return tb.addColumn(name, typeName) })
+	}
 
 	// decimal(name, precision, scale)
 	_ = obj.Set("decimal", func(name string, precision, scale int) *goja.Object {
-		if precision <= 0 || scale < 0 {
-			panic(tb.vm.ToValue(ErrMsgTableDecimalRequiresArgs.String()))
-		}
+		validateDecimalArgs(tb.vm, precision, scale, true)
 		return tb.addColumn(name, "decimal", withArgs(precision, scale))
 	})
 
-	// boolean(name)
-	_ = obj.Set("boolean", func(name string) *goja.Object { return tb.addColumn(name, "boolean") })
-
-	// date(name)
-	_ = obj.Set("date", func(name string) *goja.Object { return tb.addColumn(name, "date") })
-
-	// time(name)
-	_ = obj.Set("time", func(name string) *goja.Object { return tb.addColumn(name, "time") })
-
-	// datetime(name) - timestamp column
-	_ = obj.Set("datetime", func(name string) *goja.Object { return tb.addColumn(name, "datetime") })
-
-	// uuid(name)
-	_ = obj.Set("uuid", func(name string) *goja.Object { return tb.addColumn(name, "uuid") })
-
-	// json(name)
-	_ = obj.Set("json", func(name string) *goja.Object { return tb.addColumn(name, "json") })
-
-	// base64(name)
-	_ = obj.Set("base64", func(name string) *goja.Object { return tb.addColumn(name, "base64") })
-
 	// enum(name, values) - values is required and must not be empty
 	_ = obj.Set("enum", func(name string, values []string) *goja.Object {
-		if len(values) == 0 {
-			panic(tb.vm.ToValue(ErrMsgEnumRequiresValues.String()))
-		}
+		validateEnumValues(tb.vm, values)
 		return tb.addColumn(name, "enum", withArgs(values))
 	})
 
-	// timestamps() - adds created_at and updated_at
-	_ = obj.Set("timestamps", func() {
-		tb.Columns = append(tb.Columns, &ColumnDef{
-			Name:    "created_at",
-			Type:    "datetime",
-			Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
-		})
-		tb.Columns = append(tb.Columns, &ColumnDef{
-			Name:    "updated_at",
-			Type:    "datetime",
-			Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
-		})
-	})
-
-	// soft_delete() - adds deleted_at
-	_ = obj.Set("soft_delete", func() {
-		tb.Columns = append(tb.Columns, &ColumnDef{
-			Name:     "deleted_at",
-			Type:     "datetime",
-			Nullable: true,
-		})
-	})
-
-	// sortable() - adds position
-	_ = obj.Set("sortable", func() {
-		tb.Columns = append(tb.Columns, &ColumnDef{
-			Name:    "position",
-			Type:    "integer",
-			Default: 0,
-		})
-	})
+	tb.registerCommonHelpers(obj, false)
 
 	// belongs_to(ref) - Foreign key relationship with chaining API
 	// Examples:
@@ -243,17 +321,10 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 	//   belongs_to("auth.user").optional()                         -> user_id, nullable
 	//   belongs_to("auth.user").as("author").optional().on_delete("cascade")
 	_ = obj.Set("belongs_to", func(ref string) *goja.Object {
-		// Validate: reference cannot be empty
-		if ref == "" {
-			panic(tb.vm.ToValue(alerr.NewMissingReferenceError("t.belongs_to").Error()))
-		}
-		// Validate: reference must have namespace
-		if !alerr.HasNamespace(ref) {
-			panic(tb.vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
-		}
+		validateRef(tb.vm, ref, "t.belongs_to")
 
 		// Default column name from table reference
-		colName := extractTableName(ref) + "_id"
+		colName := strutil.ExtractTableName(ref) + "_id"
 
 		col := &ColumnDef{
 			Name: colName,
@@ -280,12 +351,9 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 	// one_to_one(ref) - Unique foreign key relationship with chaining API
 	// Same as belongs_to but creates unique constraint
 	_ = obj.Set("one_to_one", func(ref string) *goja.Object {
-		// Validate: reference must have namespace
-		if !alerr.HasNamespace(ref) {
-			panic(tb.vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
-		}
+		validateRef(tb.vm, ref, "t.one_to_one")
 
-		colName := extractTableName(ref) + "_id"
+		colName := strutil.ExtractTableName(ref) + "_id"
 
 		col := &ColumnDef{
 			Name:   colName,
@@ -307,14 +375,7 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 
 	// many_to_many(ref, opts)
 	_ = obj.Set("many_to_many", func(ref string, opts ...map[string]any) {
-		// Validate: reference cannot be empty
-		if ref == "" {
-			panic(tb.vm.ToValue(alerr.NewMissingReferenceError("many_to_many").Error()))
-		}
-		// Validate: reference must have namespace
-		if !alerr.HasNamespace(ref) {
-			panic(tb.vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
-		}
+		validateRef(tb.vm, ref, "many_to_many")
 		// many_to_many generates a join table automatically
 		// Store as relationship metadata for later processing
 		rel := &RelationshipDef{
@@ -331,7 +392,6 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 
 	// belongs_to_any(refs, opts)
 	_ = obj.Set("belongs_to_any", func(refs []string, opts ...map[string]any) {
-		// Polymorphic relationship: adds type and id columns
 		var as string
 		if len(opts) > 0 {
 			if v, ok := opts[0]["as"].(string); ok {
@@ -341,79 +401,14 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 		if as == "" {
 			as = "polymorphic"
 		}
-
-		typeCol := as + "_type"
-		idCol := as + "_id"
-
-		// Add type column
-		tb.Columns = append(tb.Columns, &ColumnDef{
-			Name:     typeCol,
-			Type:     "string",
-			TypeArgs: []any{100},
-		})
-
-		// Add id column
-		tb.Columns = append(tb.Columns, &ColumnDef{
-			Name: idCol,
-			Type: "uuid",
-		})
-
+		tb.addPolymorphicColumns(as)
 		// Note: Index is NOT created here for migrations (same as belongs_to).
 		// See belongs_to comment above for explanation.
-
-		// Store polymorphic relationship metadata
 		tb.Relationships = append(tb.Relationships, &RelationshipDef{
 			Type:    "polymorphic",
 			Targets: refs,
 			As:      as,
 		})
-	})
-
-	// index(columns...)
-	_ = obj.Set("index", func(columns ...string) {
-		tb.Indexes = append(tb.Indexes, &IndexDef{
-			Columns: columns,
-		})
-	})
-
-	// unique(columns...) - composite uniqueness constraint
-	// Clean API for relationship tables: unique("follower", "follows")
-	// Automatically appends _id suffix for relationship aliases
-	_ = obj.Set("unique", func(columns ...string) {
-		// Build a set of existing column names
-		existingCols := make(map[string]bool)
-		for _, c := range tb.Columns {
-			existingCols[c.Name] = true
-		}
-
-		// Convert field names to column names
-		cols := make([]string, len(columns))
-		for i, col := range columns {
-			// If column already ends with _id or _type, use as-is
-			if strings.HasSuffix(col, "_id") || strings.HasSuffix(col, "_type") {
-				cols[i] = col
-			} else if existingCols[col+"_id"] {
-				// If {col}_id exists as a column, use it (relationship alias)
-				cols[i] = col + "_id"
-			} else {
-				// Otherwise use the column name as-is (regular field like "type")
-				cols[i] = col
-			}
-		}
-		tb.Indexes = append(tb.Indexes, &IndexDef{
-			Columns: cols,
-			Unique:  true,
-		})
-	})
-
-	// docs(description)
-	_ = obj.Set("docs", func(description string) {
-		tb.Docs = description
-	})
-
-	// deprecated(reason)
-	_ = obj.Set("deprecated", func(reason string) {
-		tb.Deprecated = reason
 	})
 
 	return obj
@@ -424,81 +419,11 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 func (tb *TableBuilder) ToChainableObject() *goja.Object {
 	obj := tb.vm.NewObject()
 
-	// timestamps() - adds created_at and updated_at
-	_ = obj.Set("timestamps", func() *goja.Object {
-		tb.Columns = append(tb.Columns, &ColumnDef{
-			Name:    "created_at",
-			Type:    "datetime",
-			Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
-		})
-		tb.Columns = append(tb.Columns, &ColumnDef{
-			Name:    "updated_at",
-			Type:    "datetime",
-			Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
-		})
-		return obj
-	})
-
-	// soft_delete() - adds deleted_at
-	_ = obj.Set("soft_delete", func() *goja.Object {
-		tb.Columns = append(tb.Columns, &ColumnDef{
-			Name:     "deleted_at",
-			Type:     "datetime",
-			Nullable: true,
-		})
-		return obj
-	})
-
-	// sortable() - adds position
-	_ = obj.Set("sortable", func() *goja.Object {
-		tb.Columns = append(tb.Columns, &ColumnDef{
-			Name:    "position",
-			Type:    "integer",
-			Default: 0,
-		})
-		return obj
-	})
-
-	// index(...columns) - composite index
-	_ = obj.Set("index", func(columns ...string) *goja.Object {
-		tb.Indexes = append(tb.Indexes, &IndexDef{
-			Columns: columns,
-		})
-		return obj
-	})
-
-	// unique(...columns) - composite uniqueness
-	_ = obj.Set("unique", func(columns ...string) *goja.Object {
-		existingCols := make(map[string]bool)
-		for _, c := range tb.Columns {
-			existingCols[c.Name] = true
-		}
-
-		cols := make([]string, len(columns))
-		for i, col := range columns {
-			if strings.HasSuffix(col, "_id") || strings.HasSuffix(col, "_type") {
-				cols[i] = col
-			} else if existingCols[col+"_id"] {
-				cols[i] = col + "_id"
-			} else {
-				cols[i] = col
-			}
-		}
-		tb.Indexes = append(tb.Indexes, &IndexDef{
-			Columns: cols,
-			Unique:  true,
-		})
-		return obj
-	})
+	tb.registerCommonHelpers(obj, true)
 
 	// many_to_many(ref)
 	_ = obj.Set("many_to_many", func(ref string) *goja.Object {
-		if ref == "" {
-			panic(tb.vm.ToValue(alerr.NewMissingReferenceError("many_to_many").Error()))
-		}
-		if !alerr.HasNamespace(ref) {
-			panic(tb.vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
-		}
+		validateRef(tb.vm, ref, "many_to_many")
 		tb.Relationships = append(tb.Relationships, &RelationshipDef{
 			Type:   "many_to_many",
 			Target: ref,
@@ -534,39 +459,15 @@ func (tb *TableBuilder) ToChainableObject() *goja.Object {
 		if as == "" {
 			as = "polymorphic"
 		}
-
-		typeCol := as + "_type"
-		idCol := as + "_id"
-
-		tb.Columns = append(tb.Columns, &ColumnDef{
-			Name:     typeCol,
-			Type:     "string",
-			TypeArgs: []any{100},
-		})
-		tb.Columns = append(tb.Columns, &ColumnDef{
-			Name: idCol,
-			Type: "uuid",
-		})
+		tb.addPolymorphicColumns(as)
 		tb.Indexes = append(tb.Indexes, &IndexDef{
-			Columns: []string{typeCol, idCol},
+			Columns: []string{as + "_type", as + "_id"},
 		})
 		tb.Relationships = append(tb.Relationships, &RelationshipDef{
 			Type:    "polymorphic",
 			Targets: refs,
 			As:      as,
 		})
-		return obj
-	})
-
-	// docs(description) - table documentation
-	_ = obj.Set("docs", func(description string) *goja.Object {
-		tb.Docs = description
-		return obj
-	})
-
-	// deprecated(reason) - mark table as deprecated
-	_ = obj.Set("deprecated", func(reason string) *goja.Object {
-		tb.Deprecated = reason
 		return obj
 	})
 
@@ -766,65 +667,17 @@ func createChainBuilder(vm *goja.Runtime, col *ColumnDef, includeRelOpts bool, c
 }
 
 // relationshipBuilder creates a fluent builder for FK relationships with chaining.
-// Supports: .as(alias), .optional(), .on_delete(action), .on_update(action)
+// Composes createChainBuilder (optional, on_delete, on_update, docs, etc.) with an additional "as" method.
 func (tb *TableBuilder) relationshipBuilder(ref string, col *ColumnDef, idx *IndexDef) *goja.Object {
-	obj := tb.vm.NewObject()
+	obj := createChainBuilder(tb.vm, col, true)
 
 	// as(alias) - Set custom column name
 	_ = obj.Set("as", func(alias string) *goja.Object {
 		newName := alias + "_id"
 		col.Name = newName
-		// Update index columns if index exists (may be nil in migrations)
 		if idx != nil {
 			idx.Columns = []string{newName}
 		}
-		return obj
-	})
-
-	// optional() - marks foreign key as nullable
-	_ = obj.Set("optional", func() *goja.Object {
-		col.Nullable = true
-		return obj
-	})
-
-	// on_delete(action) - Set ON DELETE action
-	_ = obj.Set("on_delete", func(action string) *goja.Object {
-		if col.Reference != nil {
-			col.Reference.OnDelete = action
-		}
-		return obj
-	})
-
-	// on_update(action) - Set ON UPDATE action
-	_ = obj.Set("on_update", func(action string) *goja.Object {
-		if col.Reference != nil {
-			col.Reference.OnUpdate = action
-		}
-		return obj
-	})
-
-	// Also include column modifiers for convenience
-	// docs(description)
-	_ = obj.Set("docs", func(description string) *goja.Object {
-		col.Docs = description
-		return obj
-	})
-
-	// deprecated(reason)
-	_ = obj.Set("deprecated", func(reason string) *goja.Object {
-		col.Deprecated = reason
-		return obj
-	})
-
-	// read_only() - marks column as read-only
-	_ = obj.Set("read_only", func() *goja.Object {
-		col.ReadOnly = true
-		return obj
-	})
-
-	// write_only() - marks column as write-only
-	_ = obj.Set("write_only", func() *goja.Object {
-		col.WriteOnly = true
 		return obj
 	})
 
@@ -838,6 +691,3 @@ func (tb *TableBuilder) ToResult() goja.Value {
 	_ = result.Set("_tableBuilder", tb)
 	return result
 }
-
-// extractTableName extracts the table name from a reference.
-// With singular table convention: "auth.user" -> "user", "core.order" -> "order"

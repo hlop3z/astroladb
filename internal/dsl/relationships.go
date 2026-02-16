@@ -1,6 +1,8 @@
 // Package dsl provides fluent builders for defining database schemas and migrations.
 package dsl
 
+import "github.com/hlop3z/astroladb/internal/strutil"
+
 // RelationshipBuilder provides a fluent API for building foreign key relationships.
 // It supports chained configuration: t.belongs_to("auth.user").as("author").optional().on_delete("cascade")
 type RelationshipBuilder struct {
@@ -64,20 +66,9 @@ func (rb *RelationshipBuilder) SetUnique() *RelationshipBuilder {
 func (rb *RelationshipBuilder) ColumnName() string {
 	name := rb.Alias
 	if name == "" {
-		name = extractTableNameFromRef(rb.Ref)
+		name = strutil.ExtractTableName(rb.Ref)
 	}
 	return name + "_id"
-}
-
-// extractTableNameFromRef extracts the table name from a reference.
-// "auth.user" -> "user", "core.order" -> "order"
-func extractTableNameFromRef(ref string) string {
-	for i := len(ref) - 1; i >= 0; i-- {
-		if ref[i] == '.' {
-			return ref[i+1:]
-		}
-	}
-	return ref
 }
 
 // ToColumnDef converts the relationship to a column definition map.

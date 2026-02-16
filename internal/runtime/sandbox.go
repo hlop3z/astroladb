@@ -251,13 +251,13 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 				continue
 			}
 
-			// Extract the ColDef pointer
-			colDef, ok := colDefVal.Export().(*builder.ColDef)
+			// Extract the ColumnDef pointer
+			colDef, ok := colDefVal.Export().(*builder.ColumnDef)
 			if !ok {
 				continue
 			}
 
-			// Convert ColDef to ColumnDef with the name from the object key
+			// Create ColumnDef with the name from the object key
 			columnDef := &builder.ColumnDef{
 				Type:       colDef.Type,
 				TypeArgs:   colDef.TypeArgs,

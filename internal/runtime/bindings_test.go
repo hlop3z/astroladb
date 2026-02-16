@@ -8,6 +8,7 @@ import (
 
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/runtime/schema"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 func TestBindSQL(t *testing.T) {
@@ -551,7 +552,7 @@ func TestParseRef(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.ref, func(t *testing.T) {
-			ns, table := parseRef(tt.ref)
+			ns, table := strutil.ParseRef(tt.ref)
 			if ns != tt.wantNS {
 				t.Errorf("namespace = %q, want %q", ns, tt.wantNS)
 			}

@@ -213,8 +213,7 @@ func (t *TableBuilder) BelongsTo(ref string, opts ...BelongsToOption) *ColumnBui
 	colName := cfg.as
 	if colName == "" {
 		// Extract table name from reference and create FK column name
-		_, table, _ := parseRefParts(ref)
-		colName = strutil.FKColumn(table)
+		colName = strutil.FKColumn(strutil.ExtractTableName(ref))
 	}
 
 	col := NewColumnBuilder(colName, "uuid")
@@ -399,25 +398,4 @@ func (t *TableBuilder) Docs(description string) {
 // Deprecated marks the table as deprecated.
 func (t *TableBuilder) Deprecated(reason string) {
 	t.def.Deprecated = reason
-}
-
-// -----------------------------------------------------------------------------
-// Helper functions
-// -----------------------------------------------------------------------------
-
-// parseRefParts extracts namespace and table from a reference.
-// Simple implementation that mirrors registry.ParseReference.
-func parseRefParts(ref string) (ns, table string, isRelative bool) {
-	if ref == "" {
-		return "", "", false
-	}
-	if len(ref) > 0 && ref[0] == '.' {
-		return "", ref[1:], true
-	}
-	for i, c := range ref {
-		if c == '.' {
-			return ref[:i], ref[i+1:], false
-		}
-	}
-	return "", ref, false
 }

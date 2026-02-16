@@ -22,23 +22,28 @@ var (
 		Help:  "try col.string(255) for VARCHAR(255)",
 	}
 
-	ErrMsgDecimalRequiresArgs = BuilderError{
-		Cause: "decimal() requires precision and scale arguments",
-		Help:  "try col.decimal(10, 2) for DECIMAL(10,2)",
-	}
-
-	// Table builder (migration) errors
-	ErrMsgTableDecimalRequiresArgs = BuilderError{
-		Cause: "decimal() requires precision and scale arguments",
-		Help:  "try c.decimal(\"price\", 10, 2) for DECIMAL(10,2)",
-	}
-
 	// Enum errors
 	ErrMsgEnumRequiresValues = BuilderError{
 		Cause: "enum() requires at least one value",
 		Help:  "try col.enum(['active', 'inactive']) or c.enum(\"status\", ['active', 'inactive'])",
 	}
+)
 
+// ErrDecimalRequiresArgs returns the appropriate decimal error for col or table context.
+func ErrDecimalRequiresArgs(isTable bool) BuilderError {
+	if isTable {
+		return BuilderError{
+			Cause: "decimal() requires precision and scale arguments",
+			Help:  `try c.decimal("price", 10, 2) for DECIMAL(10,2)`,
+		}
+	}
+	return BuilderError{
+		Cause: "decimal() requires precision and scale arguments",
+		Help:  "try col.decimal(10, 2) for DECIMAL(10,2)",
+	}
+}
+
+var (
 	// Relationship errors (column-level, schema API)
 	ErrMsgBelongsToRequiresRef = BuilderError{
 		Cause: "belongs_to() requires a table reference",

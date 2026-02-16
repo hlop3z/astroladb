@@ -310,7 +310,7 @@ func TestColBuilder_polyDefBuilder(t *testing.T) {
 		vm := goja.New()
 		cb := NewColBuilder(vm)
 
-		col := &ColDef{
+		col := &ColumnDef{
 			Name:     "owner",
 			Type:     "polymorphic",
 			Nullable: false,
@@ -332,7 +332,7 @@ func TestColBuilder_polyDefBuilder(t *testing.T) {
 		vm := goja.New()
 		cb := NewColBuilder(vm)
 
-		col := &ColDef{
+		col := &ColumnDef{
 			Name:     "owner",
 			Type:     "polymorphic",
 			Nullable: false,
@@ -361,7 +361,7 @@ func TestColBuilder_polyDefBuilder(t *testing.T) {
 		vm := goja.New()
 		cb := NewColBuilder(vm)
 
-		col := &ColDef{
+		col := &ColumnDef{
 			Name:     "owner",
 			Type:     "polymorphic",
 			Nullable: false,

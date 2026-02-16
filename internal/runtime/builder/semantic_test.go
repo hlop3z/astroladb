@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"sort"
 	"testing"
 )
 
@@ -192,169 +193,11 @@ func TestSemanticTypeNames(t *testing.T) {
 			t.Errorf("name %q from SemanticTypeNames() not in registry", name)
 		}
 	}
-}
 
-// -----------------------------------------------------------------------------
-// SemanticType.ApplyTo Tests
-// -----------------------------------------------------------------------------
-
-func TestSemanticType_ApplyTo(t *testing.T) {
-	t.Run("string_type_with_length", func(t *testing.T) {
-		st := SemanticType{
-			BaseType: "string",
-			Length:   100,
-		}
-		col := make(map[string]any)
-		st.ApplyTo(col)
-
-		if typeArgs, ok := col["type_args"].([]any); ok {
-			if len(typeArgs) != 1 || typeArgs[0] != 100 {
-				t.Errorf("type_args = %v, want [100]", typeArgs)
-			}
-		} else {
-			t.Error("type_args should be set for string type")
-		}
-	})
-
-	t.Run("decimal_type_with_precision", func(t *testing.T) {
-		st := SemanticType{
-			BaseType:  "decimal",
-			Precision: 10,
-			Scale:     2,
-		}
-		col := make(map[string]any)
-		st.ApplyTo(col)
-
-		if typeArgs, ok := col["type_args"].([]any); ok {
-			if len(typeArgs) != 2 || typeArgs[0] != 10 || typeArgs[1] != 2 {
-				t.Errorf("type_args = %v, want [10, 2]", typeArgs)
-			}
-		} else {
-			t.Error("type_args should be set for decimal type")
-		}
-	})
-
-	t.Run("with_format", func(t *testing.T) {
-		st := SemanticType{
-			BaseType: "string",
-			Format:   "email",
-		}
-		col := make(map[string]any)
-		st.ApplyTo(col)
-
-		if col["format"] != "email" {
-			t.Errorf("format = %v, want 'email'", col["format"])
-		}
-	})
-
-	t.Run("with_pattern", func(t *testing.T) {
-		st := SemanticType{
-			BaseType: "string",
-			Pattern:  "^[a-z]+$",
-		}
-		col := make(map[string]any)
-		st.ApplyTo(col)
-
-		if col["pattern"] != "^[a-z]+$" {
-			t.Errorf("pattern = %v, want '^[a-z]+$'", col["pattern"])
-		}
-	})
-
-	t.Run("with_unique", func(t *testing.T) {
-		st := SemanticType{
-			BaseType: "string",
-			Unique:   true,
-		}
-		col := make(map[string]any)
-		st.ApplyTo(col)
-
-		if col["unique"] != true {
-			t.Error("unique should be true")
-		}
-	})
-
-	t.Run("unique_false_not_set", func(t *testing.T) {
-		st := SemanticType{
-			BaseType: "string",
-			Unique:   false,
-		}
-		col := make(map[string]any)
-		st.ApplyTo(col)
-
-		if _, exists := col["unique"]; exists {
-			t.Error("unique should not be set when false")
-		}
-	})
-
-	t.Run("with_default", func(t *testing.T) {
-		st := SemanticType{
-			BaseType: "integer",
-			Default:  0,
-		}
-		col := make(map[string]any)
-		st.ApplyTo(col)
-
-		if col["default"] != 0 {
-			t.Errorf("default = %v, want 0", col["default"])
-		}
-	})
-
-	t.Run("with_hidden", func(t *testing.T) {
-		st := SemanticType{
-			BaseType: "string",
-			Hidden:   true,
-		}
-		col := make(map[string]any)
-		st.ApplyTo(col)
-
-		if col["hidden"] != true {
-			t.Error("hidden should be true")
-		}
-	})
-
-	t.Run("with_min", func(t *testing.T) {
-		minVal := 0.0
-		st := SemanticType{
-			BaseType: "integer",
-			Min:      &minVal,
-		}
-		col := make(map[string]any)
-		st.ApplyTo(col)
-
-		if col["min"] != 0.0 {
-			t.Errorf("min = %v, want 0.0", col["min"])
-		}
-	})
-
-	t.Run("with_max", func(t *testing.T) {
-		maxVal := 100.0
-		st := SemanticType{
-			BaseType: "integer",
-			Max:      &maxVal,
-		}
-		col := make(map[string]any)
-		st.ApplyTo(col)
-
-		if col["max"] != 100.0 {
-			t.Errorf("max = %v, want 100.0", col["max"])
-		}
-	})
-
-	t.Run("full_email_type", func(t *testing.T) {
-		st := GetSemanticType("email")
-		col := make(map[string]any)
-		st.ApplyTo(col)
-
-		if col["format"] != "email" {
-			t.Error("email format not applied")
-		}
-		if col["pattern"] == nil {
-			t.Error("email pattern not applied")
-		}
-		if typeArgs, ok := col["type_args"].([]any); !ok || len(typeArgs) != 1 {
-			t.Error("email type_args not applied")
-		}
-	})
+	// Should be sorted
+	if !sort.StringsAreSorted(names) {
+		t.Error("SemanticTypeNames() should return sorted names")
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -371,73 +214,6 @@ func TestPtr(t *testing.T) {
 	if *p != val {
 		t.Errorf("*ptr(42.5) = %v, want 42.5", *p)
 	}
-}
-
-// -----------------------------------------------------------------------------
-// optsFromSemanticType Tests
-// -----------------------------------------------------------------------------
-
-func TestOptsFromSemanticType(t *testing.T) {
-	t.Run("string_type", func(t *testing.T) {
-		st := SemanticType{
-			BaseType: "string",
-			Length:   100,
-			Format:   "email",
-			Pattern:  "test",
-		}
-		opts := optsFromSemanticType(st)
-
-		// Should have options for length, format, pattern
-		if len(opts) < 3 {
-			t.Errorf("expected at least 3 options, got %d", len(opts))
-		}
-	})
-
-	t.Run("decimal_type", func(t *testing.T) {
-		st := SemanticType{
-			BaseType:  "decimal",
-			Precision: 10,
-			Scale:     2,
-		}
-		opts := optsFromSemanticType(st)
-
-		// Should have option for precision/scale
-		if len(opts) < 1 {
-			t.Errorf("expected at least 1 option, got %d", len(opts))
-		}
-	})
-
-	t.Run("with_all_options", func(t *testing.T) {
-		minVal := 0.0
-		maxVal := 100.0
-		st := SemanticType{
-			BaseType: "string",
-			Length:   50,
-			Format:   "custom",
-			Pattern:  "^test$",
-			Unique:   true,
-			Default:  "default",
-			Hidden:   true,
-			Min:      &minVal,
-			Max:      &maxVal,
-		}
-		opts := optsFromSemanticType(st)
-
-		// Should have many options
-		if len(opts) < 7 {
-			t.Errorf("expected at least 7 options, got %d", len(opts))
-		}
-	})
-
-	t.Run("empty_type", func(t *testing.T) {
-		st := SemanticType{}
-		opts := optsFromSemanticType(st)
-
-		// Should have no options
-		if len(opts) != 0 {
-			t.Errorf("expected 0 options for empty type, got %d", len(opts))
-		}
-	})
 }
 
 // -----------------------------------------------------------------------------

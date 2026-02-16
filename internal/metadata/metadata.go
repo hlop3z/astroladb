@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/hlop3z/astroladb/internal/ast"
@@ -137,7 +136,7 @@ func (m *Metadata) AddTable(t *ast.TableDef) {
 // AddManyToMany registers a many-to-many relationship and generates the join table.
 func (m *Metadata) AddManyToMany(sourceNS, sourceTable, targetRef, sourceFile string) *JoinTableMeta {
 	// Parse target reference (e.g., "auth.roles")
-	targetNS, targetTable := parseRef(targetRef)
+	targetNS, targetTable := strutil.ParseRef(targetRef)
 
 	// Generate join table name (alphabetically sorted to ensure consistency)
 	sourceSQLName := strutil.SQLName(sourceNS, sourceTable)
@@ -226,8 +225,8 @@ func (m *Metadata) AddPolymorphic(tableNS, tableName, alias string, targets []st
 // an existing user-defined table as a junction for many-to-many relationships.
 func (m *Metadata) AddExplicitJunction(sourceRef, targetRef, sourceFK, targetFK string) {
 	// Parse references
-	sourceNS, sourceTable := parseRef(sourceRef)
-	targetNS, targetTable := parseRef(targetRef)
+	sourceNS, sourceTable := strutil.ParseRef(sourceRef)
+	targetNS, targetTable := strutil.ParseRef(targetRef)
 
 	// Generate join table name (same logic as AddManyToMany for consistency)
 	sourceSQLName := strutil.SQLName(sourceNS, sourceTable)
@@ -332,13 +331,4 @@ func Load(projectDir string) (*Metadata, error) {
 	}
 
 	return &m, nil
-}
-
-// parseRef parses a table reference like "auth.users" into namespace and table.
-func parseRef(ref string) (namespace, table string) {
-	parts := strings.SplitN(ref, ".", 2)
-	if len(parts) == 2 {
-		return parts[0], parts[1]
-	}
-	return "", ref
 }

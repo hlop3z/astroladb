@@ -244,3 +244,32 @@ func ContainsUpper(s string) bool {
 	}
 	return false
 }
+
+// -----------------------------------------------------------------------------
+// Reference Parsing
+// -----------------------------------------------------------------------------
+
+// ParseRef splits a dot-separated reference into namespace and table.
+// Handles relative refs: ".table" → ("", "table").
+// Empty or no-dot input → ("", ref).
+func ParseRef(ref string) (namespace, table string) {
+	if ref == "" {
+		return "", ""
+	}
+	if ref[0] == '.' {
+		return "", ref[1:]
+	}
+	for i := len(ref) - 1; i >= 0; i-- {
+		if ref[i] == '.' {
+			return ref[:i], ref[i+1:]
+		}
+	}
+	return "", ref
+}
+
+// ExtractTableName returns the table portion of a reference.
+// "auth.user" → "user", "user" → "user"
+func ExtractTableName(ref string) string {
+	_, table := ParseRef(ref)
+	return table
+}

@@ -2,6 +2,7 @@ package dsl
 
 import (
 	"github.com/hlop3z/astroladb/internal/ast"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // MigrationBuilder provides an imperative API for defining migrations.
@@ -24,7 +25,7 @@ func (m *MigrationBuilder) Operations() []ast.Operation {
 
 // CreateTable creates a new table.
 func (m *MigrationBuilder) CreateTable(ref string, fn func(*TableBuilder)) {
-	ns, table, _ := parseRefParts(ref)
+	ns, table := strutil.ParseRef(ref)
 	tb := NewTableBuilder(ns, table)
 	fn(tb)
 	def := tb.Build()
@@ -40,7 +41,7 @@ func (m *MigrationBuilder) CreateTable(ref string, fn func(*TableBuilder)) {
 	// Extract foreign keys from columns with references
 	for _, col := range def.Columns {
 		if col.Reference != nil {
-			refNs, refTable, _ := parseRefParts(col.Reference.Table)
+			refNs, refTable := strutil.ParseRef(col.Reference.Table)
 			sqlRefTable := refTable
 			if refNs != "" {
 				sqlRefTable = refNs + "_" + refTable
@@ -62,7 +63,7 @@ func (m *MigrationBuilder) CreateTable(ref string, fn func(*TableBuilder)) {
 
 // DropTable drops an existing table.
 func (m *MigrationBuilder) DropTable(ref string) {
-	ns, table, _ := parseRefParts(ref)
+	ns, table := strutil.ParseRef(ref)
 	m.operations = append(m.operations, &ast.DropTable{
 		TableOp:  ast.TableOp{Namespace: ns, Name: table},
 		IfExists: true,
@@ -71,7 +72,7 @@ func (m *MigrationBuilder) DropTable(ref string) {
 
 // RenameTable renames a table.
 func (m *MigrationBuilder) RenameTable(oldRef, newName string) {
-	ns, oldTable, _ := parseRefParts(oldRef)
+	ns, oldTable := strutil.ParseRef(oldRef)
 	m.operations = append(m.operations, &ast.RenameTable{
 		Namespace: ns,
 		OldName:   oldTable,
@@ -81,7 +82,7 @@ func (m *MigrationBuilder) RenameTable(oldRef, newName string) {
 
 // AddColumn adds a column to an existing table.
 func (m *MigrationBuilder) AddColumn(ref string, fn func(*ColumnBuilder) *ColumnBuilder) {
-	ns, table, _ := parseRefParts(ref)
+	ns, table := strutil.ParseRef(ref)
 
 	// Create a temporary column builder
 	cb := NewColumnBuilder("", "")
@@ -96,7 +97,7 @@ func (m *MigrationBuilder) AddColumn(ref string, fn func(*ColumnBuilder) *Column
 
 // DropColumn removes a column from a table.
 func (m *MigrationBuilder) DropColumn(ref, column string) {
-	ns, table, _ := parseRefParts(ref)
+	ns, table := strutil.ParseRef(ref)
 	m.operations = append(m.operations, &ast.DropColumn{
 		TableRef: ast.TableRef{Namespace: ns, Table_: table},
 		Name:     column,
@@ -105,7 +106,7 @@ func (m *MigrationBuilder) DropColumn(ref, column string) {
 
 // RenameColumn renames a column.
 func (m *MigrationBuilder) RenameColumn(ref, oldName, newName string) {
-	ns, table, _ := parseRefParts(ref)
+	ns, table := strutil.ParseRef(ref)
 	m.operations = append(m.operations, &ast.RenameColumn{
 		TableRef: ast.TableRef{Namespace: ns, Table_: table},
 		OldName:  oldName,
@@ -115,7 +116,7 @@ func (m *MigrationBuilder) RenameColumn(ref, oldName, newName string) {
 
 // AlterColumn modifies a column's properties.
 func (m *MigrationBuilder) AlterColumn(ref, column string, fn func(*AlterColumnBuilder)) {
-	ns, table, _ := parseRefParts(ref)
+	ns, table := strutil.ParseRef(ref)
 	acb := &AlterColumnBuilder{
 		op: &ast.AlterColumn{
 			TableRef: ast.TableRef{Namespace: ns, Table_: table},
@@ -128,7 +129,7 @@ func (m *MigrationBuilder) AlterColumn(ref, column string, fn func(*AlterColumnB
 
 // CreateIndex creates an index.
 func (m *MigrationBuilder) CreateIndex(ref string, columns []string, opts ...IndexOption) {
-	ns, table, _ := parseRefParts(ref)
+	ns, table := strutil.ParseRef(ref)
 
 	op := &ast.CreateIndex{
 		TableRef:    ast.TableRef{Namespace: ns, Table_: table},
@@ -168,10 +169,10 @@ func (m *MigrationBuilder) SQLDialect(postgres, sqlite string) {
 
 // AddForeignKey adds a foreign key constraint to a table.
 func (m *MigrationBuilder) AddForeignKey(ref string, columns []string, refTable string, refColumns []string, opts ...FKOption) {
-	ns, table, _ := parseRefParts(ref)
+	ns, table := strutil.ParseRef(ref)
 
 	// Convert refTable reference to SQL table name
-	refNs, refTbl, _ := parseRefParts(refTable)
+	refNs, refTbl := strutil.ParseRef(refTable)
 	sqlRefTable := refTbl
 	if refNs != "" {
 		sqlRefTable = refNs + "_" + refTbl
@@ -193,7 +194,7 @@ func (m *MigrationBuilder) AddForeignKey(ref string, columns []string, refTable 
 
 // DropForeignKey removes a foreign key constraint.
 func (m *MigrationBuilder) DropForeignKey(ref, constraintName string) {
-	ns, table, _ := parseRefParts(ref)
+	ns, table := strutil.ParseRef(ref)
 	m.operations = append(m.operations, &ast.DropForeignKey{
 		TableRef: ast.TableRef{Namespace: ns, Table_: table},
 		Name:     constraintName,
