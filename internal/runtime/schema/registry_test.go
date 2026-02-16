@@ -608,3 +608,56 @@ func TestSchemaRegistry_CompleteWorkflow(t *testing.T) {
 		t.Errorf("Expected 0 operations after clear, got %d", len(reg.Operations()))
 	}
 }
+
+// TestIndexModifier_SchemaExtraction verifies .index() is extracted from schemas
+func TestIndexModifier_SchemaExtraction(t *testing.T) {
+	registry := NewSchemaRegistry()
+
+	// Simulate a table with .index() and .unique() modifiers
+	tableDef := registry.ParseAndRegisterTable("test", "user", map[string]any{
+		"columns": []any{
+			map[string]any{
+				"name":   "id",
+				"type":   "uuid",
+				"unique": false,
+				"index":  false,
+			},
+			map[string]any{
+				"name":   "username",
+				"type":   "string",
+				"unique": false,
+				"index":  true, // .index() modifier
+			},
+			map[string]any{
+				"name":   "email",
+				"type":   "string",
+				"unique": true, // .unique() modifier
+				"index":  false,
+			},
+		},
+	})
+
+	// Should have 2 indexes: 1 non-unique (username), 1 unique (email)
+	if len(tableDef.Indexes) != 2 {
+		t.Fatalf("Expected 2 indexes, got %d", len(tableDef.Indexes))
+	}
+
+	// Check non-unique index
+	foundNonUnique := false
+	foundUnique := false
+	for _, idx := range tableDef.Indexes {
+		if len(idx.Columns) == 1 && idx.Columns[0] == "username" && !idx.Unique {
+			foundNonUnique = true
+		}
+		if len(idx.Columns) == 1 && idx.Columns[0] == "email" && idx.Unique {
+			foundUnique = true
+		}
+	}
+
+	if !foundNonUnique {
+		t.Error("Non-unique index on username not found")
+	}
+	if !foundUnique {
+		t.Error("Unique index on email not found")
+	}
+}

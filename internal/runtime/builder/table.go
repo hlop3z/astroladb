@@ -93,6 +93,7 @@ func withArgs(args ...any) ColOpt { return func(c *ColumnDef) { c.TypeArgs = arg
 func withFormat(f string) ColOpt  { return func(c *ColumnDef) { c.Format = f } }
 func withPattern(p string) ColOpt { return func(c *ColumnDef) { c.Pattern = p } }
 func withUnique() ColOpt          { return func(c *ColumnDef) { c.Unique = true } }
+func withIndex() ColOpt           { return func(c *ColumnDef) { c.Index = true } }
 func withDefault(v any) ColOpt    { return func(c *ColumnDef) { c.Default = v } }
 func withHidden() ColOpt          { return func(c *ColumnDef) { c.Hidden = true } }
 func withPrimaryKey() ColOpt      { return func(c *ColumnDef) { c.PrimaryKey = true } }

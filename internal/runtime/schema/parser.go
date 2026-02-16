@@ -49,6 +49,9 @@ func (p *SchemaParser) ParseColumnDef(obj any) *ast.ColumnDef {
 	if unique, ok := m["unique"].(bool); ok {
 		col.Unique = unique
 	}
+	if index, ok := m["index"].(bool); ok {
+		col.Index = index
+	}
 	if pk, ok := m["primary_key"].(bool); ok {
 		col.PrimaryKey = pk
 	}

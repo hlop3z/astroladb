@@ -16,6 +16,7 @@ type ColumnDef struct {
 	TypeArgs       []any
 	Nullable       bool
 	Unique         bool
+	Index          bool
 	PrimaryKey     bool
 	Default        any
 	Backfill       any
@@ -78,6 +79,9 @@ func columnDefToMap(col *ColumnDef) map[string]any {
 	}
 	if col.Unique {
 		m["unique"] = true
+	}
+	if col.Index {
+		m["index"] = true
 	}
 	if col.PrimaryKey {
 		m["primary_key"] = true

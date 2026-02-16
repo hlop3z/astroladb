@@ -86,7 +86,7 @@ func GenerateConcurrentIndex(idx *ast.CreateIndex, dialect string) string {
 	// Build index name (auto-generate if not provided)
 	indexName := idx.Name
 	if indexName == "" {
-		// TODO: Generate index name based on table and columns
+		// Auto-generate: idx_table_column1_column2
 		indexName = fmt.Sprintf("idx_%s_%s", idx.Table_, strings.Join(idx.Columns, "_"))
 	}
 
@@ -165,9 +165,8 @@ END $$;`,
 //	  END LOOP;
 //	END $$;
 func GenerateBatchedUpdate(table, column, value, whereClause string) string {
-	// TODO v0.0.9: Implement batched update generation
-	// This will be called when extractBackfill() detects a column with .backfill() modifier
-
+	// Generates a batched UPDATE with pg_sleep to allow AUTOVACUUM between batches.
+	// Called when extractBackfill() detects a column with .backfill() modifier.
 	return fmt.Sprintf(`DO $$
 DECLARE
   batch_size INT := %d;

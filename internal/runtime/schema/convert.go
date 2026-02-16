@@ -31,6 +31,7 @@ func (c *ColumnConverter) ToAST(col *builder.ColumnDef) *ast.ColumnDef {
 		TypeArgs:   col.TypeArgs,
 		Nullable:   col.Nullable,
 		Unique:     col.Unique,
+		Index:      col.Index,
 		PrimaryKey: col.PrimaryKey,
 		Format:     col.Format,
 		Pattern:    col.Pattern,

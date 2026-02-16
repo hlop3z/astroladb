@@ -320,6 +320,7 @@ type ColumnDef struct {
 	// Constraints
 	Unique     bool // UNIQUE constraint
 	PrimaryKey bool // PRIMARY KEY constraint
+	Index      bool // CREATE INDEX (non-unique) - generates concurrent index in Phase 2
 
 	// Default values
 	Default       any    // Default value for new rows (Go value or SQLExpr)

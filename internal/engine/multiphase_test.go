@@ -583,3 +583,43 @@ func containsAtAnyPos(s, substr string) bool {
 	}
 	return false
 }
+
+// TestGenerateConcurrentIndex_NonUnique verifies non-unique index SQL generation
+func TestGenerateConcurrentIndex_NonUnique(t *testing.T) {
+	idx := &ast.CreateIndex{
+		TableRef: ast.TableRef{
+			Namespace: "auth",
+			Table_:    "user",
+		},
+		Name:    "idx_username",
+		Columns: []string{"username"},
+		Unique:  false, // Non-unique index from .index()
+	}
+
+	sql := GenerateConcurrentIndex(idx, "postgres")
+
+	// Should NOT have UNIQUE keyword
+	if contains(sql, "UNIQUE") {
+		t.Error("Non-unique index should NOT contain UNIQUE keyword")
+	}
+
+	// Should have CONCURRENTLY
+	if !contains(sql, "CREATE INDEX CONCURRENTLY") {
+		t.Error("Expected CREATE INDEX CONCURRENTLY")
+	}
+
+	// Should have index name
+	if !contains(sql, "idx_username") {
+		t.Error("Expected index name idx_username")
+	}
+
+	// Should have table name
+	if !contains(sql, "auth_user") {
+		t.Error("Expected table name auth_user")
+	}
+
+	// Should have column
+	if !contains(sql, "(username)") {
+		t.Error("Expected column (username)")
+	}
+}

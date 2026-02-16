@@ -128,9 +128,27 @@ func (r *SchemaRegistry) ParseAndRegisterTable(namespace, name string, defObj an
 		tableDef.Columns = columns
 	}
 
+	// Extract indexes from column modifiers (.unique(), .index())
+	for _, col := range tableDef.Columns {
+		if col.Unique {
+			tableDef.Indexes = append(tableDef.Indexes, &ast.IndexDef{
+				Name:    "", // Auto-generated
+				Columns: []string{col.Name},
+				Unique:  true,
+			})
+		}
+		if col.Index {
+			tableDef.Indexes = append(tableDef.Indexes, &ast.IndexDef{
+				Name:    "", // Auto-generated
+				Columns: []string{col.Name},
+				Unique:  false,
+			})
+		}
+	}
+
 	// Parse indexes
 	if idxsRaw, exists := def["indexes"]; exists {
-		tableDef.Indexes = r.parser.ParseIndexes(idxsRaw)
+		tableDef.Indexes = append(tableDef.Indexes, r.parser.ParseIndexes(idxsRaw)...)
 	}
 
 	// Parse metadata
