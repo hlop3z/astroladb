@@ -432,6 +432,58 @@ func TestContainsUpper(t *testing.T) {
 // Round-Trip Tests
 // -----------------------------------------------------------------------------
 
+// -----------------------------------------------------------------------------
+// ParseRef Tests
+// -----------------------------------------------------------------------------
+
+func TestParseRef(t *testing.T) {
+	tests := []struct {
+		ref       string
+		wantNS    string
+		wantTable string
+	}{
+		{"auth.users", "auth", "users"},
+		{".roles", "", "roles"},
+		{"posts", "", "posts"},
+		{"", "", ""},
+		{"a.b.c", "a.b", "c"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.ref, func(t *testing.T) {
+			ns, table := ParseRef(tt.ref)
+			if ns != tt.wantNS {
+				t.Errorf("ParseRef(%q) namespace = %q, want %q", tt.ref, ns, tt.wantNS)
+			}
+			if table != tt.wantTable {
+				t.Errorf("ParseRef(%q) table = %q, want %q", tt.ref, table, tt.wantTable)
+			}
+		})
+	}
+}
+
+func TestExtractTableName(t *testing.T) {
+	tests := []struct {
+		ref  string
+		want string
+	}{
+		{"auth.users", "users"},
+		{".roles", "roles"},
+		{"posts", "posts"},
+		{"", ""},
+		{"a.b.c", "c"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.ref, func(t *testing.T) {
+			got := ExtractTableName(tt.ref)
+			if got != tt.want {
+				t.Errorf("ExtractTableName(%q) = %q, want %q", tt.ref, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSnakeToPascalRoundTrip(t *testing.T) {
 	// Converting snake_case to PascalCase and back should give the original
 	snakeCases := []string{
