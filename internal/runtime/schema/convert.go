@@ -26,19 +26,24 @@ func (c *ColumnConverter) ToAST(col *builder.ColumnDef) *ast.ColumnDef {
 	}
 
 	astCol := &ast.ColumnDef{
-		Name:       col.Name,
-		Type:       col.Type,
-		TypeArgs:   col.TypeArgs,
-		Nullable:   col.Nullable,
-		Unique:     col.Unique,
-		Index:      col.Index,
-		PrimaryKey: col.PrimaryKey,
-		Format:     col.Format,
-		Pattern:    col.Pattern,
-		Docs:       col.Docs,
-		Deprecated: col.Deprecated,
-		ReadOnly:   col.ReadOnly,
-		WriteOnly:  col.WriteOnly,
+		Name:     col.Name,
+		Type:     col.Type,
+		TypeArgs: col.TypeArgs,
+		Nullable: col.Nullable,
+		// NullableSet is always true for builder-created columns because the DSL
+		// requires explicit .optional() calls. This lets the diff engine distinguish
+		// "not specified" (NullableSet=false) from "explicitly NOT NULL" (NullableSet=true).
+		NullableSet: true,
+		Unique:      col.Unique,
+		Index:       col.Index,
+		PrimaryKey:  col.PrimaryKey,
+		Format:      col.Format,
+		Pattern:     col.Pattern,
+		Docs:        col.Docs,
+		Deprecated:  col.Deprecated,
+		ReadOnly:    col.ReadOnly,
+		WriteOnly:   col.WriteOnly,
+		Virtual:     col.Virtual,
 	}
 
 	// Set default if present
@@ -142,6 +147,7 @@ func (c *ColumnConverter) convertValue(v any) any {
 
 // TableBuilderToAST converts a TableBuilder directly to an ast.TableDef.
 // This provides a complete conversion path without map intermediaries.
+// Used by both the schema path and migration path.
 func (c *ColumnConverter) TableBuilderToAST(tb *builder.TableBuilder, namespace, name string) *ast.TableDef {
 	return &ast.TableDef{
 		Namespace:  namespace,
@@ -151,22 +157,9 @@ func (c *ColumnConverter) TableBuilderToAST(tb *builder.TableBuilder, namespace,
 		Checks:     make([]*ast.CheckDef, 0),
 		Docs:       tb.Docs,
 		Deprecated: tb.Deprecated,
-	}
-}
-
-// TableChainToAST converts a TableChain directly to an ast.TableDef.
-func (c *ColumnConverter) TableChainToAST(tc *builder.TableChain, namespace, name string) *ast.TableDef {
-	return &ast.TableDef{
-		Namespace:  namespace,
-		Name:       name,
-		Columns:    c.ColumnsToAST(tc.Columns),
-		Indexes:    c.IndexesToAST(tc.Indexes),
-		Checks:     make([]*ast.CheckDef, 0),
-		Docs:       tc.Docs,
-		Deprecated: tc.Deprecated,
-		Auditable:  tc.Auditable,
-		SortBy:     tc.SortBy,
-		Searchable: tc.Searchable,
-		Filterable: tc.Filterable,
+		Auditable:  tb.Auditable,
+		SortBy:     tb.SortBy,
+		Searchable: tb.Searchable,
+		Filterable: tb.Filterable,
 	}
 }

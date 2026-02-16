@@ -1,12 +1,11 @@
 package runtime
 
 import (
-	"reflect"
-
 	"github.com/dop251/goja"
 
 	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/runtime/builder"
+	"github.com/hlop3z/astroladb/internal/runtime/schema"
 	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
@@ -127,18 +126,17 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 			panic(s.vm.ToValue("error in table builder: " + err.Error()))
 		}
 
-		result := tb.ToResult().Export()
-		tableDef := s.parseTableDef(ns, table, result)
+		// Direct path: convert typed builder to AST (bypasses map conversion)
+		converter := schema.NewColumnConverter()
+		tableDef := converter.TableBuilderToAST(tb, ns, table)
 
-		if tableDef != nil {
-			op := &ast.CreateTable{
-				TableOp:     ast.TableOp{Namespace: ns, Name: table},
-				Columns:     tableDef.Columns,
-				Indexes:     tableDef.Indexes,
-				ForeignKeys: make([]*ast.ForeignKeyDef, 0),
-			}
-			s.operations = append(s.operations, op)
+		op := &ast.CreateTable{
+			TableOp:     ast.TableOp{Namespace: ns, Name: table},
+			Columns:     tableDef.Columns,
+			Indexes:     tableDef.Indexes,
+			ForeignKeys: make([]*ast.ForeignKeyDef, 0),
 		}
+		s.operations = append(s.operations, op)
 	})
 
 	// drop_table(ref)
@@ -168,41 +166,30 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 
 		ns, table := mustParseRef(ref, s.vm)
 
-		// Create a column builder wrapper
-		col := make(map[string]any)
-		colBuilder := s.createColumnBuilderObject(col)
+		// Reuse TableBuilder to get the same typed column builder as create_table.
+		// The callback calls one method (e.g. col.string("bio", 500).backfill("..."))
+		// which adds exactly one column to tb.Columns.
+		tb := builder.NewTableBuilder(s.vm)
+		tbObj := tb.ToMigrationObject()
 
-		// Call the function which should return a column builder
-		result, err := builderFn(goja.Undefined(), colBuilder)
+		_, err := builderFn(goja.Undefined(), tbObj)
 		if err != nil {
 			panic(s.vm.ToValue("error in column builder: " + err.Error()))
 		}
 
-		// The function might return the column builder or call methods on it
-		// Try to extract column data from result if it's an object
-		if result != nil && !goja.IsUndefined(result) && !goja.IsNull(result) {
-			if resultObj, ok := result.(*goja.Object); ok {
-				exportedResult := resultObj.Export()
-				if m, ok := exportedResult.(map[string]any); ok {
-					// Merge result into col, but skip function values (methods)
-					for k, v := range m {
-						// Skip functions - they are methods from the chain object
-						if reflect.TypeOf(v) != nil && reflect.TypeOf(v).Kind() == reflect.Func {
-							continue
-						}
-						col[k] = v
-					}
-				}
-			}
+		if len(tb.Columns) == 0 {
+			panic(s.vm.ToValue("add_column() callback must define a column"))
+		}
+		if len(tb.Columns) > 1 {
+			panic(s.vm.ToValue("add_column() callback must define exactly one column"))
 		}
 
-		colDef := s.parseColumnDef(col)
-		if colDef != nil {
-			s.operations = append(s.operations, &ast.AddColumn{
-				TableRef: ast.TableRef{Namespace: ns, Table_: table},
-				Column:   colDef,
-			})
-		}
+		converter := schema.NewColumnConverter()
+		colDef := converter.ToAST(tb.Columns[0])
+		s.operations = append(s.operations, &ast.AddColumn{
+			TableRef: ast.TableRef{Namespace: ns, Table_: table},
+			Column:   colDef,
+		})
 	})
 
 	// drop_column(ref, column)
@@ -388,146 +375,6 @@ func (s *Sandbox) createAlterColumnBuilderObject(op *ast.AlterColumn) *goja.Obje
 		op.DropDefault = true
 		return obj
 	})
-
-	return obj
-}
-
-// createColumnBuilderObject creates a column builder for add_column migrations.
-func (s *Sandbox) createColumnBuilderObject(col map[string]any) *goja.Object {
-	obj := s.vm.NewObject()
-
-	// Type methods that set name and type
-	typeMethod := func(typeName string, hasLength bool) func(args ...goja.Value) *goja.Object {
-		return func(args ...goja.Value) *goja.Object {
-			if len(args) > 0 {
-				col["name"] = args[0].String()
-			}
-			col["type"] = typeName
-			col["nullable"] = false
-
-			if hasLength && len(args) > 1 {
-				col["type_args"] = []any{int(args[1].ToInteger())}
-			}
-			return s.createColumnChainObject(col)
-		}
-	}
-
-	_ = obj.Set("string", typeMethod("string", true))
-	_ = obj.Set("text", typeMethod("text", false))
-	_ = obj.Set("integer", typeMethod("integer", false))
-	_ = obj.Set("float", typeMethod("float", false))
-	_ = obj.Set("boolean", typeMethod("boolean", false))
-	_ = obj.Set("date", typeMethod("date", false))
-	_ = obj.Set("time", typeMethod("time", false))
-	_ = obj.Set("datetime", typeMethod("datetime", false))
-	_ = obj.Set("uuid", typeMethod("uuid", false))
-	_ = obj.Set("json", typeMethod("json", false))
-	_ = obj.Set("base64", typeMethod("base64", false))
-
-	// decimal(name, precision, scale)
-	_ = obj.Set("decimal", func(name string, precision, scale int) *goja.Object {
-		col["name"] = name
-		col["type"] = "decimal"
-		col["type_args"] = []any{precision, scale}
-		col["nullable"] = false
-		return s.createColumnChainObject(col)
-	})
-
-	// enum(name, values)
-	_ = obj.Set("enum", func(name string, values []string) *goja.Object {
-		col["name"] = name
-		col["type"] = "enum"
-		col["type_args"] = []any{values}
-		col["nullable"] = false
-		return s.createColumnChainObject(col)
-	})
-
-	return obj
-}
-
-// createColumnChainObject creates the chainable methods for column definitions.
-func (s *Sandbox) createColumnChainObject(col map[string]any) *goja.Object {
-	obj := s.vm.NewObject()
-
-	_ = obj.Set("nullable", func() *goja.Object {
-		col["nullable"] = true
-		return obj
-	})
-
-	// optional() is an alias for nullable() - matches DSL convention
-	_ = obj.Set("optional", func() *goja.Object {
-		col["nullable"] = true
-		return obj
-	})
-
-	_ = obj.Set("unique", func() *goja.Object {
-		col["unique"] = true
-		return obj
-	})
-
-	_ = obj.Set("default", func(value any) *goja.Object {
-		col["default"] = value
-		return obj
-	})
-
-	_ = obj.Set("backfill", func(value any) *goja.Object {
-		col["backfill"] = value
-		return obj
-	})
-
-	_ = obj.Set("index", func() *goja.Object {
-		col["index"] = true
-		return obj
-	})
-
-	_ = obj.Set("min", func(n int) *goja.Object {
-		col["min"] = float64(n)
-		return obj
-	})
-
-	_ = obj.Set("max", func(n int) *goja.Object {
-		col["max"] = float64(n)
-		return obj
-	})
-
-	_ = obj.Set("pattern", func(regex string) *goja.Object {
-		col["pattern"] = regex
-		return obj
-	})
-
-	_ = obj.Set("format", func(f goja.Value) *goja.Object {
-		if f == nil || goja.IsUndefined(f) || goja.IsNull(f) {
-			return obj
-		}
-		if fObj, ok := f.(*goja.Object); ok {
-			if format := fObj.Get("format"); format != nil && !goja.IsUndefined(format) {
-				col["format"] = format.String()
-			}
-			if _, hasPattern := col["pattern"]; !hasPattern {
-				if pattern := fObj.Get("pattern"); pattern != nil && !goja.IsUndefined(pattern) {
-					if patternStr := pattern.String(); patternStr != "" {
-						col["pattern"] = patternStr
-					}
-				}
-			}
-		} else if str, ok := f.Export().(string); ok {
-			col["format"] = str
-		}
-		return obj
-	})
-
-	_ = obj.Set("docs", func(description string) *goja.Object {
-		col["docs"] = description
-		return obj
-	})
-
-	_ = obj.Set("deprecated", func(reason string) *goja.Object {
-		col["deprecated"] = reason
-		return obj
-	})
-
-	// Export the column data when the builder is used as a return value
-	_ = obj.Set("_data", col)
 
 	return obj
 }

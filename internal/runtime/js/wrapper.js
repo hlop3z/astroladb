@@ -6,8 +6,8 @@
 		__result = __result._getResult();
 	}
 
-	// Register the table if it has columns (table builder result)
-	if (__result && __result.columns) {
+	// Register the table if it has a builder reference
+	if (__result && __result._tableBuilder) {
 		__registerTable("{{NAMESPACE}}", "{{TABLE_NAME}}", __result);
 	}
 })();

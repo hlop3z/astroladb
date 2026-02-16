@@ -22,9 +22,6 @@ func TestNewSchemaRegistry(t *testing.T) {
 	if reg.Metadata() == nil {
 		t.Error("Metadata should be initialized")
 	}
-	if reg.Parser() == nil {
-		t.Error("Parser should be initialized")
-	}
 }
 
 // TestRegisterTable tests registering a table
@@ -177,16 +174,6 @@ func TestMetadata(t *testing.T) {
 	}
 }
 
-// TestParser tests retrieving parser
-func TestParser(t *testing.T) {
-	reg := NewSchemaRegistry()
-
-	parser := reg.Parser()
-	if parser == nil {
-		t.Fatal("Parser should not be nil")
-	}
-}
-
 // TestClearTables tests clearing tables
 func TestClearTables(t *testing.T) {
 	reg := NewSchemaRegistry()
@@ -315,264 +302,25 @@ func TestGetJoinTables(t *testing.T) {
 	}
 }
 
-// TestParseAndRegisterTable_Basic tests basic table parsing and registration
-func TestParseAndRegisterTable_Basic(t *testing.T) {
-	reg := NewSchemaRegistry()
-
-	defObj := map[string]any{
-		"columns": []any{
-			map[string]any{"name": "id", "type": "uuid"},
-			map[string]any{"name": "email", "type": "string"},
-		},
-	}
-
-	table := reg.ParseAndRegisterTable("auth", "users", defObj)
-
-	if table == nil {
-		t.Fatal("Expected non-nil table")
-	}
-	if table.Namespace != "auth" {
-		t.Errorf("Expected namespace 'auth', got '%s'", table.Namespace)
-	}
-	if table.Name != "users" {
-		t.Errorf("Expected name 'users', got '%s'", table.Name)
-	}
-	if len(table.Columns) != 2 {
-		t.Errorf("Expected 2 columns, got %d", len(table.Columns))
-	}
-
-	// Verify it's registered
-	tables := reg.Tables()
-	if len(tables) != 1 {
-		t.Errorf("Expected 1 registered table, got %d", len(tables))
-	}
-}
-
-// TestParseAndRegisterTable_WithIndexes tests parsing table with indexes
-func TestParseAndRegisterTable_WithIndexes(t *testing.T) {
-	reg := NewSchemaRegistry()
-
-	defObj := map[string]any{
-		"columns": []any{
-			map[string]any{"name": "email", "type": "string"},
-		},
-		"indexes": []any{
-			map[string]any{"name": "idx_email", "columns": []any{"email"}},
-		},
-	}
-
-	table := reg.ParseAndRegisterTable("auth", "users", defObj)
-
-	if len(table.Indexes) != 1 {
-		t.Fatalf("Expected 1 index, got %d", len(table.Indexes))
-	}
-	if table.Indexes[0].Name != "idx_email" {
-		t.Errorf("Expected index name 'idx_email', got '%s'", table.Indexes[0].Name)
-	}
-}
-
-// TestParseAndRegisterTable_WithDocs tests parsing table with documentation
-func TestParseAndRegisterTable_WithDocs(t *testing.T) {
-	reg := NewSchemaRegistry()
-
-	defObj := map[string]any{
-		"columns":    []any{},
-		"docs":       "User authentication table",
-		"deprecated": "Use new_users instead",
-	}
-
-	table := reg.ParseAndRegisterTable("auth", "users", defObj)
-
-	if table.Docs != "User authentication table" {
-		t.Errorf("Expected docs 'User authentication table', got '%s'", table.Docs)
-	}
-	if table.Deprecated != "Use new_users instead" {
-		t.Errorf("Expected deprecated 'Use new_users instead', got '%s'", table.Deprecated)
-	}
-}
-
-// TestParseAndRegisterTable_WithMetadata tests parsing table with x-db metadata
-func TestParseAndRegisterTable_WithMetadata(t *testing.T) {
-	reg := NewSchemaRegistry()
-
-	defObj := map[string]any{
-		"columns":    []any{},
-		"auditable":  true,
-		"sort_by":    []any{"created_at", "updated_at"},
-		"searchable": []any{"name", "email"},
-		"filterable": []any{"status", "role"},
-	}
-
-	table := reg.ParseAndRegisterTable("auth", "users", defObj)
-
-	if !table.Auditable {
-		t.Error("Expected auditable to be true")
-	}
-	if len(table.SortBy) != 2 {
-		t.Errorf("Expected 2 sort_by fields, got %d", len(table.SortBy))
-	}
-	if len(table.Searchable) != 2 {
-		t.Errorf("Expected 2 searchable fields, got %d", len(table.Searchable))
-	}
-	if len(table.Filterable) != 2 {
-		t.Errorf("Expected 2 filterable fields, got %d", len(table.Filterable))
-	}
-}
-
-// TestParseAndRegisterTable_WithManyToMany tests parsing table with many_to_many
-func TestParseAndRegisterTable_WithManyToMany(t *testing.T) {
-	reg := NewSchemaRegistry()
-
-	defObj := map[string]any{
-		"columns": []any{
-			map[string]any{"name": "id", "type": "uuid"},
-			map[string]any{
-				"_type": "relationship",
-				"relationship": map[string]any{
-					"type":   "many_to_many",
-					"target": "tags",
-				},
-			},
-		},
-	}
-
-	table := reg.ParseAndRegisterTable("blog", "posts", defObj)
-
-	// Should only have 1 column (the relationship is metadata)
-	if len(table.Columns) != 1 {
-		t.Errorf("Expected 1 column (relationship filtered), got %d", len(table.Columns))
-	}
-	if table.Columns[0].Name != "id" {
-		t.Errorf("Expected first column 'id', got '%s'", table.Columns[0].Name)
-	}
-}
-
-// TestParseAndRegisterTable_WithPolymorphic tests parsing table with polymorphic relationship
-func TestParseAndRegisterTable_WithPolymorphic(t *testing.T) {
-	reg := NewSchemaRegistry()
-
-	defObj := map[string]any{
-		"columns": []any{
-			map[string]any{"name": "id", "type": "uuid"},
-			map[string]any{
-				"_type": "polymorphic",
-				"polymorphic": map[string]any{
-					"as":      "commentable",
-					"targets": []any{"posts", "videos"},
-				},
-			},
-		},
-	}
-
-	table := reg.ParseAndRegisterTable("social", "comments", defObj)
-
-	// Should only have 1 column (the polymorphic is metadata)
-	if len(table.Columns) != 1 {
-		t.Errorf("Expected 1 column (polymorphic filtered), got %d", len(table.Columns))
-	}
-}
-
-// TestParseAndRegisterTable_InvalidInput tests error handling
-func TestParseAndRegisterTable_InvalidInput(t *testing.T) {
-	reg := NewSchemaRegistry()
-
-	tests := []struct {
-		name   string
-		defObj any
-	}{
-		{"nil", nil},
-		{"string", "not a map"},
-		{"number", 42},
-		{"array", []string{"invalid"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			table := reg.ParseAndRegisterTable("test", "table", tt.defObj)
-			if table != nil {
-				t.Error("Should return nil for invalid input")
-			}
-		})
-	}
-}
-
-// TestParseAndRegisterTable_EmptyDefinition tests parsing empty definition
-func TestParseAndRegisterTable_EmptyDefinition(t *testing.T) {
-	reg := NewSchemaRegistry()
-
-	defObj := map[string]any{}
-
-	table := reg.ParseAndRegisterTable("test", "empty", defObj)
-
-	if table == nil {
-		t.Fatal("Expected non-nil table for empty definition")
-	}
-	if len(table.Columns) != 0 {
-		t.Errorf("Expected 0 columns, got %d", len(table.Columns))
-	}
-	if len(table.Indexes) != 0 {
-		t.Errorf("Expected 0 indexes, got %d", len(table.Indexes))
-	}
-}
-
-// TestParseColumnsWithRelationships_InvalidColumns tests handling invalid column types
-func TestParseColumnsWithRelationships_InvalidColumns(t *testing.T) {
-	reg := NewSchemaRegistry()
-
-	defObj := map[string]any{
-		"columns": "invalid", // Not an array
-	}
-
-	table := reg.ParseAndRegisterTable("test", "table", defObj)
-
-	if table == nil {
-		t.Fatal("Expected non-nil table")
-	}
-	// Invalid columns should result in empty columns array
-	if table.Columns != nil && len(table.Columns) > 0 {
-		t.Errorf("Expected empty or nil columns for invalid input, got %d", len(table.Columns))
-	}
-}
-
-// TestParseColumnsWithRelationships_TypedSlice tests handling []map[string]any columns
-func TestParseColumnsWithRelationships_TypedSlice(t *testing.T) {
-	reg := NewSchemaRegistry()
-
-	defObj := map[string]any{
-		"columns": []map[string]any{
-			{"name": "id", "type": "uuid"},
-			{"name": "email", "type": "string"},
-		},
-	}
-
-	table := reg.ParseAndRegisterTable("auth", "users", defObj)
-
-	if len(table.Columns) != 2 {
-		t.Errorf("Expected 2 columns from typed slice, got %d", len(table.Columns))
-	}
-}
-
 // TestSchemaRegistry_CompleteWorkflow tests a complete registry workflow
 func TestSchemaRegistry_CompleteWorkflow(t *testing.T) {
 	reg := NewSchemaRegistry()
 
-	// Parse and register table
-	defObj := map[string]any{
-		"columns": []any{
-			map[string]any{"name": "id", "type": "uuid", "primary_key": true},
-			map[string]any{"name": "email", "type": "string", "unique": true},
+	// Register a table directly (no map parsing)
+	table := &ast.TableDef{
+		Namespace: "auth",
+		Name:      "users",
+		Columns: []*ast.ColumnDef{
+			{Name: "id", Type: "uuid", PrimaryKey: true},
+			{Name: "email", Type: "string", Unique: true},
 		},
-		"indexes": []any{
-			map[string]any{"name": "idx_email", "columns": []any{"email"}},
+		Indexes: []*ast.IndexDef{
+			{Name: "idx_email", Columns: []string{"email"}},
 		},
-		"docs":      "Users table",
-		"auditable": true,
+		Docs:      "Users table",
+		Auditable: true,
 	}
-
-	table := reg.ParseAndRegisterTable("auth", "users", defObj)
-	if table == nil {
-		t.Fatal("Expected table to be parsed")
-	}
+	reg.RegisterTable(table)
 
 	// Register an operation
 	op := &ast.CreateTable{
@@ -606,58 +354,5 @@ func TestSchemaRegistry_CompleteWorkflow(t *testing.T) {
 	}
 	if len(reg.Operations()) != 0 {
 		t.Errorf("Expected 0 operations after clear, got %d", len(reg.Operations()))
-	}
-}
-
-// TestIndexModifier_SchemaExtraction verifies .index() is extracted from schemas
-func TestIndexModifier_SchemaExtraction(t *testing.T) {
-	registry := NewSchemaRegistry()
-
-	// Simulate a table with .index() and .unique() modifiers
-	tableDef := registry.ParseAndRegisterTable("test", "user", map[string]any{
-		"columns": []any{
-			map[string]any{
-				"name":   "id",
-				"type":   "uuid",
-				"unique": false,
-				"index":  false,
-			},
-			map[string]any{
-				"name":   "username",
-				"type":   "string",
-				"unique": false,
-				"index":  true, // .index() modifier
-			},
-			map[string]any{
-				"name":   "email",
-				"type":   "string",
-				"unique": true, // .unique() modifier
-				"index":  false,
-			},
-		},
-	})
-
-	// Should have 2 indexes: 1 non-unique (username), 1 unique (email)
-	if len(tableDef.Indexes) != 2 {
-		t.Fatalf("Expected 2 indexes, got %d", len(tableDef.Indexes))
-	}
-
-	// Check non-unique index
-	foundNonUnique := false
-	foundUnique := false
-	for _, idx := range tableDef.Indexes {
-		if len(idx.Columns) == 1 && idx.Columns[0] == "username" && !idx.Unique {
-			foundNonUnique = true
-		}
-		if len(idx.Columns) == 1 && idx.Columns[0] == "email" && idx.Unique {
-			foundUnique = true
-		}
-	}
-
-	if !foundNonUnique {
-		t.Error("Non-unique index on username not found")
-	}
-	if !foundUnique {
-		t.Error("Unique index on email not found")
 	}
 }

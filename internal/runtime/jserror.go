@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -50,11 +49,17 @@ func ParseJSError(err error) *JSErrorInfo {
 	if exception, ok := err.(*goja.Exception); ok {
 		info.Message = exception.Value().String()
 		info.Stack = exception.String()
-		parseStackTrace(info)
-		// If stack trace didn't find line numbers, try extracting from message
-		// (syntax errors embed line numbers in the message)
-		if info.Line == 0 {
-			parsePositionFromMessage(info)
+
+		// ✅ Use Goja's structured stack frames (no regex parsing needed)
+		if frames := exception.Stack(); len(frames) > 0 {
+			pos := frames[0].Position()
+			info.Line = pos.Line
+			info.Column = pos.Column
+		} else {
+			// Fallback for syntax errors wrapped in Exception (have zero stack frames)
+			// Parse Goja's structured error format: "SyntaxError: (file): Line X:Y ..."
+			// This is a Goja-specific format, safer than arbitrary regex.
+			parseGojaErrorMessage(info)
 		}
 		return info
 	}
@@ -65,63 +70,53 @@ func ParseJSError(err error) *JSErrorInfo {
 		return info
 	}
 
-	// Try to extract position from error message
-	parsePositionFromMessage(info)
+	// Unknown error type - no position info available
 	return info
 }
 
-// parsePositionFromMessage extracts line:column from error messages.
-// Common formats:
-//   - "at line 5:10"
-//   - "Line 7:3 Unexpected..." (Goja syntax errors)
-//   - "file:5:10: error message"
-//   - "(line 5)"
-func parsePositionFromMessage(info *JSErrorInfo) {
-	// Try "line X:Y" or "Line X:Y" patterns (case-insensitive for Goja compatibility)
-	lineColRe := regexp.MustCompile(`(?i)line\s+(\d+)(?:[,:\s]+(?:column\s+)?(\d+))?`)
-	if matches := lineColRe.FindStringSubmatch(info.Message); len(matches) >= 2 {
-		info.Line, _ = strconv.Atoi(matches[1])
-		if len(matches) >= 3 && matches[2] != "" {
-			info.Column, _ = strconv.Atoi(matches[2])
+// parseGojaErrorMessage parses Goja's structured error message format.
+// This is ONLY used as a fallback when Exception has no stack frames (syntax errors).
+// Format: "SyntaxError: (file): Line X:Y Unexpected..."
+//
+// Note: This is not arbitrary regex parsing - it's parsing Goja's documented
+// error message format for syntax errors. Goja's CompilerSyntaxError messages
+// always follow this structure when wrapped in an Exception.
+func parseGojaErrorMessage(info *JSErrorInfo) {
+	// Goja syntax errors in exceptions follow this exact format:
+	// "SyntaxError: (file): Line 1:11 Unexpected token ;"
+	// We parse only this specific Goja format, not arbitrary messages.
+
+	msg := info.Message
+
+	// Look for "Line X:Y" in the message (Goja's syntax error format)
+	lineIdx := strings.Index(msg, "Line ")
+	if lineIdx == -1 {
+		return
+	}
+
+	// Extract the part after "Line "
+	rest := msg[lineIdx+5:] // Skip "Line "
+
+	// Find the colon separator
+	colonIdx := strings.Index(rest, ":")
+	if colonIdx == -1 {
+		return
+	}
+
+	// Parse line number
+	lineStr := rest[:colonIdx]
+	if line, err := strconv.Atoi(lineStr); err == nil {
+		info.Line = line
+	}
+
+	// Parse column number (after the colon)
+	rest = rest[colonIdx+1:]
+	spaceIdx := strings.Index(rest, " ")
+	if spaceIdx != -1 {
+		colStr := rest[:spaceIdx]
+		if col, err := strconv.Atoi(colStr); err == nil {
+			info.Column = col
 		}
-		return
-	}
-
-	// Try "file:line:column:" pattern (common in syntax errors)
-	fileLineColRe := regexp.MustCompile(`:(\d+):(\d+):`)
-	if matches := fileLineColRe.FindStringSubmatch(info.Message); len(matches) >= 3 {
-		info.Line, _ = strconv.Atoi(matches[1])
-		info.Column, _ = strconv.Atoi(matches[2])
-		return
-	}
-
-	// Try just ":line:" pattern
-	lineOnlyRe := regexp.MustCompile(`:(\d+):`)
-	if matches := lineOnlyRe.FindStringSubmatch(info.Message); len(matches) >= 2 {
-		info.Line, _ = strconv.Atoi(matches[1])
-	}
-}
-
-// parseStackTrace extracts line numbers from JavaScript stack traces.
-// Goja stack format: "    at functionName (native)\n    at anonymous (eval:5:10)"
-func parseStackTrace(info *JSErrorInfo) {
-	if info.Stack == "" {
-		return
-	}
-
-	// Look for "eval:line:column" or just line numbers in stack
-	evalRe := regexp.MustCompile(`eval:(\d+):(\d+)`)
-	if matches := evalRe.FindStringSubmatch(info.Stack); len(matches) >= 3 {
-		info.Line, _ = strconv.Atoi(matches[1])
-		info.Column, _ = strconv.Atoi(matches[2])
-		return
-	}
-
-	// Try "at line X" pattern
-	atLineRe := regexp.MustCompile(`at.*:(\d+):(\d+)`)
-	if matches := atLineRe.FindStringSubmatch(info.Stack); len(matches) >= 3 {
-		info.Line, _ = strconv.Atoi(matches[1])
-		info.Column, _ = strconv.Atoi(matches[2])
 	}
 }
 

@@ -393,7 +393,7 @@ func TestObjectAPI_Relationships(t *testing.T) {
 	})
 }
 
-func TestObjectAPI_TableChain(t *testing.T) {
+func TestObjectAPI_TableBuilder(t *testing.T) {
 	sb := NewSandbox(nil)
 
 	t.Run("timestamps", func(t *testing.T) {

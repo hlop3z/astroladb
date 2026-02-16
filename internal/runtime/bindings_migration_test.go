@@ -580,3 +580,289 @@ func TestSandbox_createColumnChainObject(t *testing.T) {
 		}
 	})
 }
+
+// TestMigrationAddColumn_DirectPath verifies that the add_column migration path
+// uses the typed builder (not map conversion) and produces correct AST for all modifiers.
+func TestMigrationAddColumn_DirectPath(t *testing.T) {
+	t.Run("index_modifier", func(t *testing.T) {
+		sb := NewSandbox(nil)
+		sb.BindMigration()
+
+		err := sb.Run(`migration({ up(m) { m.add_column("test.users", c => c.string("status", 50).index()) } })`)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		addCol := sb.operations[0].(*ast.AddColumn)
+		if !addCol.Column.Index {
+			t.Error("Column should have Index=true")
+		}
+		if addCol.Column.Name != "status" {
+			t.Errorf("Name = %q, want %q", addCol.Column.Name, "status")
+		}
+	})
+
+	t.Run("backfill_modifier", func(t *testing.T) {
+		sb := NewSandbox(nil)
+		sb.BindMigration()
+
+		err := sb.Run(`migration({ up(m) { m.add_column("test.users", c => c.text("bio").backfill("No bio")) } })`)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		addCol := sb.operations[0].(*ast.AddColumn)
+		if addCol.Column.Backfill != "No bio" {
+			t.Errorf("Backfill = %v, want %q", addCol.Column.Backfill, "No bio")
+		}
+		if !addCol.Column.BackfillSet {
+			t.Error("BackfillSet should be true")
+		}
+	})
+
+	t.Run("default_modifier", func(t *testing.T) {
+		sb := NewSandbox(nil)
+		sb.BindMigration()
+
+		err := sb.Run(`migration({ up(m) { m.add_column("test.users", c => c.integer("age").default(0)) } })`)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		addCol := sb.operations[0].(*ast.AddColumn)
+		if addCol.Column.Default == nil {
+			t.Error("Default should be set")
+		}
+		if !addCol.Column.DefaultSet {
+			t.Error("DefaultSet should be true")
+		}
+	})
+
+	t.Run("optional_modifier", func(t *testing.T) {
+		sb := NewSandbox(nil)
+		sb.BindMigration()
+
+		err := sb.Run(`migration({ up(m) { m.add_column("test.users", c => c.text("nickname").optional()) } })`)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		addCol := sb.operations[0].(*ast.AddColumn)
+		if !addCol.Column.Nullable {
+			t.Error("Column should be nullable")
+		}
+		if !addCol.Column.NullableSet {
+			t.Error("NullableSet should be true")
+		}
+	})
+
+	t.Run("unique_modifier", func(t *testing.T) {
+		sb := NewSandbox(nil)
+		sb.BindMigration()
+
+		err := sb.Run(`migration({ up(m) { m.add_column("test.users", c => c.string("email", 255).unique()) } })`)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		addCol := sb.operations[0].(*ast.AddColumn)
+		if !addCol.Column.Unique {
+			t.Error("Column should be unique")
+		}
+	})
+
+	t.Run("all_modifiers_chained", func(t *testing.T) {
+		sb := NewSandbox(nil)
+		sb.BindMigration()
+
+		err := sb.Run(`migration({ up(m) {
+			m.add_column("test.users", c => c.string("code", 20).unique().index().optional().default("N/A").backfill("NONE").docs("Short code").deprecated("Use new_code"))
+		} })`)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		addCol := sb.operations[0].(*ast.AddColumn)
+		col := addCol.Column
+		if col.Name != "code" {
+			t.Errorf("Name = %q, want %q", col.Name, "code")
+		}
+		if col.Type != "string" {
+			t.Errorf("Type = %q, want %q", col.Type, "string")
+		}
+		if !col.Unique {
+			t.Error("Should be unique")
+		}
+		if !col.Index {
+			t.Error("Should have index")
+		}
+		if !col.Nullable {
+			t.Error("Should be nullable")
+		}
+		if !col.NullableSet {
+			t.Error("NullableSet should be true")
+		}
+		if !col.DefaultSet {
+			t.Error("DefaultSet should be true")
+		}
+		if !col.BackfillSet {
+			t.Error("BackfillSet should be true")
+		}
+		if col.Docs != "Short code" {
+			t.Errorf("Docs = %q, want %q", col.Docs, "Short code")
+		}
+		if col.Deprecated != "Use new_code" {
+			t.Errorf("Deprecated = %q, want %q", col.Deprecated, "Use new_code")
+		}
+	})
+
+	t.Run("enum_column", func(t *testing.T) {
+		sb := NewSandbox(nil)
+		sb.BindMigration()
+
+		err := sb.Run(`migration({ up(m) { m.add_column("test.users", c => c.enum("role", ["admin", "user", "mod"])) } })`)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		addCol := sb.operations[0].(*ast.AddColumn)
+		if addCol.Column.Type != "enum" {
+			t.Errorf("Type = %q, want %q", addCol.Column.Type, "enum")
+		}
+		if len(addCol.Column.TypeArgs) == 0 {
+			t.Error("TypeArgs should have enum values")
+		}
+	})
+
+	t.Run("decimal_column", func(t *testing.T) {
+		sb := NewSandbox(nil)
+		sb.BindMigration()
+
+		err := sb.Run(`migration({ up(m) { m.add_column("test.orders", c => c.decimal("total", 19, 4)) } })`)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		addCol := sb.operations[0].(*ast.AddColumn)
+		if addCol.Column.Type != "decimal" {
+			t.Errorf("Type = %q, want %q", addCol.Column.Type, "decimal")
+		}
+		if len(addCol.Column.TypeArgs) != 2 {
+			t.Errorf("TypeArgs length = %d, want 2", len(addCol.Column.TypeArgs))
+		}
+	})
+
+	t.Run("virtual_modifier", func(t *testing.T) {
+		sb := NewSandbox(nil)
+		sb.BindMigration()
+
+		err := sb.Run(`migration({ up(m) { m.add_column("test.users", c => c.text("full_name").virtual()) } })`)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		addCol := sb.operations[0].(*ast.AddColumn)
+		if !addCol.Column.Virtual {
+			t.Error("Column should be virtual")
+		}
+	})
+
+	t.Run("read_only_write_only", func(t *testing.T) {
+		sb := NewSandbox(nil)
+		sb.BindMigration()
+
+		err := sb.Run(`migration({ up(m) { m.add_column("test.users", c => c.text("hash").write_only()) } })`)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		addCol := sb.operations[0].(*ast.AddColumn)
+		if !addCol.Column.WriteOnly {
+			t.Error("Column should be write_only")
+		}
+	})
+}
+
+// TestMigrationCreateTable_DirectPath verifies that create_table produces the same
+// AST via the direct typed path as the old map-based path.
+func TestMigrationCreateTable_DirectPath(t *testing.T) {
+	t.Run("basic_table_with_modifiers", func(t *testing.T) {
+		sb := NewSandbox(nil)
+		sb.BindMigration()
+
+		err := sb.Run(`migration({ up(m) {
+			m.create_table("test.products", t => {
+				t.id()
+				t.string("name", 255).unique()
+				t.text("description").optional()
+				t.decimal("price", 19, 4)
+				t.boolean("active").default(true)
+				t.integer("stock").index()
+			})
+		} })`)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		ct := sb.operations[0].(*ast.CreateTable)
+		if len(ct.Columns) != 6 {
+			t.Fatalf("Expected 6 columns, got %d", len(ct.Columns))
+		}
+
+		// Verify column properties
+		nameCol := findCol(t, &ast.TableDef{Columns: ct.Columns}, "name")
+		if nameCol == nil {
+			t.Fatal("name column not found")
+		}
+		if !nameCol.Unique {
+			t.Error("name should be unique")
+		}
+		if !nameCol.NullableSet {
+			t.Error("name NullableSet should be true")
+		}
+
+		descCol := findCol(t, &ast.TableDef{Columns: ct.Columns}, "description")
+		if descCol == nil {
+			t.Fatal("description column not found")
+		}
+		if !descCol.Nullable {
+			t.Error("description should be nullable")
+		}
+
+		stockCol := findCol(t, &ast.TableDef{Columns: ct.Columns}, "stock")
+		if stockCol == nil {
+			t.Fatal("stock column not found")
+		}
+		if !stockCol.Index {
+			t.Error("stock should have index")
+		}
+	})
+
+	t.Run("table_with_belongs_to", func(t *testing.T) {
+		sb := NewSandbox(nil)
+		sb.BindMigration()
+
+		err := sb.Run(`migration({ up(m) {
+			m.create_table("test.posts", t => {
+				t.id()
+				t.string("title", 255)
+				t.belongs_to("auth.user")
+			})
+		} })`)
+		if err != nil {
+			t.Fatalf("Error: %v", err)
+		}
+
+		ct := sb.operations[0].(*ast.CreateTable)
+		userIdCol := findCol(t, &ast.TableDef{Columns: ct.Columns}, "user_id")
+		if userIdCol == nil {
+			t.Fatal("user_id column not found")
+		}
+		if userIdCol.Reference == nil {
+			t.Fatal("user_id should have a reference")
+		}
+		if userIdCol.Reference.Table != "auth.user" {
+			t.Errorf("Reference.Table = %q, want %q", userIdCol.Reference.Table, "auth.user")
+		}
+	})
+}

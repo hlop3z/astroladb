@@ -121,8 +121,11 @@ func (cb *ColBuilder) ToObject() *goja.Object {
 	// base64()
 	_ = obj.Set("base64", func() *goja.Object { return cb.createColDef("base64") })
 
-	// enum(values)
+	// enum(values) - values is required and must not be empty
 	_ = obj.Set("enum", func(values []string) *goja.Object {
+		if len(values) == 0 {
+			panic(cb.vm.ToValue(ErrMsgEnumRequiresValues.String()))
+		}
 		return cb.createColDef("enum", colWithArgs(values))
 	})
 

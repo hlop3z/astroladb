@@ -4,7 +4,6 @@ package runtime
 
 import (
 	"io"
-	"log/slog"
 	"math/rand"
 	"os"
 	"regexp"
@@ -332,9 +331,9 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 			columns = append(columns, columnDef)
 		}
 
-		// Return a chainable TableChain object
-		tc := builder.NewTableChain(s.vm, columns, indexes)
-		return tc.ToChainableObject()
+		// Return a chainable TableBuilder object
+		tb := builder.NewTableBuilderWithColumns(s.vm, columns, indexes)
+		return tb.ToChainableObject()
 	}
 }
 
@@ -347,9 +346,21 @@ func (s *Sandbox) registerTableFunc() func(goja.FunctionCall) goja.Value {
 
 		namespace := call.Arguments[0].String()
 		name := call.Arguments[1].String()
-		defObj := call.Arguments[2].Export()
+		defArg := call.Arguments[2]
 
-		tableDef := s.parseTableDef(namespace, name, defObj)
+		var tableDef *ast.TableDef
+
+		// Direct path: extract TableBuilder reference (bypasses map conversion)
+		if obj, ok := defArg.(*goja.Object); ok {
+			if builderVal := obj.Get("_tableBuilder"); builderVal != nil && !goja.IsUndefined(builderVal) && !goja.IsNull(builderVal) {
+				if tb, ok := builderVal.Export().(*builder.TableBuilder); ok {
+					tableDef = s.buildTableFromBuilder(tb, namespace, name)
+					// Clear reference to break circular ref (TableBuilder holds *goja.Runtime)
+					_ = obj.Delete("_tableBuilder")
+				}
+			}
+		}
+
 		if tableDef != nil {
 			// Set source file for error reporting
 			tableDef.SourceFile = s.currentFile
@@ -360,281 +371,56 @@ func (s *Sandbox) registerTableFunc() func(goja.FunctionCall) goja.Value {
 	}
 }
 
-// parseTableDef converts a JS object to an ast.TableDef.
-func (s *Sandbox) parseTableDef(namespace, name string, defObj any) *ast.TableDef {
-	def, ok := defObj.(map[string]any)
-	if !ok {
-		return nil
-	}
+// buildTableFromBuilder converts a TableBuilder directly to an ast.TableDef,
+// bypassing the lossy map[string]any intermediate representation.
+// This is the preferred path for schema evaluation (used when _tableBuilder is available).
+func (s *Sandbox) buildTableFromBuilder(tb *builder.TableBuilder, namespace, name string) *ast.TableDef {
+	converter := schema.NewColumnConverter()
+	tableDef := converter.TableBuilderToAST(tb, namespace, name)
 
-	tableDef := &ast.TableDef{
-		Namespace: namespace,
-		Name:      name,
-		Columns:   make([]*ast.ColumnDef, 0),
-		Indexes:   make([]*ast.IndexDef, 0),
-		Checks:    make([]*ast.CheckDef, 0),
-	}
-
-	// Parse columns and extract relationships
-	if colsRaw, exists := def["columns"]; exists {
-		var cols []any
-		switch c := colsRaw.(type) {
-		case []any:
-			cols = c
-		case []map[string]any:
-			for _, m := range c {
-				cols = append(cols, m)
+	// Process relationships for metadata
+	for _, rel := range tb.Relationships {
+		switch rel.Type {
+		case "many_to_many":
+			s.meta.AddManyToMany(namespace, name, rel.Target, s.currentFile)
+		case "polymorphic":
+			s.meta.AddPolymorphic(namespace, name, rel.As, rel.Targets)
+		case "junction":
+			// Find FK columns for junction detection
+			var fkCols []*ast.ColumnDef
+			for _, col := range tableDef.Columns {
+				if col.Reference != nil {
+					fkCols = append(fkCols, col)
+				}
 			}
-		}
-		for _, c := range cols {
-			m, ok := c.(map[string]any)
-			if !ok {
-				continue
-			}
-
-			// Check for many_to_many relationship
-			if t, ok := m["_type"].(string); ok && t == "relationship" {
-				if rel, ok := m["relationship"].(map[string]any); ok {
-					if relType, ok := rel["type"].(string); ok && relType == "many_to_many" {
-						if target, ok := rel["target"].(string); ok {
-							// Register many_to_many relationship in metadata
-							s.meta.AddManyToMany(namespace, name, target, s.currentFile)
-						}
+			if rel.JunctionSource != "" && rel.JunctionTarget != "" {
+				// Explicit refs provided - find matching FK columns
+				var sourceFK, targetFK string
+				for _, fk := range fkCols {
+					if fk.Reference.Table == rel.JunctionSource {
+						sourceFK = fk.Name
+					}
+					if fk.Reference.Table == rel.JunctionTarget {
+						targetFK = fk.Name
 					}
 				}
-				continue
-			}
-
-			// Check for polymorphic relationship
-			if t, ok := m["_type"].(string); ok && t == "polymorphic" {
-				if poly, ok := m["polymorphic"].(map[string]any); ok {
-					alias, _ := poly["as"].(string)
-					var targets []string
-					if targetsRaw, ok := poly["targets"].([]any); ok {
-						for _, t := range targetsRaw {
-							if ts, ok := t.(string); ok {
-								targets = append(targets, ts)
-							}
-						}
-					} else if targetsRaw, ok := poly["targets"].([]string); ok {
-						targets = targetsRaw
-					}
-					s.meta.AddPolymorphic(namespace, name, alias, targets)
+				if sourceFK != "" && targetFK != "" {
+					s.meta.AddExplicitJunction(rel.JunctionSource, rel.JunctionTarget, sourceFK, targetFK)
 				}
-				continue
-			}
-
-			// Check for junction marker
-			if t, ok := m["_type"].(string); ok && t == "junction" {
-				if junc, ok := m["junction"].(map[string]any); ok {
-					// Collect FK columns from already-parsed columns
-					var fkCols []*ast.ColumnDef
-					for _, col := range tableDef.Columns {
-						if col.Reference != nil {
-							fkCols = append(fkCols, col)
-						}
-					}
-
-					// Check for explicit refs
-					sourceRef, hasSource := junc["source"].(string)
-					targetRef, hasTarget := junc["target"].(string)
-
-					if hasSource && hasTarget {
-						// Explicit refs provided - find matching FK columns
-						var sourceFK, targetFK string
-						for _, fk := range fkCols {
-							if fk.Reference.Table == sourceRef {
-								sourceFK = fk.Name
-							}
-							if fk.Reference.Table == targetRef {
-								targetFK = fk.Name
-							}
-						}
-						if sourceFK != "" && targetFK != "" {
-							s.meta.AddExplicitJunction(sourceRef, targetRef, sourceFK, targetFK)
-						}
-					} else {
-						// Auto-detect: require exactly 2 FKs
-						if len(fkCols) == 2 {
-							s.meta.AddExplicitJunction(
-								fkCols[0].Reference.Table,
-								fkCols[1].Reference.Table,
-								fkCols[0].Name,
-								fkCols[1].Name,
-							)
-						}
-					}
-				}
-				continue
-			}
-
-			// Parse regular column
-			if colDef := s.parseColumnDef(c); colDef != nil {
-				tableDef.Columns = append(tableDef.Columns, colDef)
+			} else if len(fkCols) == 2 {
+				// Auto-detect: require exactly 2 FKs
+				s.meta.AddExplicitJunction(
+					fkCols[0].Reference.Table, fkCols[1].Reference.Table,
+					fkCols[0].Name, fkCols[1].Name,
+				)
 			}
 		}
 	}
-
-	// Parse indexes (handle both []any and []map[string]any from Goja)
-	if idxsAny, ok := def["indexes"].([]any); ok {
-		for _, i := range idxsAny {
-			if idxDef := schema.ParseIndexDefMap(i); idxDef != nil {
-				tableDef.Indexes = append(tableDef.Indexes, idxDef)
-			}
-		}
-	} else if idxsMap, ok := def["indexes"].([]map[string]any); ok {
-		// Handle direct []map[string]any from Go slices passed through Goja
-		for _, i := range idxsMap {
-			if idxDef := schema.ParseIndexDefMap(i); idxDef != nil {
-				tableDef.Indexes = append(tableDef.Indexes, idxDef)
-			}
-		}
-	}
-
-	// Parse metadata
-	if docs, ok := def["docs"].(string); ok {
-		tableDef.Docs = docs
-	}
-	if deprecated, ok := def["deprecated"].(string); ok {
-		tableDef.Deprecated = deprecated
-	}
-
-	// Parse x-db metadata
-	if auditable, ok := def["auditable"].(bool); ok {
-		tableDef.Auditable = auditable
-	}
-	tableDef.SortBy = toStringSlice(def["sort_by"])
-	tableDef.Searchable = toStringSlice(def["searchable"])
-	tableDef.Filterable = toStringSlice(def["filterable"])
 
 	// Add table to metadata
 	s.meta.AddTable(tableDef)
 
 	return tableDef
-}
-
-// parseColumnDef converts a JS object to an ast.ColumnDef.
-func (s *Sandbox) parseColumnDef(obj any) *ast.ColumnDef {
-	m, ok := obj.(map[string]any)
-	if !ok {
-		return nil
-	}
-
-	// Skip metadata-only entries (relationships, polymorphic markers)
-	if _, isMetadata := m["_type"]; isMetadata {
-		return nil
-	}
-
-	// Skip entries without a name (invalid column definitions)
-	name, hasName := m["name"].(string)
-	if !hasName || name == "" {
-		return nil
-	}
-
-	col := &ast.ColumnDef{
-		Name: name,
-	}
-	if typ, ok := m["type"].(string); ok {
-		col.Type = typ
-	}
-	if args, ok := m["type_args"].([]any); ok {
-		col.TypeArgs = args
-	}
-	if nullable, ok := m["nullable"].(bool); ok {
-		col.Nullable = nullable
-		col.NullableSet = true
-	}
-	if unique, ok := m["unique"].(bool); ok {
-		col.Unique = unique
-	}
-	if pk, ok := m["primary_key"].(bool); ok {
-		col.PrimaryKey = pk
-	}
-	if def, exists := m["default"]; exists {
-		slog.Debug("parseColumnDef: found default in map",
-			"column", name,
-			"default", def)
-		col.Default = s.convertValue(def)
-		col.DefaultSet = true
-	} else {
-		slog.Debug("parseColumnDef: NO default in map",
-			"column", name)
-	}
-	if backfill, exists := m["backfill"]; exists {
-		col.Backfill = s.convertValue(backfill)
-		col.BackfillSet = true
-	}
-
-	// Parse reference
-	if ref, ok := m["reference"].(map[string]any); ok {
-		col.Reference = schema.ParseReferenceMap(ref)
-	}
-
-	// Parse validation
-	if min, ok := m["min"].(float64); ok {
-		col.Min = &min
-	}
-	if max, ok := m["max"].(float64); ok {
-		col.Max = &max
-	}
-	if pattern, ok := m["pattern"].(string); ok {
-		col.Pattern = pattern
-	}
-	if format, ok := m["format"].(string); ok {
-		col.Format = format
-	}
-
-	// Parse documentation
-	if docs, ok := m["docs"].(string); ok {
-		col.Docs = docs
-	}
-	if deprecated, ok := m["deprecated"].(string); ok {
-		col.Deprecated = deprecated
-	}
-
-	// Parse access control
-	if readOnly, ok := m["read_only"].(bool); ok {
-		col.ReadOnly = readOnly
-	}
-	if writeOnly, ok := m["write_only"].(bool); ok {
-		col.WriteOnly = writeOnly
-	}
-
-	// Parse computed expression
-	if computed, exists := m["computed"]; exists {
-		col.Computed = computed
-	}
-	if v, ok := m["virtual"].(bool); ok {
-		col.Virtual = v
-	}
-
-	return col
-}
-
-// toStringSlice converts a Goja value to []string.
-// Handles both []string and []any (where each element is asserted to string).
-func toStringSlice(v any) []string {
-	if v == nil {
-		return nil
-	}
-	if ss, ok := v.([]string); ok {
-		return ss
-	}
-	if aa, ok := v.([]any); ok {
-		var result []string
-		for _, item := range aa {
-			if s, ok := item.(string); ok {
-				result = append(result, s)
-			}
-		}
-		return result
-	}
-	return nil
-}
-
-// convertValue converts JS values (like sql("...") results) to Go types.
-func (s *Sandbox) convertValue(v any) any {
-	return ast.ConvertSQLExprValue(v)
 }
 
 // SetTimeout sets the execution timeout for JS code.

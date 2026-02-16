@@ -22,6 +22,12 @@ type TableBuilder struct {
 	Relationships []*RelationshipDef
 	Docs          string
 	Deprecated    string
+
+	// Schema-only metadata (not used in migrations)
+	Auditable  bool
+	SortBy     []string
+	Searchable []string
+	Filterable []string
 }
 
 // NewTableBuilder creates a new table builder for JavaScript.
@@ -30,6 +36,17 @@ func NewTableBuilder(vm *goja.Runtime) *TableBuilder {
 		vm:            vm,
 		Columns:       make([]*ColumnDef, 0),
 		Indexes:       make([]*IndexDef, 0),
+		Relationships: make([]*RelationshipDef, 0),
+	}
+}
+
+// NewTableBuilderWithColumns creates a TableBuilder with pre-existing columns and indexes.
+// Used by the schema path where columns are defined as object keys.
+func NewTableBuilderWithColumns(vm *goja.Runtime, columns []*ColumnDef, indexes []*IndexDef) *TableBuilder {
+	return &TableBuilder{
+		vm:            vm,
+		Columns:       columns,
+		Indexes:       indexes,
 		Relationships: make([]*RelationshipDef, 0),
 	}
 }
@@ -179,8 +196,11 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 	// base64(name)
 	_ = obj.Set("base64", func(name string) *goja.Object { return tb.addColumn(name, "base64") })
 
-	// enum(name, values)
+	// enum(name, values) - values is required and must not be empty
 	_ = obj.Set("enum", func(name string, values []string) *goja.Object {
+		if len(values) == 0 {
+			panic(tb.vm.ToValue(ErrMsgEnumRequiresValues.String()))
+		}
 		return tb.addColumn(name, "enum", withArgs(values))
 	})
 
@@ -399,6 +419,199 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 	return obj
 }
 
+// ToChainableObject returns a JS object with chainable table-level methods.
+// Used by the schema path after columns are defined as object keys.
+func (tb *TableBuilder) ToChainableObject() *goja.Object {
+	obj := tb.vm.NewObject()
+
+	// timestamps() - adds created_at and updated_at
+	_ = obj.Set("timestamps", func() *goja.Object {
+		tb.Columns = append(tb.Columns, &ColumnDef{
+			Name:    "created_at",
+			Type:    "datetime",
+			Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
+		})
+		tb.Columns = append(tb.Columns, &ColumnDef{
+			Name:    "updated_at",
+			Type:    "datetime",
+			Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
+		})
+		return obj
+	})
+
+	// soft_delete() - adds deleted_at
+	_ = obj.Set("soft_delete", func() *goja.Object {
+		tb.Columns = append(tb.Columns, &ColumnDef{
+			Name:     "deleted_at",
+			Type:     "datetime",
+			Nullable: true,
+		})
+		return obj
+	})
+
+	// sortable() - adds position
+	_ = obj.Set("sortable", func() *goja.Object {
+		tb.Columns = append(tb.Columns, &ColumnDef{
+			Name:    "position",
+			Type:    "integer",
+			Default: 0,
+		})
+		return obj
+	})
+
+	// index(...columns) - composite index
+	_ = obj.Set("index", func(columns ...string) *goja.Object {
+		tb.Indexes = append(tb.Indexes, &IndexDef{
+			Columns: columns,
+		})
+		return obj
+	})
+
+	// unique(...columns) - composite uniqueness
+	_ = obj.Set("unique", func(columns ...string) *goja.Object {
+		existingCols := make(map[string]bool)
+		for _, c := range tb.Columns {
+			existingCols[c.Name] = true
+		}
+
+		cols := make([]string, len(columns))
+		for i, col := range columns {
+			if strings.HasSuffix(col, "_id") || strings.HasSuffix(col, "_type") {
+				cols[i] = col
+			} else if existingCols[col+"_id"] {
+				cols[i] = col + "_id"
+			} else {
+				cols[i] = col
+			}
+		}
+		tb.Indexes = append(tb.Indexes, &IndexDef{
+			Columns: cols,
+			Unique:  true,
+		})
+		return obj
+	})
+
+	// many_to_many(ref)
+	_ = obj.Set("many_to_many", func(ref string) *goja.Object {
+		if ref == "" {
+			panic(tb.vm.ToValue(alerr.NewMissingReferenceError("many_to_many").Error()))
+		}
+		if !alerr.HasNamespace(ref) {
+			panic(tb.vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
+		}
+		tb.Relationships = append(tb.Relationships, &RelationshipDef{
+			Type:   "many_to_many",
+			Target: ref,
+		})
+		return obj
+	})
+
+	// junction(refs...) - marks table as M2M junction
+	_ = obj.Set("junction", func(refs ...string) *goja.Object {
+		if len(refs) != 0 && len(refs) != 2 {
+			panic(tb.vm.ToValue("junction() requires 0 or 2 parameters, got " + string(rune(len(refs)))))
+		}
+
+		rel := &RelationshipDef{
+			Type: "junction",
+		}
+		if len(refs) == 2 {
+			rel.JunctionSource = refs[0]
+			rel.JunctionTarget = refs[1]
+		}
+		tb.Relationships = append(tb.Relationships, rel)
+		return obj
+	})
+
+	// belongs_to_any(refs, opts)
+	_ = obj.Set("belongs_to_any", func(refs []string, opts ...map[string]any) *goja.Object {
+		var as string
+		if len(opts) > 0 {
+			if v, ok := opts[0]["as"].(string); ok {
+				as = v
+			}
+		}
+		if as == "" {
+			as = "polymorphic"
+		}
+
+		typeCol := as + "_type"
+		idCol := as + "_id"
+
+		tb.Columns = append(tb.Columns, &ColumnDef{
+			Name:     typeCol,
+			Type:     "string",
+			TypeArgs: []any{100},
+		})
+		tb.Columns = append(tb.Columns, &ColumnDef{
+			Name: idCol,
+			Type: "uuid",
+		})
+		tb.Indexes = append(tb.Indexes, &IndexDef{
+			Columns: []string{typeCol, idCol},
+		})
+		tb.Relationships = append(tb.Relationships, &RelationshipDef{
+			Type:    "polymorphic",
+			Targets: refs,
+			As:      as,
+		})
+		return obj
+	})
+
+	// docs(description) - table documentation
+	_ = obj.Set("docs", func(description string) *goja.Object {
+		tb.Docs = description
+		return obj
+	})
+
+	// deprecated(reason) - mark table as deprecated
+	_ = obj.Set("deprecated", func(reason string) *goja.Object {
+		tb.Deprecated = reason
+		return obj
+	})
+
+	// auditable() - adds created_by and updated_by columns
+	_ = obj.Set("auditable", func() *goja.Object {
+		tb.Auditable = true
+		tb.Columns = append(tb.Columns, &ColumnDef{
+			Name:     "created_by",
+			Type:     "uuid",
+			Nullable: true,
+		})
+		tb.Columns = append(tb.Columns, &ColumnDef{
+			Name:     "updated_by",
+			Type:     "uuid",
+			Nullable: true,
+		})
+		return obj
+	})
+
+	// sort_by(...columns) - default ordering
+	_ = obj.Set("sort_by", func(columns ...string) *goja.Object {
+		tb.SortBy = columns
+		return obj
+	})
+
+	// searchable(...columns) - columns for fulltext search
+	_ = obj.Set("searchable", func(columns ...string) *goja.Object {
+		tb.Searchable = columns
+		return obj
+	})
+
+	// filterable(...columns) - columns allowed in WHERE clauses
+	_ = obj.Set("filterable", func(columns ...string) *goja.Object {
+		tb.Filterable = columns
+		return obj
+	})
+
+	// Store result data for extraction
+	_ = obj.Set("_getResult", func() goja.Value {
+		return tb.ToResult()
+	})
+
+	return obj
+}
+
 // columnBuilder creates a fluent column builder object for method chaining.
 func (tb *TableBuilder) columnBuilder(col *ColumnDef) *goja.Object {
 	return createChainBuilder(tb.vm, col, false)
@@ -416,9 +629,21 @@ func createChainBuilder(vm *goja.Runtime, col *ColumnDef, includeRelOpts bool, c
 		return obj
 	})
 
+	// nullable() - alias for optional() (used in migrations)
+	_ = obj.Set("nullable", func() *goja.Object {
+		col.Nullable = true
+		return obj
+	})
+
 	// unique()
 	_ = obj.Set("unique", func() *goja.Object {
 		col.Unique = true
+		return obj
+	})
+
+	// index() - marks column for non-unique index creation
+	_ = obj.Set("index", func() *goja.Object {
+		col.Index = true
 		return obj
 	})
 
@@ -607,35 +832,10 @@ func (tb *TableBuilder) relationshipBuilder(ref string, col *ColumnDef, idx *Ind
 }
 
 // ToResult converts the builder state to a result object for JavaScript.
-// Converts typed structs back to maps for sandbox.go consumption.
+// Stashes a reference to the TableBuilder for direct extraction by registerTableFunc().
 func (tb *TableBuilder) ToResult() goja.Value {
 	result := tb.vm.NewObject()
-
-	// Convert columns to maps (using standalone functions to avoid duplication)
-	columns := make([]map[string]any, 0, len(tb.Columns)+len(tb.Relationships))
-	for _, col := range tb.Columns {
-		columns = append(columns, columnDefToMap(col))
-	}
-
-	// Add relationship markers (many_to_many, polymorphic)
-	for _, rel := range tb.Relationships {
-		columns = append(columns, relationshipDefToMap(rel))
-	}
-
-	// Convert indexes to maps
-	indexes := make([]map[string]any, 0, len(tb.Indexes))
-	for _, idx := range tb.Indexes {
-		indexes = append(indexes, indexDefToMap(idx))
-	}
-
-	_ = result.Set("columns", columns)
-	_ = result.Set("indexes", indexes)
-	if tb.Docs != "" {
-		_ = result.Set("docs", tb.Docs)
-	}
-	if tb.Deprecated != "" {
-		_ = result.Set("deprecated", tb.Deprecated)
-	}
+	_ = result.Set("_tableBuilder", tb)
 	return result
 }
 

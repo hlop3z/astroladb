@@ -33,6 +33,12 @@ var (
 		Help:  "try c.decimal(\"price\", 10, 2) for DECIMAL(10,2)",
 	}
 
+	// Enum errors
+	ErrMsgEnumRequiresValues = BuilderError{
+		Cause: "enum() requires at least one value",
+		Help:  "try col.enum(['active', 'inactive']) or c.enum(\"status\", ['active', 'inactive'])",
+	}
+
 	// Relationship errors (column-level, schema API)
 	ErrMsgBelongsToRequiresRef = BuilderError{
 		Cause: "belongs_to() requires a table reference",

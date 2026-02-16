@@ -156,6 +156,60 @@ func TestToAST(t *testing.T) {
 		}
 	})
 
+	t.Run("NullableSet always true", func(t *testing.T) {
+		col := &builder.ColumnDef{
+			Name:     "status",
+			Type:     "string",
+			Nullable: false,
+		}
+
+		result := converter.ToAST(col)
+		if !result.NullableSet {
+			t.Error("NullableSet should always be true (builder explicitly sets Nullable)")
+		}
+		if result.Nullable {
+			t.Error("Nullable should be false")
+		}
+
+		// Also test with nullable = true
+		col2 := &builder.ColumnDef{
+			Name:     "bio",
+			Type:     "text",
+			Nullable: true,
+		}
+		result2 := converter.ToAST(col2)
+		if !result2.NullableSet {
+			t.Error("NullableSet should be true for nullable column too")
+		}
+		if !result2.Nullable {
+			t.Error("Nullable should be true")
+		}
+	})
+
+	t.Run("Virtual column", func(t *testing.T) {
+		col := &builder.ColumnDef{
+			Name:    "full_name",
+			Type:    "string",
+			Virtual: true,
+		}
+
+		result := converter.ToAST(col)
+		if !result.Virtual {
+			t.Error("Virtual should be true")
+		}
+
+		// Non-virtual column
+		col2 := &builder.ColumnDef{
+			Name:    "email",
+			Type:    "string",
+			Virtual: false,
+		}
+		result2 := converter.ToAST(col2)
+		if result2.Virtual {
+			t.Error("Virtual should be false")
+		}
+	})
+
 	t.Run("column with metadata", func(t *testing.T) {
 		col := &builder.ColumnDef{
 			Name:       "email",
@@ -500,12 +554,12 @@ func TestTableBuilderToAST(t *testing.T) {
 	})
 }
 
-// TestTableChainToAST tests table chain conversion
-func TestTableChainToAST(t *testing.T) {
+// TestTableBuilderToAST_SchemaFields tests that TableBuilderToAST includes schema-only fields.
+func TestTableBuilderToAST_SchemaFields(t *testing.T) {
 	converter := NewColumnConverter()
 
-	t.Run("table chain with all features", func(t *testing.T) {
-		tc := &builder.TableChain{
+	t.Run("table builder with all schema features", func(t *testing.T) {
+		tb := &builder.TableBuilder{
 			Columns: []*builder.ColumnDef{
 				{Name: "id", Type: "uuid", PrimaryKey: true},
 				{Name: "title", Type: "string"},
@@ -521,7 +575,7 @@ func TestTableChainToAST(t *testing.T) {
 			Filterable: []string{"status"},
 		}
 
-		result := converter.TableChainToAST(tc, "blog", "post")
+		result := converter.TableBuilderToAST(tb, "blog", "post")
 		if result.Namespace != "blog" {
 			t.Errorf("Namespace = %q, want %q", result.Namespace, "blog")
 		}
@@ -545,8 +599,8 @@ func TestTableChainToAST(t *testing.T) {
 		}
 	})
 
-	t.Run("minimal table chain", func(t *testing.T) {
-		tc := &builder.TableChain{
+	t.Run("table builder without schema fields", func(t *testing.T) {
+		tb := &builder.TableBuilder{
 			Columns:    []*builder.ColumnDef{{Name: "id", Type: "uuid"}},
 			Indexes:    []*builder.IndexDef{},
 			Auditable:  false,
@@ -555,7 +609,7 @@ func TestTableChainToAST(t *testing.T) {
 			Filterable: nil,
 		}
 
-		result := converter.TableChainToAST(tc, "test", "table")
+		result := converter.TableBuilderToAST(tb, "test", "table")
 		if result.Auditable {
 			t.Error("Expected Auditable to be false")
 		}

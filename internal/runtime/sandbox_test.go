@@ -563,48 +563,8 @@ func TestParseJSError_WithFileContext(t *testing.T) {
 	}
 }
 
-func TestParseJSError_ExtractsLineNumber(t *testing.T) {
-	// Test the parseJSError function directly
-	tests := []struct {
-		name     string
-		message  string
-		wantLine int
-		wantCol  int
-	}{
-		{
-			name:     "line and column format",
-			message:  "at line 5:10",
-			wantLine: 5,
-			wantCol:  10,
-		},
-		{
-			name:     "file:line:col format",
-			message:  "schema.js:15:3: SyntaxError",
-			wantLine: 15,
-			wantCol:  3,
-		},
-		{
-			name:     "no position",
-			message:  "generic error",
-			wantLine: 0,
-			wantCol:  0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			info := &JSErrorInfo{Message: tt.message}
-			parsePositionFromMessage(info)
-
-			if info.Line != tt.wantLine {
-				t.Errorf("Line = %d, want %d", info.Line, tt.wantLine)
-			}
-			if info.Column != tt.wantCol {
-				t.Errorf("Column = %d, want %d", info.Column, tt.wantCol)
-			}
-		})
-	}
-}
+// TestParseJSError_ExtractsLineNumber was removed - we now use Goja's structured types
+// instead of regex parsing. See TestParseJSError_StructuredTypes below for the new approach.
 
 func TestGetSourceLine(t *testing.T) {
 	code := "line one\nline two\nline three"
