@@ -97,9 +97,9 @@ func (c *Client) MigrationRun(opts ...MigrationOption) error {
 
 	c.log("Found %d pending migrations", len(plan.Migrations))
 
-	// Handle dry-run
+	// Handle dry-run (use enhanced version with phase estimates)
 	if cfg.DryRun {
-		return c.dryRunMigrations(ctx, plan, cfg.Output)
+		return c.dryRunMigrationsEnhanced(ctx, plan, cfg.Output)
 	}
 
 	// Execute the plan (with or without locking)
@@ -191,9 +191,9 @@ func (c *Client) MigrationRollback(steps int, opts ...MigrationOption) error {
 
 	c.log("Rolling back %d migrations", len(plan.Migrations))
 
-	// Handle dry-run
+	// Handle dry-run (use enhanced version with phase estimates)
 	if cfg.DryRun {
-		return c.dryRunMigrations(ctx, plan, cfg.Output)
+		return c.dryRunMigrationsEnhanced(ctx, plan, cfg.Output)
 	}
 
 	// Execute the rollback (with or without locking)
@@ -253,20 +253,15 @@ func (c *Client) loadMigrationFilesWithChain(migrationChain *chain.Chain) ([]eng
 			continue
 		}
 
-		hooks := c.sandbox.GetHooks()
 		meta := c.sandbox.GetMigrationMeta()
 
 		m := engine.Migration{
-			Revision:        link.Revision,
-			Name:            link.Name,
-			Path:            path,
-			Checksum:        link.Checksum,
-			Operations:      ops,
-			BeforeHooks:     hooks.Before,
-			AfterHooks:      hooks.After,
-			DownBeforeHooks: hooks.DownBefore,
-			DownAfterHooks:  hooks.DownAfter,
-			Description:     meta.Description,
+			Revision:    link.Revision,
+			Name:        link.Name,
+			Path:        path,
+			Checksum:    link.Checksum,
+			Operations:  ops,
+			Description: meta.Description,
 		}
 
 		// Detect baseline migrations by name and parse squashed_through from file
