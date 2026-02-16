@@ -46,18 +46,6 @@ type Migration struct {
 	// Dependencies are revisions that must be applied before this one.
 	Dependencies []string
 
-	// BeforeHooks are SQL statements to execute before DDL operations.
-	BeforeHooks []string
-
-	// AfterHooks are SQL statements to execute after DDL operations.
-	AfterHooks []string
-
-	// DownBeforeHooks are SQL statements to execute before DDL operations during rollback.
-	DownBeforeHooks []string
-
-	// DownAfterHooks are SQL statements to execute after DDL operations during rollback.
-	DownAfterHooks []string
-
 	// Description is a human-readable summary of what this migration does.
 	Description string
 

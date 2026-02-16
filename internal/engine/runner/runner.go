@@ -108,16 +108,6 @@ func (r *Runner) RunDryRun(ctx context.Context, plan *engine.Plan) ([]string, er
 	var allSQL []string
 
 	for _, m := range plan.Migrations {
-		// Include before hooks
-		beforeHooks := m.BeforeHooks
-		if plan.Direction == engine.Down {
-			beforeHooks = m.DownBeforeHooks
-		}
-		if len(beforeHooks) > 0 {
-			allSQL = append(allSQL, "-- Before hooks")
-			allSQL = append(allSQL, beforeHooks...)
-		}
-
 		ops := r.getOperations(m, plan.Direction)
 		for _, op := range ops {
 			sqls, err := r.operationToSQL(op)
@@ -126,42 +116,71 @@ func (r *Runner) RunDryRun(ctx context.Context, plan *engine.Plan) ([]string, er
 			}
 			allSQL = append(allSQL, sqls...)
 		}
-
-		// Include after hooks
-		afterHooks := m.AfterHooks
-		if plan.Direction == engine.Down {
-			afterHooks = m.DownAfterHooks
-		}
-		if len(afterHooks) > 0 {
-			allSQL = append(allSQL, "-- After hooks")
-			allSQL = append(allSQL, afterHooks...)
-		}
 	}
 
 	return allSQL, nil
 }
 
-// runOne executes a single migration.
+// runOne executes a single migration using multi-phase execution (v0.0.9).
+// Phases: DDL (in transaction) → Indexes (concurrent) → Data (batched)
 func (r *Runner) runOne(ctx context.Context, m engine.Migration, dir engine.Direction) error {
 	start := time.Now()
 
-	// Collect all SQL statements for checksum computation
-	allSQL, err := r.collectSQL(m, dir)
+	ops := r.getOperations(m, dir)
+
+	// Split operations into execution phases
+	phases := engine.SplitIntoPhases(ops)
+
+	// Check if migration is partially complete (resume capability)
+	currentPhase, err := r.versions.GetPhase(ctx, m.Revision)
 	if err != nil {
 		return err
 	}
 
-	if r.dialect.SupportsTransactionalDDL() {
-		err = r.runInTransaction(ctx, m, dir)
-	} else {
-		err = r.runWithoutTransaction(ctx, m, dir)
+	// Execute each phase
+	for i, phase := range phases {
+		phaseNum := i + 1
+
+		// Skip already completed phases
+		if phaseNum <= currentPhase {
+			slog.Info("skipping completed phase",
+				"revision", m.Revision,
+				"phase", phaseNum,
+				"type", phase.Type.String())
+			continue
+		}
+
+		// Execute the phase
+		slog.Info("executing phase",
+			"revision", m.Revision,
+			"phase", phaseNum,
+			"type", phase.Type.String(),
+			"in_transaction", phase.InTransaction)
+
+		if err := r.executePhase(ctx, m, phase, dir); err != nil {
+			return alerr.Wrap(alerr.ErrMigrationFailed, err, "phase execution failed").
+				With("phase", phaseNum).
+				With("phase_type", phase.Type.String())
+		}
+
+		// Mark phase as complete
+		if err := r.versions.UpdatePhase(ctx, m.Revision, phaseNum); err != nil {
+			return err
+		}
 	}
 
-	if err != nil {
+	// Mark migration as fully complete (phase=0)
+	if err := r.versions.UpdatePhase(ctx, m.Revision, 0); err != nil {
 		return err
 	}
 
 	execTime := time.Since(start)
+
+	// Collect all SQL for checksum (for backward compatibility)
+	allSQL, err := r.collectSQL(m, dir)
+	if err != nil {
+		return err
+	}
 
 	switch dir {
 	case engine.Up:
@@ -180,15 +199,120 @@ func (r *Runner) runOne(ctx context.Context, m engine.Migration, dir engine.Dire
 	}
 }
 
+// executePhase executes a single phase of a migration with appropriate safety injections.
+func (r *Runner) executePhase(ctx context.Context, m engine.Migration, phase engine.Phase, dir engine.Direction) error {
+	if len(phase.Ops) == 0 {
+		return nil // Empty phase, nothing to do
+	}
+
+	// Handle Index phase specially (CREATE INDEX CONCURRENTLY)
+	if phase.Type == engine.Index {
+		return r.executeIndexPhase(ctx, phase)
+	}
+
+	// Handle DDL and Data phases (run in transaction with lock timeout)
+	return r.executeDDLOrDataPhase(ctx, phase)
+}
+
+// executeIndexPhase executes the Index phase (CREATE INDEX CONCURRENTLY, outside transaction).
+func (r *Runner) executeIndexPhase(ctx context.Context, phase engine.Phase) error {
+	// Set lock timeout for index creation (PostgreSQL only)
+	dialectName := r.dialect.Name()
+	if dialectName == "postgres" || dialectName == "postgresql" {
+		if _, err := r.db.ExecContext(ctx, "SET lock_timeout = '2s'"); err != nil {
+			return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to set lock timeout")
+		}
+	}
+
+	// Execute each index creation with CONCURRENT
+	for _, op := range phase.Ops {
+		createIdx, ok := op.(*ast.CreateIndex)
+		if !ok {
+			return alerr.New(alerr.ErrSchemaInvalid, "non-index operation in Index phase").
+				With("type", op.Type().String())
+		}
+
+		// Generate CONCURRENT index SQL with validation
+		sql := engine.GenerateConcurrentIndex(createIdx, dialectName)
+
+		// Execute the concurrent index creation
+		if _, err := r.db.ExecContext(ctx, sql); err != nil {
+			return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to create concurrent index").
+				WithSQL(sql)
+		}
+	}
+
+	return nil
+}
+
+// executeDDLOrDataPhase executes DDL or Data phases (in transaction with lock timeout).
+func (r *Runner) executeDDLOrDataPhase(ctx context.Context, phase engine.Phase) error {
+	// Generate SQL for all operations in this phase
+	var sqlStatements []string
+	for _, op := range phase.Ops {
+		sqls, err := r.operationToSQL(op)
+		if err != nil {
+			return err
+		}
+		sqlStatements = append(sqlStatements, sqls...)
+	}
+
+	if len(sqlStatements) == 0 {
+		return nil
+	}
+
+	dialectName := r.dialect.Name()
+
+	// SQLite: Execute statements individually within a transaction
+	// (SQLite driver doesn't support multiple statements in one Exec call)
+	if dialectName == "sqlite" {
+		return r.executeSQLiteTransaction(ctx, sqlStatements)
+	}
+
+	// PostgreSQL: Combine all SQL and wrap with transaction + lock timeout
+	combinedSQL := strings.Join(sqlStatements, ";\n")
+	wrappedSQL := engine.InjectLockTimeout(combinedSQL, true, dialectName)
+
+	// Execute in transaction
+	_, err := r.db.ExecContext(ctx, wrappedSQL)
+	if err != nil {
+		return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute phase").
+			WithSQL(wrappedSQL)
+	}
+
+	return nil
+}
+
+// executeSQLiteTransaction executes multiple SQL statements in a SQLite transaction.
+// SQLite driver doesn't support multiple statements in one Exec call, so we execute
+// each statement individually within a manual transaction.
+func (r *Runner) executeSQLiteTransaction(ctx context.Context, statements []string) error {
+	// Start transaction
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to begin transaction")
+	}
+	defer tx.Rollback() // Rollback if not committed
+
+	// Execute each statement
+	for _, sql := range statements {
+		if _, err := tx.ExecContext(ctx, sql); err != nil {
+			return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute statement in transaction").
+				WithSQL(sql)
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to commit transaction")
+	}
+
+	return nil
+}
+
 // collectSQL generates all SQL statements for a migration without executing them.
 func (r *Runner) collectSQL(m engine.Migration, dir engine.Direction) ([]string, error) {
 	var allSQL []string
-
-	if dir == engine.Up {
-		allSQL = append(allSQL, m.BeforeHooks...)
-	} else {
-		allSQL = append(allSQL, m.DownBeforeHooks...)
-	}
 
 	ops := r.getOperations(m, dir)
 	for _, op := range ops {
@@ -197,12 +321,6 @@ func (r *Runner) collectSQL(m engine.Migration, dir engine.Direction) ([]string,
 			return nil, err
 		}
 		allSQL = append(allSQL, sqls...)
-	}
-
-	if dir == engine.Up {
-		allSQL = append(allSQL, m.AfterHooks...)
-	} else {
-		allSQL = append(allSQL, m.DownAfterHooks...)
 	}
 
 	return allSQL, nil
@@ -238,18 +356,6 @@ func (r *Runner) runInTransaction(ctx context.Context, m engine.Migration, dir e
 		}
 	}()
 
-	// Execute before hooks
-	beforeHooks := m.BeforeHooks
-	if dir == engine.Down {
-		beforeHooks = m.DownBeforeHooks
-	}
-	for _, hook := range beforeHooks {
-		if _, err := tx.ExecContext(ctx, hook); err != nil {
-			return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute before hook").
-				WithSQL(hook)
-		}
-	}
-
 	ops := r.getOperations(m, dir)
 	for _, op := range ops {
 		sqls, err := r.operationToSQL(op)
@@ -265,18 +371,6 @@ func (r *Runner) runInTransaction(ctx context.Context, m engine.Migration, dir e
 		}
 	}
 
-	// Execute after hooks
-	afterHooks := m.AfterHooks
-	if dir == engine.Down {
-		afterHooks = m.DownAfterHooks
-	}
-	for _, hook := range afterHooks {
-		if _, err := tx.ExecContext(ctx, hook); err != nil {
-			return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute after hook").
-				WithSQL(hook)
-		}
-	}
-
 	if err := tx.Commit(); err != nil {
 		return alerr.Wrap(alerr.ErrSQLTransaction, err, "failed to commit transaction")
 	}
@@ -288,18 +382,6 @@ func (r *Runner) runInTransaction(ctx context.Context, m engine.Migration, dir e
 // runWithoutTransaction executes a migration without a transaction.
 // Used for databases that don't support transactional DDL.
 func (r *Runner) runWithoutTransaction(ctx context.Context, m engine.Migration, dir engine.Direction) error {
-	// Execute before hooks
-	beforeHooks := m.BeforeHooks
-	if dir == engine.Down {
-		beforeHooks = m.DownBeforeHooks
-	}
-	for _, hook := range beforeHooks {
-		if _, err := r.db.ExecContext(ctx, hook); err != nil {
-			return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute before hook").
-				WithSQL(hook)
-		}
-	}
-
 	ops := r.getOperations(m, dir)
 	for _, op := range ops {
 		sqls, err := r.operationToSQL(op)
@@ -312,18 +394,6 @@ func (r *Runner) runWithoutTransaction(ctx context.Context, m engine.Migration, 
 				return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute statement").
 					WithSQL(sqlStmt)
 			}
-		}
-	}
-
-	// Execute after hooks
-	afterHooks := m.AfterHooks
-	if dir == engine.Down {
-		afterHooks = m.DownAfterHooks
-	}
-	for _, hook := range afterHooks {
-		if _, err := r.db.ExecContext(ctx, hook); err != nil {
-			return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to execute after hook").
-				WithSQL(hook)
 		}
 	}
 

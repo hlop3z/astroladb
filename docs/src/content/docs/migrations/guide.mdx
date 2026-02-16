@@ -77,44 +77,35 @@ function reverses everything in `up()`. See the
 [DSL Reference](../dsl-reference/) for all available `m.*` and `t.*`
 methods.
 
-## Hooks
+## Backfilling Data
 
-Use `up_hook` and `down_hook` to run arbitrary SQL before or after the
-auto-generated DDL:
+When adding a NOT NULL column to a table with existing rows, use the `.backfill()` modifier to safely populate existing rows:
 
 ```js
 export default migration({
   up(m) {
-    m.add_column("blog.post", (t) => {
-      t.string("status", 20).default("draft");
-    });
-  },
-
-  up_hook(h) {
-    h.before("SET statement_timeout = '60s';");
-    h.after(
-      "UPDATE blog_post SET status = 'published' WHERE published_at IS NOT NULL;",
+    m.add_column("blog.post", (col) =>
+      col.string(20, "status")
+        .default("draft")
+        .backfill("draft") // Populates existing rows
     );
-    h.backfill("blog.post", "status", "'active'");
   },
 
   down(m) {
     m.drop_column("blog.post", "status");
   },
-
-  down_hook(h) {
-    h.before("SET statement_timeout = '60s';");
-  },
 });
 ```
 
-| Method                           | Description                                   |
-| -------------------------------- | --------------------------------------------- |
-| `h.before(sql)`                  | Run SQL **before** the generated DDL          |
-| `h.after(sql)`                   | Run SQL **after** the generated DDL           |
-| `h.backfill(table, column, val)` | Shorthand for `UPDATE table SET column = val` |
+**How it works:**
 
-Hooks run inside the same transaction as the migration.
+- Column is added as nullable first
+- Batched UPDATE populates existing rows (5,000 rows per batch)
+- 1-second sleep between batches allows AUTOVACUUM to run
+- `WHERE column IS NULL` makes operation idempotent (safe to re-run)
+- Finally, NOT NULL constraint is applied
+
+**Performance:** ~4,000-5,000 rows/sec throughput. A 1M row table takes approximately 3-4 minutes to backfill.
 
 ## Rename Hints
 

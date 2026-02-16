@@ -20,7 +20,10 @@ import (
 //     description       TEXT,
 //     sql_checksum      VARCHAR(64),
 //     squashed_through  VARCHAR(20),
-//     applied_order     INTEGER
+//     applied_order     INTEGER,
+//     phase             INTEGER NOT NULL DEFAULT 0,      -- 0=complete, 1=ddl, 2=index, 3=data
+//     phase_count       INTEGER NOT NULL DEFAULT 1,      -- Total number of phases
+//     phase_sql         TEXT                             -- Generated SQL for debugging
 // )
 
 const (
@@ -94,6 +97,9 @@ func (v *VersionManager) newColumns() []string {
 			fmt.Sprintf("ALTER TABLE %s ADD COLUMN sql_checksum TEXT", qt),
 			fmt.Sprintf("ALTER TABLE %s ADD COLUMN squashed_through TEXT", qt),
 			fmt.Sprintf("ALTER TABLE %s ADD COLUMN applied_order INTEGER", qt),
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN phase INTEGER NOT NULL DEFAULT 0", qt),
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN phase_count INTEGER NOT NULL DEFAULT 1", qt),
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN phase_sql TEXT", qt),
 		}
 	default:
 		return []string{
@@ -101,6 +107,9 @@ func (v *VersionManager) newColumns() []string {
 			fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS sql_checksum VARCHAR(64)", qt),
 			fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS squashed_through VARCHAR(20)", qt),
 			fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS applied_order INTEGER", qt),
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS phase INTEGER NOT NULL DEFAULT 0", qt),
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS phase_count INTEGER NOT NULL DEFAULT 1", qt),
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS phase_sql TEXT", qt),
 		}
 	}
 }
@@ -119,7 +128,10 @@ func (v *VersionManager) createTableSQL() string {
     description       TEXT,
     sql_checksum      VARCHAR(64),
     squashed_through  VARCHAR(20),
-    applied_order     INTEGER
+    applied_order     INTEGER,
+    phase             INTEGER NOT NULL DEFAULT 0,
+    phase_count       INTEGER NOT NULL DEFAULT 1,
+    phase_sql         TEXT
 )`, quotedTable)
 
 	case "sqlite":
@@ -131,7 +143,10 @@ func (v *VersionManager) createTableSQL() string {
     description       TEXT,
     sql_checksum      TEXT,
     squashed_through  TEXT,
-    applied_order     INTEGER
+    applied_order     INTEGER,
+    phase             INTEGER NOT NULL DEFAULT 0,
+    phase_count       INTEGER NOT NULL DEFAULT 1,
+    phase_sql         TEXT
 )`, quotedTable)
 
 	default:
@@ -143,7 +158,10 @@ func (v *VersionManager) createTableSQL() string {
     description       TEXT,
     sql_checksum      VARCHAR(64),
     squashed_through  VARCHAR(20),
-    applied_order     INTEGER
+    applied_order     INTEGER,
+    phase             INTEGER NOT NULL DEFAULT 0,
+    phase_count       INTEGER NOT NULL DEFAULT 1,
+    phase_sql         TEXT
 )`, quotedTable)
 	}
 }
@@ -682,4 +700,77 @@ func (v *VersionManager) DeleteAll(ctx context.Context) (int, error) {
 	}
 
 	return int(rowsAffected), nil
+}
+
+// -----------------------------------------------------------------------------
+// Phase Tracking (v0.0.9 Enterprise Features)
+// -----------------------------------------------------------------------------
+
+// GetPhase returns the current phase for a migration.
+// Returns 0 if migration is complete or not started.
+// Returns 1-3 for DDL/Index/Data phases respectively.
+func (v *VersionManager) GetPhase(ctx context.Context, revision string) (int, error) {
+	quotedTable := v.dialect.QuoteIdent(MigrationTableName)
+	query := fmt.Sprintf("SELECT phase FROM %s WHERE revision = %s", quotedTable, v.dialect.Placeholder(1))
+
+	var phase sql.NullInt64
+	err := v.db.QueryRowContext(ctx, query, revision).Scan(&phase)
+	if err == sql.ErrNoRows {
+		// Migration not applied yet
+		return 0, nil
+	}
+	if err != nil {
+		return 0, alerr.Wrap(alerr.ErrSQLExecution, err, "failed to get migration phase").
+			With("revision", revision).
+			WithSQL(query)
+	}
+
+	if phase.Valid {
+		return int(phase.Int64), nil
+	}
+	return 0, nil
+}
+
+// UpdatePhase updates the current phase for a migration.
+// phase=0 marks the migration as complete.
+// phase=1-3 indicates which phase is currently in progress.
+func (v *VersionManager) UpdatePhase(ctx context.Context, revision string, phase int) error {
+	quotedTable := v.dialect.QuoteIdent(MigrationTableName)
+	query := fmt.Sprintf(
+		"UPDATE %s SET phase = %s WHERE revision = %s",
+		quotedTable, v.dialect.Placeholder(1), v.dialect.Placeholder(2),
+	)
+
+	_, err := v.db.ExecContext(ctx, query, phase, revision)
+	if err != nil {
+		return alerr.Wrap(alerr.ErrSQLExecution, err, "failed to update migration phase").
+			With("revision", revision).
+			With("phase", phase).
+			WithSQL(query)
+	}
+
+	return nil
+}
+
+// GetPhaseSQL returns the generated SQL for a specific phase (for debugging).
+// Returns empty string if no SQL is stored.
+func (v *VersionManager) GetPhaseSQL(ctx context.Context, revision string) (string, error) {
+	quotedTable := v.dialect.QuoteIdent(MigrationTableName)
+	query := fmt.Sprintf("SELECT phase_sql FROM %s WHERE revision = %s", quotedTable, v.dialect.Placeholder(1))
+
+	var phaseSQL sql.NullString
+	err := v.db.QueryRowContext(ctx, query, revision).Scan(&phaseSQL)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", alerr.Wrap(alerr.ErrSQLExecution, err, "failed to get phase SQL").
+			With("revision", revision).
+			WithSQL(query)
+	}
+
+	if phaseSQL.Valid {
+		return phaseSQL.String, nil
+	}
+	return "", nil
 }

@@ -85,11 +85,17 @@ Apply all pending migrations.
 alab migrate
 ```
 
-Preview the SQL without applying:
+Preview the SQL without applying (shows phase-by-phase execution plan with estimates):
 
 ```bash
 alab migrate --dry
 ```
+
+**Dry-run output includes:**
+- Phase-by-phase SQL (DDL → Index → Data)
+- Row count estimates for affected tables
+- Time estimates for each phase
+- Total migration time estimate
 
 Apply and auto-commit to git:
 
@@ -103,9 +109,9 @@ Verify SQL checksums before applying:
 alab migrate --verify-sql
 ```
 
-| Flag                | Description                                      |
-| ------------------- | ------------------------------------------------ |
-| `--dry`             | Print SQL without executing                      |
+| Flag                | Description                                                           |
+| ------------------- | --------------------------------------------------------------------- |
+| `--dry`             | Show phase-by-phase SQL with row/time estimates (no execution)        |
 | `--force`           | Skip safety warnings and confirmation prompts    |
 | `--confirm-destroy` | Confirm DROP operations                          |
 | `--commit`          | Auto-commit migration files to git after apply   |

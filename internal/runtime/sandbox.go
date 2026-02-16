@@ -69,9 +69,6 @@ type Sandbox struct {
 	// before it can be used for generators which need full JS access.
 	restricted bool
 
-	// hooks stores before/after SQL hooks from migration DSL.
-	hooks MigrationHooks
-
 	// migrationMeta stores metadata parsed from migration DSL.
 	migrationMeta MigrationMeta
 }
@@ -125,7 +122,6 @@ func (s *Sandbox) Reset() {
 	s.restricted = false
 	s.tables = make([]*ast.TableDef, 0)
 	s.operations = nil
-	s.hooks = MigrationHooks{}
 	s.migrationMeta = MigrationMeta{}
 	s.meta = metadata.New()
 	s.currentFile = ""
@@ -934,7 +930,6 @@ func (s *Sandbox) RunFile(path string) ([]ast.Operation, error) {
 	// Reset results before evaluation
 	s.tables = make([]*ast.TableDef, 0)
 	s.operations = make([]ast.Operation, 0)
-	s.hooks = MigrationHooks{}
 	s.migrationMeta = MigrationMeta{}
 
 	if err := s.Run(code); err != nil {

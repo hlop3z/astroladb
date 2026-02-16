@@ -1,9 +1,7 @@
 package runtime
 
 import (
-	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/dop251/goja"
 
@@ -26,14 +24,6 @@ func NewBindingsContext(vm *goja.Runtime, namespace string) *BindingsContext {
 		namespace: namespace,
 		tables:    make([]*ast.TableDef, 0),
 	}
-}
-
-// MigrationHooks stores before/after SQL hooks parsed from migration DSL.
-type MigrationHooks struct {
-	Before     []string
-	After      []string
-	DownBefore []string
-	DownAfter  []string
 }
 
 // MigrationMeta stores metadata parsed from the migration DSL definition.
@@ -105,94 +95,13 @@ func (s *Sandbox) BindMigration() {
 			panic(s.vm.ToValue("error in migration up() function: " + err.Error()))
 		}
 
-		// Process up_hook if present
-		upHookVal := defObj.Get("up_hook")
-		if upHookVal != nil && !goja.IsUndefined(upHookVal) && !goja.IsNull(upHookVal) {
-			if hookFn, ok := goja.AssertFunction(upHookVal); ok {
-				hookBuilder := s.createHookBuilderObject()
-				_, err := hookFn(goja.Undefined(), hookBuilder)
-				if err != nil {
-					panic(s.vm.ToValue("error in migration up_hook() function: " + err.Error()))
-				}
-			}
-		}
-
-		// Process down_hook if present
-		downHookVal := defObj.Get("down_hook")
-		if downHookVal != nil && !goja.IsUndefined(downHookVal) && !goja.IsNull(downHookVal) {
-			if hookFn, ok := goja.AssertFunction(downHookVal); ok {
-				hookBuilder := s.createDownHookBuilderObject()
-				_, err := hookFn(goja.Undefined(), hookBuilder)
-				if err != nil {
-					panic(s.vm.ToValue("error in migration down_hook() function: " + err.Error()))
-				}
-			}
-		}
-
 		return goja.Undefined()
 	})
-}
-
-// GetHooks returns the collected migration hooks from the last evaluation.
-func (s *Sandbox) GetHooks() MigrationHooks {
-	return s.hooks
 }
 
 // GetMigrationMeta returns the metadata parsed from the last migration evaluation.
 func (s *Sandbox) GetMigrationMeta() MigrationMeta {
 	return s.migrationMeta
-}
-
-// createHookBuilderObject creates the JS object for hook before/after definitions.
-func (s *Sandbox) createHookBuilderObject() *goja.Object {
-	obj := s.vm.NewObject()
-
-	_ = obj.Set("before", func(sqlStr string) {
-		s.hooks.Before = append(s.hooks.Before, sqlStr)
-	})
-
-	_ = obj.Set("after", func(sqlStr string) {
-		s.hooks.After = append(s.hooks.After, sqlStr)
-	})
-
-	_ = obj.Set("backfill", func(table, column string, value any) {
-		sql := "UPDATE " + table + " SET " + column + " = "
-		switch v := value.(type) {
-		case string:
-			sql += "'" + strings.ReplaceAll(v, "'", "''") + "'"
-		case bool:
-			if v {
-				sql += "true"
-			} else {
-				sql += "false"
-			}
-		case int64:
-			sql += fmt.Sprintf("%d", v)
-		case float64:
-			sql += fmt.Sprintf("%g", v)
-		default:
-			sql += fmt.Sprintf("'%v'", value)
-		}
-		sql += " WHERE " + column + " IS NULL"
-		s.hooks.Before = append(s.hooks.Before, sql)
-	})
-
-	return obj
-}
-
-// createDownHookBuilderObject creates the JS object for down_hook before/after definitions.
-func (s *Sandbox) createDownHookBuilderObject() *goja.Object {
-	obj := s.vm.NewObject()
-
-	_ = obj.Set("before", func(sqlStr string) {
-		s.hooks.DownBefore = append(s.hooks.DownBefore, sqlStr)
-	})
-
-	_ = obj.Set("after", func(sqlStr string) {
-		s.hooks.DownAfter = append(s.hooks.DownAfter, sqlStr)
-	})
-
-	return obj
 }
 
 // createMigrationObject creates the JavaScript object for the migration builder.
@@ -563,6 +472,11 @@ func (s *Sandbox) createColumnChainObject(col map[string]any) *goja.Object {
 
 	_ = obj.Set("backfill", func(value any) *goja.Object {
 		col["backfill"] = value
+		return obj
+	})
+
+	_ = obj.Set("index", func() *goja.Object {
+		col["index"] = true
 		return obj
 	})
 

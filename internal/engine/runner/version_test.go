@@ -111,7 +111,11 @@ func TestRecordAndGetApplied(t *testing.T) {
 	}
 
 	t.Run("record_migration", func(t *testing.T) {
-		err := vm.RecordApplied(ctx, "001_create_users", "abc123", 100*time.Millisecond)
+		err := vm.RecordApplied(ctx, ApplyRecord{
+			Revision: "001_create_users",
+			Checksum: "abc123",
+			ExecTime: 100 * time.Millisecond,
+		})
 		if err != nil {
 			t.Fatalf("RecordApplied() error = %v", err)
 		}
@@ -138,7 +142,11 @@ func TestRecordAndGetApplied(t *testing.T) {
 	})
 
 	t.Run("multiple_migrations_ordered", func(t *testing.T) {
-		err := vm.RecordApplied(ctx, "002_create_posts", "def456", 50*time.Millisecond)
+		err := vm.RecordApplied(ctx, ApplyRecord{
+			Revision: "002_create_posts",
+			Checksum: "def456",
+			ExecTime: 50 * time.Millisecond,
+		})
 		if err != nil {
 			t.Fatalf("RecordApplied() error = %v", err)
 		}
@@ -176,7 +184,11 @@ func TestIsApplied(t *testing.T) {
 	}
 
 	// Record a migration
-	if err := vm.RecordApplied(ctx, "001_test", "checksum", time.Second); err != nil {
+	if err := vm.RecordApplied(ctx, ApplyRecord{
+		Revision: "001_test",
+		Checksum: "checksum",
+		ExecTime: time.Second,
+	}); err != nil {
 		t.Fatalf("RecordApplied() error = %v", err)
 	}
 
@@ -215,7 +227,11 @@ func TestGetChecksum(t *testing.T) {
 	}
 
 	// Record a migration
-	if err := vm.RecordApplied(ctx, "001_test", "expected_checksum", time.Second); err != nil {
+	if err := vm.RecordApplied(ctx, ApplyRecord{
+		Revision: "001_test",
+		Checksum: "expected_checksum",
+		ExecTime: time.Second,
+	}); err != nil {
 		t.Fatalf("RecordApplied() error = %v", err)
 	}
 
@@ -252,7 +268,11 @@ func TestVerifyChecksum(t *testing.T) {
 	}
 
 	// Record a migration
-	if err := vm.RecordApplied(ctx, "001_test", "checksum123", time.Second); err != nil {
+	if err := vm.RecordApplied(ctx, ApplyRecord{
+		Revision: "001_test",
+		Checksum: "checksum123",
+		ExecTime: time.Second,
+	}); err != nil {
 		t.Fatalf("RecordApplied() error = %v", err)
 	}
 
@@ -290,7 +310,11 @@ func TestRecordRollback(t *testing.T) {
 	}
 
 	// Record a migration
-	if err := vm.RecordApplied(ctx, "001_test", "checksum", time.Second); err != nil {
+	if err := vm.RecordApplied(ctx, ApplyRecord{
+		Revision: "001_test",
+		Checksum: "checksum",
+		ExecTime: time.Second,
+	}); err != nil {
 		t.Fatalf("RecordApplied() error = %v", err)
 	}
 
