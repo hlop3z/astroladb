@@ -6,7 +6,12 @@ import (
 	"strings"
 
 	"github.com/dop251/goja"
+
+	"github.com/hlop3z/astroladb/internal/alerr"
 )
+
+// errGen is a shorthand for generator error codes.
+var errGen = alerr.ErrJSExecution
 
 // GeneratorResult holds the output of a generator execution.
 type GeneratorResult struct {
@@ -35,7 +40,8 @@ func (s *Sandbox) RunGenerator(code string, schema map[string]any) (*GeneratorRe
 	}
 
 	if result == nil {
-		return nil, fmt.Errorf("generator must call render() inside gen()")
+		return nil, alerr.New(alerr.ErrJSExecution, "generator must call render() inside gen()").
+			WithHelp("gen(function(schema) { render({ 'path/file.py': content }) })")
 	}
 
 	return result, nil
@@ -49,7 +55,7 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 	// We use JSON round-trip to create a pure JS object that can be frozen
 	schemaJSON, err := json.Marshal(schema)
 	if err != nil {
-		panic(vm.ToValue(fmt.Sprintf("failed to marshal schema: %v", err)))
+		panicStructured(vm, errGen, fmt.Sprintf("failed to marshal schema: %v", err), "check that the schema contains only JSON-serializable values")
 	}
 
 	// Set the JSON string as a global variable
@@ -74,7 +80,7 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 
 	frozenSchema, err := vm.RunString(parseAndFreeze)
 	if err != nil {
-		panic(vm.ToValue(fmt.Sprintf("failed to freeze schema: %v", err)))
+		panicStructured(vm, errGen, fmt.Sprintf("failed to freeze schema: %v", err), "this is an internal error, please report it")
 	}
 
 	// Clean up the temporary variable
@@ -83,22 +89,22 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 	// render() — captures output
 	vm.Set("render", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
-			panic(vm.ToValue("render() requires an object argument"))
+			panicStructured(vm, errGen, "render() requires an object argument", "render({ 'path/file.py': content })")
 		}
 
 		arg := call.Arguments[0]
 		if arg == nil || goja.IsUndefined(arg) || goja.IsNull(arg) {
-			panic(vm.ToValue("render() argument must be a plain object"))
+			panicStructured(vm, errGen, "render() argument must be a plain object", "render({ 'path/file.py': content })")
 		}
 
 		obj, ok := arg.(*goja.Object)
 		if !ok {
-			panic(vm.ToValue("render() argument must be a plain object"))
+			panicStructured(vm, errGen, "render() argument must be a plain object", "render({ 'path/file.py': content })")
 		}
 
 		// Check it's a plain object (not array)
 		if obj.ClassName() == "Array" {
-			panic(vm.ToValue("render() argument must be a plain object, not an array"))
+			panicStructured(vm, errGen, "render() argument must be a plain object, not an array", "render({ 'path/file.py': content })")
 		}
 
 		files := make(map[string]string)
@@ -107,7 +113,7 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 			exported := val.Export()
 			str, ok := exported.(string)
 			if !ok {
-				panic(vm.ToValue(fmt.Sprintf("render() value for key %q must be a string, got %T", key, exported)))
+				panicStructured(vm, errGen, fmt.Sprintf("render() value for key %q must be a string, got %T", key, exported), "all render() values must be strings")
 			}
 			files[key] = str
 		}
@@ -119,17 +125,17 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 	// gen() — receives callback, passes schema
 	vm.Set("gen", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
-			panic(vm.ToValue("gen() requires a callback function"))
+			panicStructured(vm, errGen, "gen() requires a callback function", "gen(function(schema) { render({ ... }) })")
 		}
 
 		fn, ok := goja.AssertFunction(call.Arguments[0])
 		if !ok {
-			panic(vm.ToValue("gen() argument must be a function"))
+			panicStructured(vm, errGen, "gen() argument must be a function", "gen(function(schema) { render({ ... }) })")
 		}
 
 		ret, err := fn(goja.Undefined(), frozenSchema)
 		if err != nil {
-			panic(vm.ToValue(fmt.Sprintf("generator callback failed: %v", err)))
+			panicPassthrough(vm, err)
 		}
 
 		return ret
@@ -138,14 +144,14 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 	// Helper: perTable(schema, fn) — maps each table to { path: content }, merges
 	vm.Set("perTable", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 2 {
-			panic(vm.ToValue("perTable() requires (schema, fn)"))
+			panicStructured(vm, errGen, "perTable() requires (schema, fn)", "perTable(schema, function(table) { return { ... } })")
 		}
 		schemaArg := call.Arguments[0]
 		fnArg := call.Arguments[1]
 
 		fn, ok := goja.AssertFunction(fnArg)
 		if !ok {
-			panic(vm.ToValue("perTable() second argument must be a function"))
+			panicStructured(vm, errGen, "perTable() second argument must be a function", "perTable(schema, function(table) { return { ... } })")
 		}
 
 		// Convert to object if needed
@@ -153,7 +159,7 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 		if obj, ok := schemaArg.(*goja.Object); ok {
 			schemaObj = obj
 		} else {
-			panic(vm.ToValue("perTable() first argument must be an object"))
+			panicStructured(vm, errGen, "perTable() first argument must be an object", "perTable(schema, function(table) { return { ... } })")
 		}
 
 		tablesVal := schemaObj.Get("tables")
@@ -178,7 +184,7 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 			tableVal := tablesObj.Get(fmt.Sprintf("%d", i))
 			ret, err := fn(goja.Undefined(), tableVal)
 			if err != nil {
-				panic(vm.ToValue(fmt.Sprintf("perTable callback failed: %v", err)))
+				panicPassthrough(vm, err)
 			}
 			if ret == nil || goja.IsUndefined(ret) || goja.IsNull(ret) {
 				continue
@@ -198,14 +204,14 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 	// Helper: perNamespace(schema, fn)
 	vm.Set("perNamespace", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 2 {
-			panic(vm.ToValue("perNamespace() requires (schema, fn)"))
+			panicStructured(vm, errGen, "perNamespace() requires (schema, fn)", "perNamespace(schema, function(ns, tables) { return { ... } })")
 		}
 		schemaArg := call.Arguments[0]
 		fnArg := call.Arguments[1]
 
 		fn, ok := goja.AssertFunction(fnArg)
 		if !ok {
-			panic(vm.ToValue("perNamespace() second argument must be a function"))
+			panicStructured(vm, errGen, "perNamespace() second argument must be a function", "perNamespace(schema, function(ns, tables) { return { ... } })")
 		}
 
 		// Convert to object if needed
@@ -213,7 +219,7 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 		if obj, ok := schemaArg.(*goja.Object); ok {
 			schemaObj = obj
 		} else {
-			panic(vm.ToValue("perNamespace() first argument must be an object"))
+			panicStructured(vm, errGen, "perNamespace() first argument must be an object", "perNamespace(schema, function(ns, tables) { return { ... } })")
 		}
 
 		nsVal := schemaObj.Get("models")
@@ -231,7 +237,7 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 			nsTablesVal := nsObj.Get(nsKey)
 			ret, err := fn(goja.Undefined(), vm.ToValue(nsKey), nsTablesVal)
 			if err != nil {
-				panic(vm.ToValue(fmt.Sprintf("perNamespace callback failed: %v", err)))
+				panicPassthrough(vm, err)
 			}
 			if ret == nil || goja.IsUndefined(ret) || goja.IsNull(ret) {
 				continue
@@ -251,7 +257,7 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 	// Helper: json(value, indent?)
 	vm.Set("json", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
-			panic(vm.ToValue("json() requires a value"))
+			panicStructured(vm, errGen, "json() requires a value", "json(value) or json(value, '  ')")
 		}
 		value := call.Arguments[0].Export()
 		indent := ""
@@ -267,7 +273,7 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 			data, err = json.Marshal(value)
 		}
 		if err != nil {
-			panic(vm.ToValue(fmt.Sprintf("json() failed: %v", err)))
+			panicStructured(vm, errGen, fmt.Sprintf("json() serialization failed: %v", err), "ensure the value is JSON-serializable")
 		}
 		return vm.ToValue(string(data))
 	})

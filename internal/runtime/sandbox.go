@@ -216,7 +216,7 @@ func (s *Sandbox) bindDSL() {
 func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 	return func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
-			panic(s.vm.ToValue("table() requires a column definitions object"))
+			panicStructured(s.vm, alerr.ErrSchemaInvalid, "table() requires a column definitions object", "table({ id: col.id(), name: col.string(100) })")
 		}
 
 		arg := call.Arguments[0]
@@ -224,7 +224,7 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 		// Object-based API: table({ id: col.id() })
 		columnsObj, ok := arg.(*goja.Object)
 		if !ok {
-			panic(s.vm.ToValue("table() argument must be an object of column definitions"))
+			panicStructured(s.vm, alerr.ErrSchemaInvalid, "table() argument must be an object of column definitions", "table({ id: col.id(), name: col.string(100) })")
 		}
 
 		// Extract column definitions from the object
@@ -342,7 +342,7 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 func (s *Sandbox) registerTableFunc() func(goja.FunctionCall) goja.Value {
 	return func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 3 {
-			panic(s.vm.ToValue("__registerTable requires namespace, name, and definition"))
+			panicStructured(s.vm, alerr.EInternalError, "__registerTable requires namespace, name, and definition", "this is an internal error, please report it")
 		}
 
 		namespace := call.Arguments[0].String()
@@ -435,13 +435,13 @@ func (s *Sandbox) SetCurrentFile(path string) {
 }
 
 // extractStructuredError parses error messages for embedded error codes and structured content.
-// Format: "[E2009] cause\n       Use help..." returns (code, cause, help)
+// Format: "[XXX-NNN] cause|help" returns (code, cause, help)
 // Returns ("", original, "") if no code found.
 func extractStructuredError(msg string) (code string, cause string, help string) {
-	// Check for "[EXXXX] " pattern at start of message
-	if len(msg) > 7 && msg[0] == '[' && msg[1] == 'E' {
+	// Check for "[XXX-NNN]" pattern at start of message (8 chars inside brackets)
+	if len(msg) > 9 && msg[0] == '[' {
 		endIdx := strings.Index(msg, "]")
-		if endIdx > 0 && endIdx < 8 { // "[E####]" is max 7 chars
+		if endIdx > 0 && endIdx < 10 { // "[XXX-NNN]" is max 9 chars
 			code = msg[1:endIdx] // Extract "E####"
 			cleanMsg := strings.TrimSpace(msg[endIdx+1:])
 

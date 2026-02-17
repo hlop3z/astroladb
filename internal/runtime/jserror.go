@@ -297,8 +297,8 @@ var restrictedGlobalHints = map[string]string{
 
 // addJSErrorHelp adds contextual help based on the error message.
 func addJSErrorHelp(err *alerr.Error, message string) {
-	// Skip generic help if message is a structured error (starts with [E####])
-	if strings.HasPrefix(message, "[E") && len(message) > 6 && message[6] == ']' {
+	// Skip generic help if message is a structured error (starts with [XXX-NNN])
+	if len(message) > 9 && message[0] == '[' && strings.Contains(message[:10], "-") {
 		return
 	}
 

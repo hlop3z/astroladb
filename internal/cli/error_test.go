@@ -28,7 +28,7 @@ func TestFormatError_FullSourceContext(t *testing.T) {
 
 	checks := []string{
 		"error",
-		"E2009",
+		"VAL-009",
 		"belongs_to() requires a table reference",
 		"-->",
 		"schemas/auth/role.js:5:18",
@@ -59,7 +59,7 @@ func TestFormatError_FileOnly(t *testing.T) {
 
 	checks := []string{
 		"error",
-		"E2003",
+		"VAL-003",
 		"foreign key references unknown table",
 		"-->",
 		"schemas/auth/role.js",
@@ -134,9 +134,9 @@ func TestFormatError_CleanCause_GojaStack(t *testing.T) {
 }
 
 func TestFormatError_CleanCause_ErrorCode(t *testing.T) {
-	msg := "[E2009] belongs_to() requires a reference"
+	msg := "[VAL-009] belongs_to() requires a reference"
 	got := cleanCauseMessage(msg)
-	if strings.Contains(got, "[E2009]") {
+	if strings.Contains(got, "[VAL-009]") {
 		t.Errorf("error code not stripped\ngot: %s", got)
 	}
 	if !strings.Contains(got, "belongs_to() requires a reference") {
@@ -186,8 +186,8 @@ func TestFormatError_GenericError(t *testing.T) {
 	if !strings.Contains(output, "something went wrong") {
 		t.Errorf("expected message in output\ngot:\n%s", output)
 	}
-	// Should NOT contain brackets since it's not structured
-	if strings.Contains(output, "[E") {
+	// Should NOT contain error code brackets since it's not structured
+	if strings.Contains(output, "error[") {
 		t.Errorf("generic error should not have error code\ngot:\n%s", output)
 	}
 }

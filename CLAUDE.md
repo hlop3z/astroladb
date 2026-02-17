@@ -140,24 +140,28 @@ All three JS file types (schemas, migrations, generators) execute through the **
 Validation errors panic with a simple string value. Goja wraps this in an Exception and captures the JS call site automatically. **Never** call a JS function from Go to throw — Goja will capture the wrong call site.
 
 ```go
-// Structured error: "[E####] cause|help" — used for all validation errors
-panic(vm.ToValue(fmt.Sprintf("[%s] %s|%s", code, message, help)))
+// Structured error: "[XXX-NNN] cause|help" — used for all validation errors
+// Use the panicStructured helper in dsl_helpers.go:
+panicStructured(vm, alerr.ErrMissingReference, "belongs_to() requires a reference", "try col.belongs_to('ns.table')")
 
 // BuilderError helper (col.* API) — same format via .String()
 panic(cb.vm.ToValue(ErrMsgStringRequiresLength.String()))
 
 // throwStructuredError helper (table.* API)
-throwStructuredError(vm, alerr.ErrMissingReference, "belongs_to() requires a reference", "try col.belongs_to('ns.table')")
+throwStructuredError(vm, string(alerr.ErrMissingReference), "belongs_to() requires a reference", "try col.belongs_to('ns.table')")
+
+// Passthrough helper for JS callback errors (replaces 4-line pattern):
+panicPassthrough(vm, err)
 ```
 
-`extractStructuredError()` in `sandbox.go` parses the `[E####] cause|help` format back into code, message, and help text.
+`extractStructuredError()` in `sandbox.go` parses the `[XXX-NNN] cause|help` format back into code, message, and help text.
 
 ### Error Display Format
 
 **All errors** — from schemas, migrations, and generators — follow the same Rust/Cargo-style formatting (implemented in `internal/cli/error.go`):
 
 ```
-error[E2009]: belongs_to() requires a table reference
+error[VAL-009]: belongs_to() requires a table reference
   --> schemas/auth/role.js:5:18
    |
  5 |   owner: col.belongs_to()
@@ -166,13 +170,24 @@ error[E2009]: belongs_to() requires a table reference
 help: try col.belongs_to('namespace.table') or col.belongs_to('.table') for same namespace
 ```
 
+**Error Code Format: `XXX-NNN`** — 3-letter category tag, dash, 3-digit number:
+- `SCH-xxx` — Schema errors
+- `VAL-xxx` — Validation errors
+- `MIG-xxx` — Migration errors
+- `SQL-xxx` — SQL/database errors
+- `GEN-xxx` — Generator/runtime errors
+- `DBX-xxx` — Database examine/introspection errors
+- `GIT-xxx` — Git operation errors
+- `CHE-xxx` — Cache errors
+- `SYS-xxx` — System/internal errors
+
 **Key Components (must be present for ALL error types):**
 
-- Error code with message (`error[E####]: ...`)
+- Error code with message (`error[XXX-NNN]: ...`)
 - File location with line:column (`--> file:line:col`)
 - Source code line with caret highlighting (`^^^`)
 - Contextual notes and actionable help messages
-- Clean cause messages (no redundant line numbers, no `[E####]` codes in cause)
+- Clean cause messages (no redundant line numbers, no `[XXX-NNN]` codes in cause)
 
 **Consistency rule:** If a new DSL feature (schema, migration, or generator) can produce an error, it MUST go through the same pipeline and produce this same format. Test with `CRITICAL` prefix tests in `error_pipeline_test.go`.
 

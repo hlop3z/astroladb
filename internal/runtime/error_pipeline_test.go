@@ -77,7 +77,7 @@ func TestCRITICAL_ErrorPipeline_StructuredError(t *testing.T) {
 	// Verify FormatError produces Cargo-style output with correct error code
 	output := cli.FormatError(err)
 	for _, want := range []string{
-		"error[E2009]",
+		"error[VAL-009]",
 		"belongs_to() requires a table reference",
 		"-->",
 		"role.js",
@@ -227,7 +227,7 @@ func TestCRITICAL_ErrorPipeline_ManyToManyMissingRef(t *testing.T) {
 
 	output := cli.FormatError(err)
 	for _, want := range []string{
-		"error[E2009]",
+		"error[VAL-009]",
 		"many_to_many() requires a table reference",
 		"-->",
 		"many_to_many()",
@@ -487,7 +487,7 @@ func TestFormatError_StructuredVsGeneric(t *testing.T) {
 	sOutput := cli.FormatError(structured)
 
 	// Must have all components
-	for _, want := range []string{"error", "E2007", "-->", "test.js:3:10", "^", "help:"} {
+	for _, want := range []string{"error", "VAL-007", "-->", "test.js:3:10", "^", "help:"} {
 		if !strings.Contains(sOutput, want) {
 			t.Errorf("structured output missing %q\ngot:\n%s", want, sOutput)
 		}

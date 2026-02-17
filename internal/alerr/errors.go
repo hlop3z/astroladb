@@ -11,63 +11,65 @@ import (
 )
 
 // Code represents a stable, machine-readable error code.
-// Format: E{category}{number} where category is 1-5 and number is 001-999.
+// Format: XXX-NNN where XXX is a 3-letter category tag and NNN is a 3-digit number.
+// Categories: SCH (schema), VAL (validation), MIG (migration), SQL, GEN (generator/runtime),
+// DBX (database examine), GIT, CHE (cache), SYS (system).
 type Code string
 
 // Error codes organized by category.
 const (
-	// Schema errors (E1xxx) - problems with schema definitions
-	ErrSchemaInvalid     Code = "E1001" // Schema file is malformed or invalid
-	ErrSchemaNotFound    Code = "E1002" // Referenced schema does not exist
-	ErrSchemaDuplicate   Code = "E1003" // Schema with same name already exists
-	ErrSchemaCircularRef Code = "E1004" // Circular reference detected in schemas
+	// Schema errors (SCH-xxx) - problems with schema definitions
+	ErrSchemaInvalid     Code = "SCH-001" // Schema file is malformed or invalid
+	ErrSchemaNotFound    Code = "SCH-002" // Referenced schema does not exist
+	ErrSchemaDuplicate   Code = "SCH-003" // Schema with same name already exists
+	ErrSchemaCircularRef Code = "SCH-004" // Circular reference detected in schemas
 
-	// Validation errors (E2xxx) - problems with user input validation
-	ErrInvalidIdentifier Code = "E2001" // Identifier does not match allowed pattern
-	ErrInvalidSnakeCase  Code = "E2002" // Name must be snake_case
-	ErrInvalidReference  Code = "E2003" // Reference to non-existent entity
-	ErrReservedWord      Code = "E2004" // Name is a reserved SQL/JS keyword
-	ErrInvalidType       Code = "E2005" // Type is not supported or forbidden
-	ErrMissingNamespace  Code = "E2006" // Reference is missing namespace prefix
-	ErrMissingLength     Code = "E2007" // String column requires length
-	ErrTypeMismatchVal   Code = "E2008" // Default value type doesn't match column type
-	ErrMissingReference  Code = "E2009" // belongs_to/many_to_many requires a reference
+	// Validation errors (VAL-xxx) - problems with user input validation
+	ErrInvalidIdentifier Code = "VAL-001" // Identifier does not match allowed pattern
+	ErrInvalidSnakeCase  Code = "VAL-002" // Name must be snake_case
+	ErrInvalidReference  Code = "VAL-003" // Reference to non-existent entity
+	ErrReservedWord      Code = "VAL-004" // Name is a reserved SQL/JS keyword
+	ErrInvalidType       Code = "VAL-005" // Type is not supported or forbidden
+	ErrMissingNamespace  Code = "VAL-006" // Reference is missing namespace prefix
+	ErrMissingLength     Code = "VAL-007" // String column requires length
+	ErrTypeMismatchVal   Code = "VAL-008" // Default value type doesn't match column type
+	ErrMissingReference  Code = "VAL-009" // belongs_to/many_to_many requires a reference
 
-	// Migration errors (E3xxx) - problems during migration operations
-	ErrMigrationFailed   Code = "E3001" // Migration execution failed
-	ErrMigrationNotFound Code = "E3002" // Migration file not found
-	ErrMigrationConflict Code = "E3003" // Migration conflicts with existing state
-	ErrMigrationChecksum Code = "E3004" // Migration checksum does not match
+	// Migration errors (MIG-xxx) - problems during migration operations
+	ErrMigrationFailed   Code = "MIG-001" // Migration execution failed
+	ErrMigrationNotFound Code = "MIG-002" // Migration file not found
+	ErrMigrationConflict Code = "MIG-003" // Migration conflicts with existing state
+	ErrMigrationChecksum Code = "MIG-004" // Migration checksum does not match
 
-	// SQL errors (E4xxx) - problems with database operations
-	ErrSQLExecution   Code = "E4001" // SQL statement failed to execute
-	ErrSQLConnection  Code = "E4002" // Database connection failed
-	ErrSQLTransaction Code = "E4003" // Transaction operation failed
+	// SQL errors (SQL-xxx) - problems with database operations
+	ErrSQLExecution   Code = "SQL-001" // SQL statement failed to execute
+	ErrSQLConnection  Code = "SQL-002" // Database connection failed
+	ErrSQLTransaction Code = "SQL-003" // Transaction operation failed
 
-	// Runtime errors (E5xxx) - problems with JS execution
-	ErrJSExecution        Code = "E5001" // JavaScript execution failed
-	ErrJSTimeout          Code = "E5002" // JavaScript execution timed out
-	ErrJSNonDeterministic Code = "E5003" // Non-deterministic operation detected
+	// Generator/Runtime errors (GEN-xxx) - problems with JS execution
+	ErrJSExecution        Code = "GEN-001" // JavaScript execution failed
+	ErrJSTimeout          Code = "GEN-002" // JavaScript execution timed out
+	ErrJSNonDeterministic Code = "GEN-003" // Non-deterministic operation detected
 
-	// Introspection errors (E6xxx) - problems with database introspection
-	ErrIntrospection    Code = "E6001" // Database introspection failed
-	ErrTypeMismatch     Code = "E6002" // SQL type cannot be mapped to Alab type
-	EUnsupportedDialect Code = "E6003" // Dialect not supported for operation
+	// Introspection errors (DBX-xxx) - problems with database introspection
+	ErrIntrospection    Code = "DBX-001" // Database introspection failed
+	ErrTypeMismatch     Code = "DBX-002" // SQL type cannot be mapped to Alab type
+	EUnsupportedDialect Code = "DBX-003" // Dialect not supported for operation
 
-	// Git errors (E7xxx) - problems with git operations
-	ENotGitRepo     Code = "E7001" // Not inside a git repository
-	EGitOperation   Code = "E7002" // Git operation failed
-	EGitUncommitted Code = "E7003" // Uncommitted migration files
-	EGitNoRemote    Code = "E7004" // No remote configured
+	// Git errors (GIT-xxx) - problems with git operations
+	ENotGitRepo     Code = "GIT-001" // Not inside a git repository
+	EGitOperation   Code = "GIT-002" // Git operation failed
+	EGitUncommitted Code = "GIT-003" // Uncommitted migration files
+	EGitNoRemote    Code = "GIT-004" // No remote configured
 
-	// Cache errors (E8xxx) - problems with local cache
-	ErrCacheInit    Code = "E8001" // Cache initialization failed
-	ErrCacheRead    Code = "E8002" // Cache read failed
-	ErrCacheWrite   Code = "E8003" // Cache write failed
-	ErrCacheCorrupt Code = "E8004" // Cache is corrupted
+	// Cache errors (CHE-xxx) - problems with local cache
+	ErrCacheInit    Code = "CHE-001" // Cache initialization failed
+	ErrCacheRead    Code = "CHE-002" // Cache read failed
+	ErrCacheWrite   Code = "CHE-003" // Cache write failed
+	ErrCacheCorrupt Code = "CHE-004" // Cache is corrupted
 
-	// Internal errors (E9xxx) - unexpected internal errors
-	EInternalError Code = "E9001" // Internal error
+	// System/Internal errors (SYS-xxx) - unexpected internal errors
+	EInternalError Code = "SYS-001" // Internal error
 )
 
 // Common error messages - centralized to ensure consistency
@@ -89,7 +91,7 @@ type Error struct {
 // Error returns the formatted error string.
 // Format:
 //
-//	[E2002] column name must be snake_case
+//	[VAL-002] column name must be snake_case
 //	  table: auth.users
 //	  got: userName
 //	  want: user_name

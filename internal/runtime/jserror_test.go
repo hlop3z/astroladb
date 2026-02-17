@@ -18,7 +18,7 @@ func TestParseJSError_GoCallbackPanic(t *testing.T) {
 	// Register a Go callback that panics with a structured string (like throwStructuredError)
 	vm.Set("failingFunc", func(ref string) string {
 		if ref == "" {
-			panic(vm.ToValue("[E2009] missing ref|try adding a ref"))
+			panic(vm.ToValue("[VAL-009] missing ref|try adding a ref"))
 		}
 		return "ok"
 	})
@@ -39,8 +39,8 @@ failingFunc("");
 	}
 
 	// Message should contain the structured string
-	if info.Message != "[E2009] missing ref|try adding a ref" {
-		t.Errorf("Message = %q, want %q", info.Message, "[E2009] missing ref|try adding a ref")
+	if info.Message != "[VAL-009] missing ref|try adding a ref" {
+		t.Errorf("Message = %q, want %q", info.Message, "[VAL-009] missing ref|try adding a ref")
 	}
 
 	// Line should point to the JS call site (line 4), not the Go callback
@@ -234,22 +234,22 @@ func TestExtractStructuredError(t *testing.T) {
 	}{
 		{
 			name:     "alerr format with Use help",
-			msg:      "[E2009] belongs_to() requires a reference\n       Use belongs_to('namespace.table')",
-			wantCode: "E2009",
+			msg:      "[VAL-009] belongs_to() requires a reference\n       Use belongs_to('namespace.table')",
+			wantCode: "VAL-009",
 			wantMsg:  "belongs_to() requires a reference",
 			wantHelp: "Use belongs_to('namespace.table')",
 		},
 		{
 			name:     "pipe format with code",
-			msg:      "[E2007] string() requires a length|try col.string(255)",
-			wantCode: "E2007",
+			msg:      "[VAL-007] string() requires a length|try col.string(255)",
+			wantCode: "VAL-007",
 			wantMsg:  "string() requires a length",
 			wantHelp: "try col.string(255)",
 		},
 		{
 			name:     "code without help",
-			msg:      "[E2007] string() requires a length argument",
-			wantCode: "E2007",
+			msg:      "[VAL-007] string() requires a length argument",
+			wantCode: "VAL-007",
 			wantMsg:  "string() requires a length argument",
 			wantHelp: "",
 		},

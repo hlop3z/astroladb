@@ -80,6 +80,11 @@ tasks:
     cmds:
       - go test ./...
 
+  preview-errors:
+    desc: Preview all structured DSL error messages
+    cmds:
+      - go test -run TestPreviewAllErrors ./internal/runtime/ -v -count=1
+
   test-race:
     desc: Run tests with race detector (requires gcc)
     cmds:

@@ -21,7 +21,7 @@ const (
 // DiagnosticMessage represents a single diagnostic message with optional source context.
 type DiagnosticMessage struct {
 	Type    MessageType
-	Code    string // Error code like "E2002" (empty for warnings/notes/help)
+	Code    string // Error code like "VAL-002" (empty for warnings/notes/help)
 	Message string
 	File    string
 	Line    int
@@ -63,7 +63,7 @@ func formatAlabError(err *alerr.Error) string {
 	msg := err.GetMessage()
 	ctx := err.GetContext()
 
-	// First line: error[E1001]: message
+	// First line: error[SCH-001]: message
 	b.WriteString(Error("error"))
 	b.WriteString("[")
 	b.WriteString(Code(code))
@@ -177,7 +177,7 @@ func formatAlabError(err *alerr.Error) string {
 
 // cleanCauseMessage removes Goja stack trace from error messages and styles help text.
 // Strips " at github.com/.../func (native)" patterns for cleaner output.
-// Strips error codes like [E2009] from cause messages (already shown in main error).
+// Strips error codes like [VAL-009] from cause messages (already shown in main error).
 // Parses structured errors in "CAUSE|HELP" format or "message\n       Use..." format for proper styling.
 func cleanCauseMessage(msg string) string {
 	// Find Goja stack trace pattern " at github.com/..." and truncate there
@@ -200,9 +200,11 @@ func cleanCauseMessage(msg string) string {
 		}
 	}
 
-	// Strip error code prefix like "[E2009] " from cause (already shown in main error line)
-	if strings.HasPrefix(msg, "[E") && len(msg) > 7 && msg[6] == ']' {
-		msg = strings.TrimSpace(msg[7:])
+	// Strip error code prefix like "[XXX-NNN] " from cause (already shown in main error line)
+	if len(msg) > 9 && msg[0] == '[' && strings.Contains(msg[:10], "-") {
+		if endIdx := strings.Index(msg, "]"); endIdx > 0 && endIdx < 10 {
+			msg = strings.TrimSpace(msg[endIdx+1:])
+		}
 	}
 
 	// Parse structured error format "CAUSE|HELP"
