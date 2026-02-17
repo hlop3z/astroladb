@@ -41,7 +41,7 @@ func (s *Sandbox) RunGenerator(code string, schema map[string]any) (*GeneratorRe
 
 	if result == nil {
 		return nil, alerr.New(alerr.ErrJSExecution, "generator must call render() inside gen()").
-			WithHelp("gen(function(schema) { render({ 'path/file.py': content }) })")
+			WithHelp("try `gen(function(schema) { render({ ... }) })`")
 	}
 
 	return result, nil
@@ -55,7 +55,7 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 	// We use JSON round-trip to create a pure JS object that can be frozen
 	schemaJSON, err := json.Marshal(schema)
 	if err != nil {
-		panicStructured(vm, errGen, fmt.Sprintf("failed to marshal schema: %v", err), "check that the schema contains only JSON-serializable values")
+		panicStructured(vm, errGen, fmt.Sprintf("failed to marshal schema: %v", err), "ensure the schema contains only JSON-serializable values")
 	}
 
 	// Set the JSON string as a global variable
@@ -89,22 +89,22 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 	// render() — captures output
 	vm.Set("render", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
-			panicStructured(vm, errGen, "render() requires an object argument", "render({ 'path/file.py': content })")
+			panicStructured(vm, errGen, "render() requires an object argument", "try `render({ 'path/file.py': content })`")
 		}
 
 		arg := call.Arguments[0]
 		if arg == nil || goja.IsUndefined(arg) || goja.IsNull(arg) {
-			panicStructured(vm, errGen, "render() argument must be a plain object", "render({ 'path/file.py': content })")
+			panicStructured(vm, errGen, "render() argument must be a plain object", "try `render({ 'path/file.py': content })`")
 		}
 
 		obj, ok := arg.(*goja.Object)
 		if !ok {
-			panicStructured(vm, errGen, "render() argument must be a plain object", "render({ 'path/file.py': content })")
+			panicStructured(vm, errGen, "render() argument must be a plain object", "try `render({ 'path/file.py': content })`")
 		}
 
 		// Check it's a plain object (not array)
 		if obj.ClassName() == "Array" {
-			panicStructured(vm, errGen, "render() argument must be a plain object, not an array", "render({ 'path/file.py': content })")
+			panicStructured(vm, errGen, "render() argument must be a plain object, not an array", "try `render({ 'path/file.py': content })`")
 		}
 
 		files := make(map[string]string)
@@ -125,12 +125,12 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 	// gen() — receives callback, passes schema
 	vm.Set("gen", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
-			panicStructured(vm, errGen, "gen() requires a callback function", "gen(function(schema) { render({ ... }) })")
+			panicStructured(vm, errGen, "gen() requires a callback function", "try `gen(function(schema) { render({ ... }) })`")
 		}
 
 		fn, ok := goja.AssertFunction(call.Arguments[0])
 		if !ok {
-			panicStructured(vm, errGen, "gen() argument must be a function", "gen(function(schema) { render({ ... }) })")
+			panicStructured(vm, errGen, "gen() argument must be a function", "try `gen(function(schema) { render({ ... }) })`")
 		}
 
 		ret, err := fn(goja.Undefined(), frozenSchema)
@@ -141,123 +141,10 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 		return ret
 	})
 
-	// Helper: perTable(schema, fn) — maps each table to { path: content }, merges
-	vm.Set("perTable", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 2 {
-			panicStructured(vm, errGen, "perTable() requires (schema, fn)", "perTable(schema, function(table) { return { ... } })")
-		}
-		schemaArg := call.Arguments[0]
-		fnArg := call.Arguments[1]
-
-		fn, ok := goja.AssertFunction(fnArg)
-		if !ok {
-			panicStructured(vm, errGen, "perTable() second argument must be a function", "perTable(schema, function(table) { return { ... } })")
-		}
-
-		// Convert to object if needed
-		var schemaObj *goja.Object
-		if obj, ok := schemaArg.(*goja.Object); ok {
-			schemaObj = obj
-		} else {
-			panicStructured(vm, errGen, "perTable() first argument must be an object", "perTable(schema, function(table) { return { ... } })")
-		}
-
-		tablesVal := schemaObj.Get("tables")
-		if tablesVal == nil || goja.IsUndefined(tablesVal) {
-			return vm.ToValue(map[string]string{})
-		}
-
-		merged := vm.NewObject()
-		tablesObj, ok := tablesVal.(*goja.Object)
-		if !ok {
-			return vm.ToValue(map[string]string{})
-		}
-
-		// Iterate array
-		lengthVal := tablesObj.Get("length")
-		if lengthVal == nil {
-			return merged
-		}
-		length := int(lengthVal.ToInteger())
-
-		for i := 0; i < length; i++ {
-			tableVal := tablesObj.Get(fmt.Sprintf("%d", i))
-			ret, err := fn(goja.Undefined(), tableVal)
-			if err != nil {
-				panicPassthrough(vm, err)
-			}
-			if ret == nil || goja.IsUndefined(ret) || goja.IsNull(ret) {
-				continue
-			}
-			retObj, ok := ret.(*goja.Object)
-			if !ok {
-				continue
-			}
-			for _, k := range retObj.Keys() {
-				_ = merged.Set(k, retObj.Get(k))
-			}
-		}
-
-		return merged
-	})
-
-	// Helper: perNamespace(schema, fn)
-	vm.Set("perNamespace", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 2 {
-			panicStructured(vm, errGen, "perNamespace() requires (schema, fn)", "perNamespace(schema, function(ns, tables) { return { ... } })")
-		}
-		schemaArg := call.Arguments[0]
-		fnArg := call.Arguments[1]
-
-		fn, ok := goja.AssertFunction(fnArg)
-		if !ok {
-			panicStructured(vm, errGen, "perNamespace() second argument must be a function", "perNamespace(schema, function(ns, tables) { return { ... } })")
-		}
-
-		// Convert to object if needed
-		var schemaObj *goja.Object
-		if obj, ok := schemaArg.(*goja.Object); ok {
-			schemaObj = obj
-		} else {
-			panicStructured(vm, errGen, "perNamespace() first argument must be an object", "perNamespace(schema, function(ns, tables) { return { ... } })")
-		}
-
-		nsVal := schemaObj.Get("models")
-		if nsVal == nil || goja.IsUndefined(nsVal) {
-			return vm.ToValue(map[string]string{})
-		}
-
-		nsObj, ok := nsVal.(*goja.Object)
-		if !ok {
-			return vm.ToValue(map[string]string{})
-		}
-
-		merged := vm.NewObject()
-		for _, nsKey := range nsObj.Keys() {
-			nsTablesVal := nsObj.Get(nsKey)
-			ret, err := fn(goja.Undefined(), vm.ToValue(nsKey), nsTablesVal)
-			if err != nil {
-				panicPassthrough(vm, err)
-			}
-			if ret == nil || goja.IsUndefined(ret) || goja.IsNull(ret) {
-				continue
-			}
-			retObj, ok := ret.(*goja.Object)
-			if !ok {
-				continue
-			}
-			for _, k := range retObj.Keys() {
-				_ = merged.Set(k, retObj.Get(k))
-			}
-		}
-
-		return merged
-	})
-
 	// Helper: json(value, indent?)
 	vm.Set("json", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
-			panicStructured(vm, errGen, "json() requires a value", "json(value) or json(value, '  ')")
+			panicStructured(vm, errGen, "json() requires a value", "try `json(value)` or `json(value, '  ')`")
 		}
 		value := call.Arguments[0].Export()
 		indent := ""

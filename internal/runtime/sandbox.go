@@ -216,7 +216,7 @@ func (s *Sandbox) bindDSL() {
 func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 	return func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
-			panicStructured(s.vm, alerr.ErrSchemaInvalid, "table() requires a column definitions object", "table({ id: col.id(), name: col.string(100) })")
+			panicStructured(s.vm, alerr.ErrSchemaInvalid, "table() requires a column definitions object", "try `table({ id: col.id(), name: col.string(100) })`")
 		}
 
 		arg := call.Arguments[0]
@@ -224,7 +224,7 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 		// Object-based API: table({ id: col.id() })
 		columnsObj, ok := arg.(*goja.Object)
 		if !ok {
-			panicStructured(s.vm, alerr.ErrSchemaInvalid, "table() argument must be an object of column definitions", "table({ id: col.id(), name: col.string(100) })")
+			panicStructured(s.vm, alerr.ErrSchemaInvalid, "table() argument must be an object of column definitions", "try `table({ id: col.id(), name: col.string(100) })`")
 		}
 
 		// Extract column definitions from the object
@@ -666,7 +666,7 @@ func (s *Sandbox) EvalSchema(code string, namespace string, tableName string) (*
 
 	return nil, alerr.New(alerr.ErrSchemaInvalid, "schema file did not export a table definition").
 		WithTable(namespace, tableName).
-		WithHelp("ensure your schema exports a table definition using 'export default table({...})'")
+		WithHelp("try `export default table({ id: col.id() })`")
 }
 
 // GetTables returns all tables collected during evaluation.

@@ -287,12 +287,12 @@ func wrapJSError(err error, code alerr.Code, message string, ctx *ErrorContext) 
 // When a user tries to use Date, Math, etc. in a schema or migration, they get
 // a clear message suggesting the right DSL approach instead.
 var restrictedGlobalHints = map[string]string{
-	"date":     "use col.datetime() for timestamp columns or sql('NOW()') for default values",
-	"math":     "schemas and migrations are declarative — use sql() or fn.*() for computed values",
-	"json":     "use col.json() for JSON columns — JSON.parse/stringify are not available here",
-	"map":      "use plain objects {} instead of Map in schemas and migrations",
-	"set":      "use arrays [] instead of Set in schemas and migrations",
-	"parseint": "use integer literals directly — parseInt is not available in schemas and migrations",
+	"date":     "try `col.datetime()` for timestamps or `sql('NOW()')` for defaults",
+	"math":     "try `sql()` or `fn.*()` for computed values",
+	"json":     "try `col.json()` for JSON columns",
+	"map":      "try plain objects `{}` instead of `Map`",
+	"set":      "try arrays `[]` instead of `Set`",
+	"parseint": "use integer literals directly",
 }
 
 // addJSErrorHelp adds contextual help based on the error message.
@@ -315,21 +315,21 @@ func addJSErrorHelp(err *alerr.Error, message string) {
 
 	switch {
 	case strings.Contains(msg, "undefined"):
-		err.WithNote("JavaScript 'undefined' error - a variable or function was not found")
+		err.WithNote("a variable or function was not found in scope")
 		if strings.Contains(msg, "col") {
-			err.WithHelp("ensure 'col' is available in your schema file")
+			err.WithHelp("ensure `col` is available in your schema file")
 		}
 	case strings.Contains(msg, "is not a function"):
 		err.WithNote("attempted to call something that is not a function")
 		err.WithHelp("check the method name and ensure it exists on the object")
 	case strings.Contains(msg, "syntax"):
-		err.WithNote("JavaScript syntax error - check for missing brackets, quotes, or commas")
+		err.WithNote("check for missing brackets, quotes, or commas")
 	case strings.Contains(msg, "unexpected token"):
-		err.WithNote("unexpected character in JavaScript code")
+		err.WithNote("unexpected character in code")
 		err.WithHelp("check for typos or missing punctuation")
 	case strings.Contains(msg, "reference"):
-		err.WithNote("reference to undefined variable or missing import")
+		err.WithNote("reference to undefined variable")
 	case strings.Contains(msg, "type"):
-		err.WithNote("type mismatch in JavaScript code")
+		err.WithNote("type mismatch in code")
 	}
 }

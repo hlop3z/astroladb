@@ -482,7 +482,7 @@ func TestFormatError_StructuredVsGeneric(t *testing.T) {
 		WithLocation("test.js", 3, 10).
 		WithSource("  name: col.string()").
 		WithSpan(10, 20).
-		WithHelp("try col.string(255)")
+		WithHelp("try `col.string(255)`")
 
 	sOutput := cli.FormatError(structured)
 

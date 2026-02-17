@@ -73,24 +73,6 @@ func TestCRITICAL_GeneratorError_RenderNonStringValues(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// CRITICAL: perTable() with no arguments
-// ---------------------------------------------------------------------------
-
-func TestCRITICAL_GeneratorError_PerTableNoArgs(t *testing.T) {
-	err := runGenerator(t, `gen(function(s) { perTable() })`)
-	assertStructuredError(t, err, alerr.ErrJSExecution, "error[GEN-001]", "help:")
-}
-
-// ---------------------------------------------------------------------------
-// CRITICAL: perTable() with bad function argument
-// ---------------------------------------------------------------------------
-
-func TestCRITICAL_GeneratorError_PerTableBadFn(t *testing.T) {
-	err := runGenerator(t, `gen(function(s) { perTable(s, "not fn") })`)
-	assertStructuredError(t, err, alerr.ErrJSExecution, "error[GEN-001]", "help:")
-}
-
-// ---------------------------------------------------------------------------
 // CRITICAL: json() with no arguments
 // ---------------------------------------------------------------------------
 

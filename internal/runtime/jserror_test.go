@@ -241,10 +241,10 @@ func TestExtractStructuredError(t *testing.T) {
 		},
 		{
 			name:     "pipe format with code",
-			msg:      "[VAL-007] string() requires a length|try col.string(255)",
+			msg:      "[VAL-007] string() requires a length|try `col.string(255)`",
 			wantCode: "VAL-007",
 			wantMsg:  "string() requires a length",
-			wantHelp: "try col.string(255)",
+			wantHelp: "try `col.string(255)`",
 		},
 		{
 			name:     "code without help",

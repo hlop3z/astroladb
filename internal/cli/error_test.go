@@ -22,7 +22,7 @@ func TestFormatError_FullSourceContext(t *testing.T) {
 		WithLocation("schemas/auth/role.js", 5, 18).
 		WithSource("  owner: col.belongs_to()").
 		WithSpan(10, 25).
-		WithHelp("try col.belongs_to('namespace.table') or col.belongs_to('.table') for same namespace")
+		WithHelp("try `col.belongs_to('namespace.table')` or `col.belongs_to('.table')` for same namespace")
 
 	output := FormatError(err)
 
@@ -36,7 +36,7 @@ func TestFormatError_FullSourceContext(t *testing.T) {
 		"col.belongs_to", // source text
 		"^",              // caret pointer
 		"help:",
-		"col.belongs_to('namespace.table')",
+		"`col.belongs_to('namespace.table')`",
 	}
 	for _, want := range checks {
 		if !strings.Contains(output, want) {
@@ -86,7 +86,7 @@ func TestFormatError_NotesAndHelps(t *testing.T) {
 	err := alerr.New(alerr.ErrJSExecution, "undefined variable").
 		WithLocation("schemas/test.js", 3, 1).
 		WithSource("  foo.bar()").
-		WithNote("JavaScript 'undefined' error - a variable or function was not found").
+		WithNote("a variable or function was not found in scope").
 		WithHelp("ensure 'col' is available in your schema file")
 
 	output := FormatError(err)
@@ -145,7 +145,7 @@ func TestFormatError_CleanCause_ErrorCode(t *testing.T) {
 }
 
 func TestFormatError_CleanCause_PipeFormat(t *testing.T) {
-	msg := "string() requires a length argument|try col.string(255) for VARCHAR(255)"
+	msg := "string() requires a length argument|try `col.string(255)` for VARCHAR(255)"
 	got := cleanCauseMessage(msg)
 	if !strings.Contains(got, "string() requires a length argument") {
 		t.Errorf("cause portion lost\ngot: %s", got)
@@ -153,7 +153,7 @@ func TestFormatError_CleanCause_PipeFormat(t *testing.T) {
 	if !strings.Contains(got, "help:") {
 		t.Errorf("pipe-format help not rendered\ngot: %s", got)
 	}
-	if !strings.Contains(got, "col.string(255)") {
+	if !strings.Contains(got, "`col.string(255)`") {
 		t.Errorf("help text lost\ngot: %s", got)
 	}
 }

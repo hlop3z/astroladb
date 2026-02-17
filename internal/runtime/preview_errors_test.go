@@ -95,8 +95,6 @@ func TestPreviewAllErrors(t *testing.T) {
 		{"render() not object", `gen(function(s) { render("string") })`},
 		{"render() array", `gen(function(s) { render([1, 2]) })`},
 		{"render() non-string values", `gen(function(s) { render({ "f.txt": 42 }) })`},
-		{"perTable() no args", `gen(function(s) { perTable() })`},
-		{"perTable() bad fn", `gen(function(s) { perTable(s, "not fn") })`},
 		{"json() no args", `gen(function(s) { json() })`},
 	}
 

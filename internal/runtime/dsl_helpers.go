@@ -17,12 +17,11 @@ func panicStructured(vm *goja.Runtime, code alerr.Code, cause, help string) {
 	panic(vm.ToValue(fmt.Sprintf("[%s] %s|%s", code, cause, help)))
 }
 
-// panicPassthrough re-panics an error from a JS callback, extracting the
-// exception value to strip Goja stack traces. This preserves structured
-// error codes while avoiding double-wrapping.
+// panicPassthrough re-panics an error from a JS callback, preserving the
+// original Exception stack so Goja reports the correct call site.
 func panicPassthrough(vm *goja.Runtime, err error) {
 	if exc, ok := err.(*goja.Exception); ok {
-		panic(vm.ToValue(exc.Value().String()))
+		panic(exc)
 	}
 	panic(vm.ToValue(err.Error()))
 }

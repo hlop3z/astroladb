@@ -41,13 +41,13 @@ type MigrationMeta struct {
 func (s *Sandbox) BindMigration() {
 	s.vm.Set("migration", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) < 1 {
-			panicStructured(s.vm, alerr.ErrMigrationFailed, "migration() requires a definition object", "migration({ up(m) { ... } })")
+			panicStructured(s.vm, alerr.ErrMigrationFailed, "migration() requires a definition object", "try `migration({ up(m) { ... } })`")
 		}
 
 		// Expect an object with up() and down() methods
 		defObj, ok := call.Arguments[0].(*goja.Object)
 		if !ok {
-			panicStructured(s.vm, alerr.ErrMigrationFailed, "migration() argument must be an object with up() and down() methods", "migration({ up(m) { ... } })")
+			panicStructured(s.vm, alerr.ErrMigrationFailed, "migration() argument must be an object with up() and down() methods", "try `migration({ up(m) { ... } })`")
 		}
 
 		// Parse optional description
@@ -80,12 +80,12 @@ func (s *Sandbox) BindMigration() {
 		// Get the up() function
 		upVal := defObj.Get("up")
 		if upVal == nil || goja.IsUndefined(upVal) || goja.IsNull(upVal) {
-			panicStructured(s.vm, alerr.ErrMigrationFailed, "migration definition must have an up() method", "migration({ up(m) { ... } })")
+			panicStructured(s.vm, alerr.ErrMigrationFailed, "migration definition must have an up() method", "try `migration({ up(m) { ... } })`")
 		}
 
 		upFn, ok := goja.AssertFunction(upVal)
 		if !ok {
-			panicStructured(s.vm, alerr.ErrMigrationFailed, "migration up property must be a function", "migration({ up(m) { m.create_table(...) } })")
+			panicStructured(s.vm, alerr.ErrMigrationFailed, "migration up property must be a function", "try `migration({ up(m) { ... } })`")
 		}
 
 		// Create migration builder object
@@ -117,7 +117,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 	_ = obj.Set("create_table", func(ref string, fn goja.Value) {
 		builderFn, ok := goja.AssertFunction(fn)
 		if !ok {
-			panicStructured(s.vm, alerr.ErrMigrationFailed, "create_table() second argument must be a function", "create_table('ns.table', function(col) { ... })")
+			panicStructured(s.vm, alerr.ErrMigrationFailed, "create_table() second argument must be a function", "try `create_table('ns.table', function(col) { ... })`")
 		}
 
 		ns, table := mustParseRef(ref, s.vm)
@@ -164,7 +164,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 	_ = obj.Set("add_column", func(ref string, fn goja.Value) {
 		builderFn, ok := goja.AssertFunction(fn)
 		if !ok {
-			panicStructured(s.vm, alerr.ErrMigrationFailed, "add_column() second argument must be a function", "add_column('ns.table', function(col) { col.string('name', 255) })")
+			panicStructured(s.vm, alerr.ErrMigrationFailed, "add_column() second argument must be a function", "try `add_column('ns.table', function(col) { ... })`")
 		}
 
 		ns, table := mustParseRef(ref, s.vm)
@@ -181,10 +181,10 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 		}
 
 		if len(tb.Columns) == 0 {
-			panicStructured(s.vm, alerr.ErrMigrationFailed, "add_column() callback must define a column", "add_column('ns.table', function(col) { col.string('name', 255) })")
+			panicStructured(s.vm, alerr.ErrMigrationFailed, "add_column() callback must define a column", "try `col.string('name', 255)` inside the callback")
 		}
 		if len(tb.Columns) > 1 {
-			panicStructured(s.vm, alerr.ErrMigrationFailed, "add_column() callback must define exactly one column", "define only one column per add_column() call")
+			panicStructured(s.vm, alerr.ErrMigrationFailed, "add_column() callback must define exactly one column", "use one `add_column()` call per column")
 		}
 
 		converter := schema.NewColumnConverter()
@@ -257,7 +257,7 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 	_ = obj.Set("alter_column", func(ref, column string, fn goja.Value) {
 		builderFn, ok := goja.AssertFunction(fn)
 		if !ok {
-			panicStructured(s.vm, alerr.ErrMigrationFailed, "alter_column() third argument must be a function", "alter_column('ns.table', 'column', function(c) { c.set_type('text') })")
+			panicStructured(s.vm, alerr.ErrMigrationFailed, "alter_column() third argument must be a function", "try `alter_column('ns.table', 'col', function(c) { ... })`")
 		}
 
 		ns, table := mustParseRef(ref, s.vm)
@@ -388,12 +388,12 @@ func mustParseRef(ref string, vm *goja.Runtime) (namespace, table string) {
 	ns, tbl := strutil.ParseRef(ref)
 	if tbl != "" {
 		if err := ast.ValidateIdentifier(tbl); err != nil {
-			panicStructured(vm, alerr.ErrInvalidReference, fmt.Sprintf("invalid table name '%s'", tbl), "table names must be valid identifiers (letters, digits, underscores)")
+			panicStructured(vm, alerr.ErrInvalidReference, fmt.Sprintf("invalid table name '%s'", tbl), "use lowercase letters, digits, and underscores")
 		}
 	}
 	if ns != "" {
 		if err := ast.ValidateIdentifier(ns); err != nil {
-			panicStructured(vm, alerr.ErrInvalidReference, fmt.Sprintf("invalid namespace '%s'", ns), "namespace must be a valid identifier (letters, digits, underscores)")
+			panicStructured(vm, alerr.ErrInvalidReference, fmt.Sprintf("invalid namespace '%s'", ns), "use lowercase letters, digits, and underscores")
 		}
 	}
 	return ns, tbl

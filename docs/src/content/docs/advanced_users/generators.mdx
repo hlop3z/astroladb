@@ -38,12 +38,10 @@ export default gen((schema) =>
 
 | Function                   | Description                                                    |
 | -------------------------- | -------------------------------------------------------------- |
-| `gen(fn)`                  | Entry point. Receives a callback with the schema.              |
-| `render({path: string})`   | Output. Maps relative file paths to string contents.           |
-| `perTable(schema, fn)`     | Helper. Iterates `schema.tables`, merges results.              |
-| `perNamespace(schema, fn)` | Helper. Iterates `schema.models` by namespace, merges results. |
-| `json(value, indent?)`     | Helper. Safe `JSON.stringify` wrapper.                         |
-| `dedent(str)`              | Helper. Strips common leading whitespace.                      |
+| `gen(fn)`                | Entry point. Receives a callback with the schema.    |
+| `render({path: string})` | Output. Maps relative file paths to string contents. |
+| `json(value, indent?)`   | Helper. Safe `JSON.stringify` wrapper.               |
+| `dedent(str)`            | Helper. Strips common leading whitespace.            |
 
 ### Schema Object
 

@@ -74,12 +74,12 @@ func validateRef(vm *goja.Runtime, ref, method string) {
 	if ref == "" {
 		throwStructuredError(vm, string(alerr.ErrMissingReference),
 			method+"() requires a table reference",
-			"Use "+method+"('namespace.table') or "+method+"('.table') for same namespace")
+			"try `"+method+"('namespace.table')` or `"+method+"('.table')` for same namespace")
 	}
 	if !alerr.HasNamespace(ref) {
 		throwStructuredError(vm, string(alerr.ErrMissingNamespace),
-			"Reference '"+ref+"' is missing namespace prefix",
-			"Use '."+ref+"' for same namespace or 'namespace."+ref+"'")
+			"reference '"+ref+"' is missing namespace prefix",
+			"try `'."+ref+"'` for same namespace or `'namespace."+ref+"'`")
 	}
 }
 
@@ -90,12 +90,12 @@ func validateStringLength(vm *goja.Runtime, length int, name string) {
 			// Table context: include column name
 			throwStructuredError(vm, string(alerr.ErrMissingLength),
 				"string() requires a length argument",
-				"try t.string(\""+name+"\", 255) for VARCHAR(255)")
+				"try `t.string(\""+name+"\", 255)` for VARCHAR(255)")
 		} else {
 			// Col context: generic message
 			throwStructuredError(vm, string(alerr.ErrMissingLength),
 				"string() requires a length argument",
-				"try col.string(255) for VARCHAR(255)")
+				"try `col.string(255)` for VARCHAR(255)")
 		}
 	}
 }
@@ -106,11 +106,11 @@ func validateDecimalArgs(vm *goja.Runtime, precision, scale int, isTable bool) {
 		if isTable {
 			throwStructuredError(vm, string(alerr.ErrMissingLength),
 				"decimal() requires precision and scale arguments",
-				"try c.decimal(\"price\", 10, 2) for DECIMAL(10,2)")
+				"try `c.decimal(\"price\", 10, 2)` for DECIMAL(10,2)")
 		} else {
 			throwStructuredError(vm, string(alerr.ErrMissingLength),
 				"decimal() requires precision and scale arguments",
-				"try col.decimal(10, 2) for DECIMAL(10,2)")
+				"try `col.decimal(10, 2)` for DECIMAL(10,2)")
 		}
 	}
 }
@@ -120,7 +120,7 @@ func validateEnumValues(vm *goja.Runtime, values []string) {
 	if len(values) == 0 {
 		throwStructuredError(vm, string(alerr.ErrMissingLength),
 			"enum() requires at least one value",
-			"try col.enum(['active', 'inactive']) or c.enum(\"status\", ['active', 'inactive'])")
+			"try `col.enum(['active', 'inactive'])`")
 	}
 }
 
@@ -464,7 +464,7 @@ func (tb *TableBuilder) ToChainableObject() *goja.Object {
 		if len(refs) != 0 && len(refs) != 2 {
 			throwStructuredError(tb.vm, string(alerr.ErrMissingReference),
 				fmt.Sprintf("junction() requires 0 or 2 parameters, got %d", len(refs)),
-				"try t.junction() for auto-detect or t.junction('table1', 'table2') for explicit")
+				"try `t.junction()` for auto-detect or `t.junction('source', 'target')` for explicit")
 		}
 
 		rel := &RelationshipDef{

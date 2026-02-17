@@ -142,13 +142,13 @@ Validation errors panic with a simple string value. Goja wraps this in an Except
 ```go
 // Structured error: "[XXX-NNN] cause|help" — used for all validation errors
 // Use the panicStructured helper in dsl_helpers.go:
-panicStructured(vm, alerr.ErrMissingReference, "belongs_to() requires a reference", "try col.belongs_to('ns.table')")
+panicStructured(vm, alerr.ErrMissingReference, "belongs_to() requires a reference", "try `col.belongs_to('ns.table')`")
 
 // BuilderError helper (col.* API) — same format via .String()
 panic(cb.vm.ToValue(ErrMsgStringRequiresLength.String()))
 
 // throwStructuredError helper (table.* API)
-throwStructuredError(vm, string(alerr.ErrMissingReference), "belongs_to() requires a reference", "try col.belongs_to('ns.table')")
+throwStructuredError(vm, string(alerr.ErrMissingReference), "belongs_to() requires a reference", "try `col.belongs_to('ns.table')`")
 
 // Passthrough helper for JS callback errors (replaces 4-line pattern):
 panicPassthrough(vm, err)
@@ -167,7 +167,7 @@ error[VAL-009]: belongs_to() requires a table reference
  5 |   owner: col.belongs_to()
    |          ^^^^^^^^^^^^^^^^
    |
-help: try col.belongs_to('namespace.table') or col.belongs_to('.table') for same namespace
+help: try `col.belongs_to('namespace.table')` or `col.belongs_to('.table')` for same namespace
 ```
 
 **Error Code Format: `XXX-NNN`** — 3-letter category tag, dash, 3-digit number:
@@ -190,6 +190,35 @@ help: try col.belongs_to('namespace.table') or col.belongs_to('.table') for same
 - Clean cause messages (no redundant line numbers, no `[XXX-NNN]` codes in cause)
 
 **Consistency rule:** If a new DSL feature (schema, migration, or generator) can produce an error, it MUST go through the same pipeline and produce this same format. Test with `CRITICAL` prefix tests in `error_pipeline_test.go`.
+
+### Help Text Style Guide (Cargo conventions)
+
+All `help:` text follows Rust/Cargo conventions for consistency:
+
+1. **Start with `try`** for code suggestions — never bare examples, "Use", or "Do"
+2. **Wrap code in backticks** — `` try `col.string(255)` `` not `try col.string(255)`
+3. **Lowercase** — help text never starts with a capital letter
+4. **Actionable fixes only** — explanations go in `note:`, fixes go in `help:`
+5. **Keep short** — minimal viable example, no full function signatures
+
+```go
+// GOOD:
+"try `col.string(255)` for VARCHAR(255)"
+"try `migration({ up(m) { ... } })`"
+"use lowercase letters, digits, and underscores"
+
+// BAD:
+"col.string(255)"                              // bare example, no verb
+"Use col.string(255) for VARCHAR(255)"         // wrong verb, no backticks
+"Try col.string('name', 255) for VARCHAR(255)" // capitalized
+"table names must be valid identifiers (letters, digits, underscores)"  // explanation, not fix
+"try add_column('ns.table', function(col) { col.string('name', 255) })" // too long
+```
+
+**Where things go:**
+- `note:` — explains what went wrong (context, not fix)
+- `help:` — tells how to fix it (actionable code suggestion)
+- `cause:` — the underlying error (auto-extracted, not manually set)
 
 ### CLI Output Styling
 
@@ -245,6 +274,7 @@ Follow the testing pyramid from TESTING.md:
 3. **Error format consistency** - All DSL errors (schemas, migrations, generators) must go through the same `wrapJSError` → `alerr.Error` → `cli.FormatError` pipeline. Never create a separate error path.
 4. **Error throwing** - Always `panic(vm.ToValue(string))` from Go callbacks. Never call a JS function from Go to throw — Goja captures the wrong call site.
 5. **Cause message cleaning** - Strip error codes, Goja stack traces, and redundant line numbers from cause display
+6. **Help text style** - Always start with `try`, wrap code in backticks, keep lowercase. See "Help Text Style Guide" above.
 
 ## Documentation
 
