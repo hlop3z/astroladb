@@ -526,7 +526,7 @@ func sortDropTablesByFKDependency(dropTables []*ast.DropTable, allOps []ast.Oper
 		for _, fk := range ct.ForeignKeys {
 			refTable := fk.RefTable
 			// Convert reference to SQL table name format
-			refTableSQL := refToSQLName(refTable, ct.Namespace)
+			refTableSQL := refToSQLName(refTable)
 			if refTableSQL != tableName { // Don't count self-references
 				tableDeps[tableName] = append(tableDeps[tableName], refTableSQL)
 			}
@@ -538,7 +538,7 @@ func sortDropTablesByFKDependency(dropTables []*ast.DropTable, allOps []ast.Oper
 				continue
 			}
 			refTable := col.Reference.Table
-			refTableSQL := refToSQLName(refTable, ct.Namespace)
+			refTableSQL := refToSQLName(refTable)
 			if refTableSQL != tableName { // Don't count self-references
 				tableDeps[tableName] = append(tableDeps[tableName], refTableSQL)
 			}
@@ -607,11 +607,9 @@ func (n *dropTableSortNode) ID() string             { return n.table }
 func (n *dropTableSortNode) Dependencies() []string { return n.deps }
 
 // refToSQLName converts a table reference (e.g., "auth.user") to SQL name format (e.g., "auth_user").
-func refToSQLName(ref, defaultNS string) string {
-	ns, table, _ := engine.ParseSimpleRef(ref)
-	if ns == "" {
-		ns = defaultNS
-	}
+// Refs are pre-resolved at creation time, so no namespace fallback is needed.
+func refToSQLName(ref string) string {
+	ns, table := strutil.ParseRef(ref)
 	return strutil.SQLName(ns, table)
 }
 

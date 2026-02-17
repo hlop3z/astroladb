@@ -138,6 +138,19 @@ func IndexName(table string, cols ...string) string {
 }
 
 // -----------------------------------------------------------------------------
+// Reference Resolution
+// -----------------------------------------------------------------------------
+
+// ResolveRef resolves a relative reference ".table" to "namespace.table".
+// Fully qualified or bare refs are returned unchanged.
+func ResolveRef(ref, namespace string) string {
+	if namespace != "" && len(ref) > 0 && ref[0] == '.' {
+		return namespace + ref // ".user" → "auth.user"
+	}
+	return ref
+}
+
+// -----------------------------------------------------------------------------
 // Reference Parsing
 // -----------------------------------------------------------------------------
 

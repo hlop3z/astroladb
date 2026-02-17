@@ -30,6 +30,13 @@ func (m *MigrationBuilder) CreateTable(ref string, fn func(*TableBuilder)) {
 	fn(tb)
 	def := tb.Build()
 
+	// Resolve relative references (e.g., ".user" → "auth.user")
+	for _, col := range def.Columns {
+		if col.Reference != nil {
+			col.Reference.Table = strutil.ResolveRef(col.Reference.Table, ns)
+		}
+	}
+
 	op := &ast.CreateTable{
 		TableOp:     ast.TableOp{Namespace: ns, Name: table},
 		Columns:     def.Columns,

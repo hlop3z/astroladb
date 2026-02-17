@@ -19,6 +19,7 @@ import (
 	"github.com/hlop3z/astroladb/internal/registry"
 	"github.com/hlop3z/astroladb/internal/runtime/builder"
 	"github.com/hlop3z/astroladb/internal/runtime/schema"
+	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
 // FixedTime is the deterministic time used for all schema evaluations.
@@ -380,6 +381,14 @@ func (s *Sandbox) registerTableFunc() func(goja.FunctionCall) goja.Value {
 func (s *Sandbox) buildTableFromBuilder(tb *builder.TableBuilder, namespace, name string) *ast.TableDef {
 	converter := schema.NewColumnConverter()
 	tableDef := converter.TableBuilderToAST(tb, namespace, name)
+
+	// Resolve relative references (e.g., ".user" → "auth.user") using the table's namespace.
+	// This must happen before any downstream consumer reads Reference.Table.
+	for _, col := range tableDef.Columns {
+		if col.Reference != nil {
+			col.Reference.Table = strutil.ResolveRef(col.Reference.Table, namespace)
+		}
+	}
 
 	// Process relationships for metadata
 	for _, rel := range tb.Relationships {

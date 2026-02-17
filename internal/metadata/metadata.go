@@ -135,8 +135,11 @@ func (m *Metadata) AddTable(t *ast.TableDef) {
 
 // AddManyToMany registers a many-to-many relationship and generates the join table.
 func (m *Metadata) AddManyToMany(sourceNS, sourceTable, targetRef, sourceFile string) *JoinTableMeta {
-	// Parse target reference (e.g., "auth.roles")
-	targetNS, targetTable := strutil.ParseRef(targetRef)
+	// Resolve relative references: ".user" → "auth.user" using source namespace
+	resolvedTargetRef := strutil.ResolveRef(targetRef, sourceNS)
+
+	// Parse the resolved reference for SQL name generation
+	targetNS, targetTable := strutil.ParseRef(resolvedTargetRef)
 
 	// Generate join table name (alphabetically sorted to ensure consistency)
 	sourceSQLName := strutil.SQLName(sourceNS, sourceTable)
@@ -154,7 +157,7 @@ func (m *Metadata) AddManyToMany(sourceNS, sourceTable, targetRef, sourceFile st
 	// Record the relationship
 	rel := &ManyToManyMeta{
 		Source:    sourceNS + "." + sourceTable,
-		Target:    targetRef,
+		Target:    resolvedTargetRef,
 		JoinTable: joinTableName,
 		SourceFK:  sourceFK,
 		TargetFK:  targetFK,
@@ -184,7 +187,7 @@ func (m *Metadata) AddManyToMany(sourceNS, sourceTable, targetRef, sourceFile st
 				Name:      targetFK,
 				Type:      "uuid",
 				Nullable:  false,
-				Reference: &ast.Reference{Table: targetRef, Column: "id"},
+				Reference: &ast.Reference{Table: resolvedTargetRef, Column: "id"},
 			},
 		},
 		Indexes: []*ast.IndexDef{

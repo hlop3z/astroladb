@@ -245,6 +245,10 @@ func (s *Schema) validateReferences() error {
 				return e
 			}
 
+			// Defense-in-depth: refs should already be resolved at creation time
+			// (sandbox.go, bindings.go), but normalize here in case any slip through.
+			col.Reference.Table = resolvedRef
+
 			// Check that the referenced column exists
 			refCol := col.Reference.TargetColumn()
 			refTableDef, _ := s.GetTable(resolvedRef)

@@ -133,6 +133,13 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 		converter := schema.NewColumnConverter()
 		tableDef := converter.TableBuilderToAST(tb, ns, table)
 
+		// Resolve relative references (e.g., ".user" → "auth.user")
+		for _, col := range tableDef.Columns {
+			if col.Reference != nil {
+				col.Reference.Table = strutil.ResolveRef(col.Reference.Table, ns)
+			}
+		}
+
 		op := &ast.CreateTable{
 			TableOp:     ast.TableOp{Namespace: ns, Name: table},
 			Columns:     tableDef.Columns,
@@ -189,6 +196,12 @@ func (s *Sandbox) createMigrationObject() *goja.Object {
 
 		converter := schema.NewColumnConverter()
 		colDef := converter.ToAST(tb.Columns[0])
+
+		// Resolve relative references (e.g., ".user" → "auth.user")
+		if colDef.Reference != nil {
+			colDef.Reference.Table = strutil.ResolveRef(colDef.Reference.Table, ns)
+		}
+
 		s.operations = append(s.operations, &ast.AddColumn{
 			TableRef: ast.TableRef{Namespace: ns, Table_: table},
 			Column:   colDef,

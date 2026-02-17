@@ -708,12 +708,8 @@ func getCreateTableDependencies(op *ast.CreateTable, schema *engine.Schema) []st
 		}
 
 		refTable := col.Reference.Table
-		// Try to resolve the reference
-		ns, table, _ := engine.ParseSimpleRef(refTable)
-		if ns == "" && op.Namespace != "" {
-			ns = op.Namespace
-		}
-
+		// Refs are pre-resolved at creation time (sandbox.go, bindings.go)
+		ns, table := strutil.ParseRef(refTable)
 		qualified := strutil.SQLName(ns, table)
 		if !seen[qualified] && qualified != op.Table() {
 			seen[qualified] = true
