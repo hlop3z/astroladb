@@ -160,7 +160,7 @@ panicPassthrough(vm, err)
 
 **All errors** — from schemas, migrations, and generators — follow the same Rust/Cargo-style formatting (implemented in `internal/cli/error.go`):
 
-```
+```shell
 error[VAL-009]: belongs_to() requires a table reference
   --> schemas/auth/role.js:5:18
    |
@@ -171,6 +171,7 @@ help: try `col.belongs_to('namespace.table')` or `col.belongs_to('.table')` for 
 ```
 
 **Error Code Format: `XXX-NNN`** — 3-letter category tag, dash, 3-digit number:
+
 - `SCH-xxx` — Schema errors
 - `VAL-xxx` — Validation errors
 - `MIG-xxx` — Migration errors
@@ -216,6 +217,7 @@ All `help:` text follows Rust/Cargo conventions for consistency:
 ```
 
 **Where things go:**
+
 - `note:` — explains what went wrong (context, not fix)
 - `help:` — tells how to fix it (actionable code suggestion)
 - `cause:` — the underlying error (auto-extracted, not manually set)

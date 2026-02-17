@@ -277,3 +277,127 @@ func TestExtractStructuredError(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// computeSpanEnd
+// ---------------------------------------------------------------------------
+
+func TestComputeSpanEnd(t *testing.T) {
+	tests := []struct {
+		name   string
+		source string
+		col    int
+		want   int
+	}{
+		// Case 1: Opening delimiter — find matching close
+		{
+			name:   "empty parens",
+			source: "foo()",
+			col:    4,
+			want:   5, // covers "()"
+		},
+		{
+			name:   "parens with string arg",
+			source: `foo("hello")`,
+			col:    4,
+			want:   12, // covers `("hello")`
+		},
+		{
+			name:   "nested parens inside string",
+			source: `sql({ postgres: "NOW()" })`,
+			col:    4,
+			want:   26, // covers entire `({ postgres: "NOW()" })`
+		},
+		{
+			name:   "nested braces and parens",
+			source: `foo({ bar: baz() })`,
+			col:    4,
+			want:   19, // covers `({ bar: baz() })`
+		},
+		{
+			name:   "square brackets",
+			source: `arr[0]`,
+			col:    4,
+			want:   6, // covers `[0]`
+		},
+		{
+			name:   "curly braces",
+			source: `obj = { a: 1 }`,
+			col:    7,
+			want:   14, // covers `{ a: 1 }`
+		},
+
+		// Case 2: Non-delimiter — scan to boundary
+		{
+			name:   "identifier to comma",
+			source: `col.belongs_to(), other`,
+			col:    1,
+			want:   16, // covers `col.belongs_to()`
+		},
+		{
+			name:   "identifier to semicolon",
+			source: `col.belongs_to();`,
+			col:    1,
+			want:   16, // covers `col.belongs_to()`
+		},
+		{
+			name:   "identifier to space",
+			source: `foo bar`,
+			col:    1,
+			want:   3, // covers `foo`
+		},
+		{
+			name:   "identifier with string arg to comma",
+			source: `foo("hello world"), bar`,
+			col:    1,
+			want:   18, // covers `foo("hello world")`
+		},
+		{
+			name:   "stops before unmatched close",
+			source: `  belongs_to()}`,
+			col:    3,
+			want:   14, // covers `belongs_to()`
+		},
+
+		// Edge cases
+		{
+			name:   "column at end of line",
+			source: "abc",
+			col:    3,
+			want:   3, // single char `c`
+		},
+		{
+			name:   "column past end of line",
+			source: "abc",
+			col:    10,
+			want:   10, // fallback
+		},
+		{
+			name:   "column zero",
+			source: "abc",
+			col:    0,
+			want:   0, // fallback
+		},
+		{
+			name:   "unmatched open paren falls to token scan",
+			source: `foo(bar`,
+			col:    4,
+			want:   7, // no matching close, scans to end
+		},
+		{
+			name:   "escaped quote in string",
+			source: `foo("he\"llo")`,
+			col:    4,
+			want:   14, // covers `("he\"llo")`
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := computeSpanEnd(tt.source, tt.col)
+			if got != tt.want {
+				t.Errorf("computeSpanEnd(%q, %d) = %d, want %d", tt.source, tt.col, got, tt.want)
+			}
+		})
+	}
+}

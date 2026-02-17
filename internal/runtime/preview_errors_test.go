@@ -84,6 +84,46 @@ func TestPreviewAllErrors(t *testing.T) {
 		}
 	}
 
+	// --- sql() errors (schema context) ---
+	sqlSchemaCases := []struct {
+		name string
+		code string
+	}{
+		{"sql() no args", "export default table({\n  id: col.id(),\n  ts: sql(),\n})"},
+		{"sql() string arg", "export default table({\n  id: col.id(),\n  ts: sql(\"NOW()\"),\n})"},
+		{"sql() missing sqlite key", "export default table({\n  id: col.id(),\n  ts: sql({ postgres: \"NOW()\" }),\n})"},
+	}
+
+	fmt.Printf("%s\n  SQL() ERRORS — SCHEMA (SCH-001)\n%s\n\n", sep, sep)
+	for _, tc := range sqlSchemaCases {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "preview.js")
+		_ = os.WriteFile(path, []byte(tc.code), 0644)
+		sb := NewSandbox(nil)
+		_, err := sb.EvalSchemaFile(path, "auth", "preview")
+		if err != nil {
+			fmt.Printf("  [%s]\n\n%s\n\n", tc.name, cli.FormatError(err))
+		}
+	}
+
+	// --- sql() errors (migration context) ---
+	sqlMigrationCases := []struct {
+		name string
+		code string
+	}{
+		{"sql() no args in migration", `migration({ up: function(m) { m.add_column("auth.t", function(col) { col.datetime("ts").backfill(sql()) }) } })`},
+		{"sql() string arg in migration", `migration({ up: function(m) { m.add_column("auth.t", function(col) { col.datetime("ts").backfill(sql("NOW()")) }) } })`},
+		{"sql() missing postgres in migration", `migration({ up: function(m) { m.add_column("auth.t", function(col) { col.datetime("ts").backfill(sql({ sqlite: "CURRENT_TIMESTAMP" })) }) } })`},
+	}
+
+	fmt.Printf("%s\n  SQL() ERRORS — MIGRATION (SCH-001)\n%s\n\n", sep, sep)
+	for _, tc := range sqlMigrationCases {
+		err := runMigrationFile(t, tc.code)
+		if err != nil {
+			fmt.Printf("  [%s]\n\n%s\n\n", tc.name, cli.FormatError(err))
+		}
+	}
+
 	// --- Generator errors ---
 	genCases := []struct {
 		name string

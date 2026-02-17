@@ -226,6 +226,78 @@ func ValidateSourceLineExtraction(filePath string, lineNum int, expectedContent 
 	return nil
 }
 
+// skipString advances past a string literal starting at position i (the opening quote).
+// Returns the index of the closing quote. The caller's loop i++ will move past it.
+func skipString(source string, i int) int {
+	quote := source[i]
+	i++
+	for i < len(source) && source[i] != quote {
+		if source[i] == '\\' {
+			i++
+		}
+		i++
+	}
+	return i
+}
+
+// computeSpanEnd determines the end column (1-indexed, inclusive) for error highlighting.
+// When col points to an opening delimiter, finds the matching close with nesting
+// and string-literal awareness. Otherwise, scans forward to the next boundary.
+func computeSpanEnd(source string, col int) int {
+	idx := col - 1 // Convert to 0-indexed
+	if idx < 0 || idx >= len(source) {
+		return col
+	}
+
+	ch := source[idx]
+
+	// Case 1: Opening delimiter — find matching close
+	if ch == '(' || ch == '[' || ch == '{' {
+		depth := 1
+		for i := idx + 1; i < len(source); i++ {
+			c := source[i]
+			if c == '"' || c == '\'' || c == '`' {
+				i = skipString(source, i)
+				continue
+			}
+			switch c {
+			case '(', '[', '{':
+				depth++
+			case ')', ']', '}':
+				depth--
+				if depth == 0 {
+					return i + 1 // 1-indexed inclusive
+				}
+			}
+		}
+		// Unmatched — fall through to token scan
+	}
+
+	// Case 2: Scan forward to next boundary, respecting strings and nesting
+	depth := 0
+	for i := idx + 1; i < len(source); i++ {
+		c := source[i]
+		if c == '"' || c == '\'' || c == '`' {
+			i = skipString(source, i)
+			continue
+		}
+		switch c {
+		case '(', '[', '{':
+			depth++
+		case ')', ']', '}':
+			if depth > 0 {
+				depth--
+			} else {
+				return i // Stop before unmatched close (0-indexed = 1-indexed of prev char)
+			}
+		}
+		if depth == 0 && (c == ' ' || c == '\t' || c == ',' || c == ';') {
+			return i // 0-indexed boundary pos = 1-indexed last included char
+		}
+	}
+	return len(source)
+}
+
 // wrapJSError creates a rich error with source location and context.
 func wrapJSError(err error, code alerr.Code, message string, ctx *ErrorContext) *alerr.Error {
 	jsErr := ParseJSError(err)
@@ -261,17 +333,7 @@ func wrapJSError(err error, code alerr.Code, message string, ctx *ErrorContext) 
 			alErr.WithSource(sourceLine)
 			// Add span for the error position if we have a column
 			if jsErr.Column > 0 {
-				// Highlight from column to end of first token or reasonable length
-				end := jsErr.Column + 10
-				if end > len(sourceLine) {
-					end = len(sourceLine)
-				}
-				// Don't include trailing punctuation (comma, semicolon, etc)
-				if end > jsErr.Column && end <= len(sourceLine) {
-					if ch := sourceLine[end-1]; ch == ',' || ch == ';' || ch == ')' {
-						end--
-					}
-				}
+				end := computeSpanEnd(sourceLine, jsErr.Column)
 				alErr.WithSpan(jsErr.Column, end)
 			}
 		}

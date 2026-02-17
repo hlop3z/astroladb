@@ -530,11 +530,7 @@ func (s *Sandbox) wrapJSError(err error, code alerr.Code, message string) *alerr
 			alErr.WithSource(sourceLine)
 			// Add span for the error position if we have a column
 			if jsErr.Column > 0 {
-				// Highlight from column to end of first token or reasonable length
-				end := jsErr.Column + 10
-				if end > len(sourceLine) {
-					end = len(sourceLine)
-				}
+				end := computeSpanEnd(sourceLine, jsErr.Column)
 				alErr.WithSpan(jsErr.Column, end)
 			}
 		}
