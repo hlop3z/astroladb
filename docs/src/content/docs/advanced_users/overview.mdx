@@ -49,22 +49,22 @@ At the **schema level** (per table), `x-db` carries:
 
 At the **property level** (per column), `x-db` carries:
 
-| Field          | Type      | Description                                            |
-| -------------- | --------- | ------------------------------------------------------ |
-| `sql_type`     | `object`  | Native SQL type per dialect (`postgres`, `sqlite`)     |
-| `semantic`     | `string`  | Column role hint (`id`, `username`, `flag`, etc.)      |
-| `default`      | `any`     | Default value or expression (e.g. `{"expr": "NOW()"}`) |
-| `auto_managed` | `boolean` | Whether adapters must manage this column               |
-| `generated`    | `boolean` | Whether the value is auto-generated (e.g. UUID id)     |
-| `ref`          | `string`  | Referenced table name                                  |
-| `fk`           | `string`  | Full foreign key path (e.g. `auth_user.id`)            |
-| `on_delete`    | `string`  | Referential action on delete (e.g. `CASCADE`)          |
-| `on_update`    | `string`  | Referential action on update                           |
-| `relation`     | `string`  | Relationship name derived from the column              |
-| `inverse_of`   | `string`  | Inverse relationship (source table name)               |
-| `virtual`      | `boolean` | Whether this is a computed/virtual column              |
-| `computed`     | `object`  | Computed column expression                             |
-| `polymorphic`  | `object`  | Polymorphic relationship metadata                      |
+| Field          | Type      | Description                                                                               |
+| -------------- | --------- | ----------------------------------------------------------------------------------------- |
+| `sql_type`     | `object`  | Native SQL type per dialect (`postgres`, `sqlite`)                                        |
+| `semantic`     | `string`  | Column role hint (`id`, `username`, `flag`, etc.)                                         |
+| `default`      | `any`     | Default value or expression (e.g. `{"postgres": "NOW()", "sqlite": "CURRENT_TIMESTAMP"}`) |
+| `auto_managed` | `boolean` | Whether adapters must manage this column                                                  |
+| `generated`    | `boolean` | Whether the value is auto-generated (e.g. UUID id)                                        |
+| `ref`          | `string`  | Referenced table name                                                                     |
+| `fk`           | `string`  | Full foreign key path (e.g. `auth_user.id`)                                               |
+| `on_delete`    | `string`  | Referential action on delete (e.g. `CASCADE`)                                             |
+| `on_update`    | `string`  | Referential action on update                                                              |
+| `relation`     | `string`  | Relationship name derived from the column                                                 |
+| `inverse_of`   | `string`  | Inverse relationship (source table name)                                                  |
+| `virtual`      | `boolean` | Whether this is a computed/virtual column                                                 |
+| `computed`     | `object`  | Computed column expression                                                                |
+| `polymorphic`  | `object`  | Polymorphic relationship metadata                                                         |
 
 ## More Than Documentation
 
@@ -86,6 +86,7 @@ your ecosystem:
   source access.
 
 <Aside type="tip">
-Even if you stop using AstrolaDB, that JSON file can be read by Python scripts,
-custom Rust generators, or whatever comes next — **forever**. If the band breaks up, you keep the code.
+  Even if you stop using AstrolaDB, that JSON file can be read by Python
+  scripts, custom Rust generators, or whatever comes next — **forever**. If the
+  band breaks up, you keep the code.
 </Aside>

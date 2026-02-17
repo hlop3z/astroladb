@@ -368,9 +368,9 @@ col := NewColumnBuilder("email", "string", 255)
 **Special Handling** (Lines 302-355):
 
 ```go
-// SQLExpr stored as special format:
-{"__type": "sql_expr", "expr": "..."}
-// When deserializing, reconstructs as ast.NewSQLExpr()
+// SQLExpr stored as per-dialect format:
+{"_type": "sql_expr", "postgres": "...", "sqlite": "..."}
+// When deserializing, reconstructs as &ast.SQLExpr{Postgres: ..., SQLite: ...}
 ```
 
 ### 4.4 Export Format Conversions

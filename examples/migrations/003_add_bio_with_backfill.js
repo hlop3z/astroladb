@@ -32,7 +32,7 @@ export default (m) => {
   // Add timestamp with SQL expression backfill
   m.add_column("auth.user", (col) =>
     col.timestamp("last_active")
-       .backfill(sql("NOW()"))  // Set to current time for existing users
+       .backfill(sql({ postgres: "NOW()", sqlite: "CURRENT_TIMESTAMP" }))  // Set to current time for existing users
   );
 };
 

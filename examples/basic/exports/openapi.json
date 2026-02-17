@@ -69,8 +69,10 @@
             "x-db": {
               "auto_managed": false,
               "default": {
-                "expr": "NOW()"
+                "postgres": "NOW()",
+                "sqlite": "CURRENT_TIMESTAMP"
               },
+              "read_only": true,
               "semantic": "created_at",
               "sql_type": {
                 "postgres": "TIMESTAMPTZ",
@@ -95,6 +97,7 @@
             "type": "string",
             "x-db": {
               "primary_key": true,
+              "read_only": true,
               "semantic": "id",
               "sql_type": {
                 "postgres": "UUID",
@@ -186,8 +189,10 @@
             "x-db": {
               "auto_managed": false,
               "default": {
-                "expr": "NOW()"
+                "postgres": "NOW()",
+                "sqlite": "CURRENT_TIMESTAMP"
               },
+              "read_only": true,
               "semantic": "updated_at",
               "sql_type": {
                 "postgres": "TIMESTAMPTZ",
@@ -264,6 +269,474 @@
           "table": "auth_user",
           "timestamps": true
         }
+      },
+      "TestComprehensive": {
+        "deprecated": true,
+        "description": "Comprehensive test table for Phase 1 metadata validation",
+        "properties": {
+          "access_key": {
+            "description": "Access key (automatic write-only)",
+            "maxLength": 64,
+            "type": "string",
+            "writeOnly": true,
+            "x-db": {
+              "description": "Access key (automatic write-only)",
+              "sql_type": {
+                "postgres": "VARCHAR(64)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                64
+              ],
+              "write_only": true
+            }
+          },
+          "age": {
+            "description": "User age in years",
+            "format": "int32",
+            "maximum": 150,
+            "minimum": 0,
+            "type": "integer",
+            "x-db": {
+              "description": "User age in years",
+              "maximum": 150,
+              "minimum": 0,
+              "sql_type": {
+                "postgres": "INTEGER",
+                "sqlite": "INTEGER"
+              }
+            }
+          },
+          "api_secret": {
+            "description": "API secret key, never returned in responses",
+            "maxLength": 128,
+            "type": "string",
+            "writeOnly": true,
+            "x-db": {
+              "description": "API secret key, never returned in responses",
+              "sql_type": {
+                "postgres": "VARCHAR(128)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                128
+              ],
+              "write_only": true
+            }
+          },
+          "api_token": {
+            "description": "API token (automatic write-only)",
+            "maxLength": 128,
+            "type": "string",
+            "writeOnly": true,
+            "x-db": {
+              "description": "API token (automatic write-only)",
+              "sql_type": {
+                "postgres": "VARCHAR(128)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                128
+              ],
+              "write_only": true
+            }
+          },
+          "bio": {
+            "description": "User biography",
+            "nullable": true,
+            "type": "string",
+            "x-db": {
+              "description": "User biography",
+              "sql_type": {
+                "postgres": "TEXT",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "computed_hash": {
+            "description": "Server-computed hash value",
+            "maxLength": 64,
+            "readOnly": true,
+            "type": "string",
+            "x-db": {
+              "description": "Server-computed hash value",
+              "read_only": true,
+              "sql_type": {
+                "postgres": "VARCHAR(64)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                64
+              ]
+            }
+          },
+          "created_at": {
+            "description": "Creation timestamp (automatic read-only)",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string",
+            "x-db": {
+              "auto_managed": false,
+              "description": "Creation timestamp (automatic read-only)",
+              "read_only": true,
+              "semantic": "created_at",
+              "sql_type": {
+                "postgres": "TIMESTAMPTZ",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "email": {
+            "description": "Primary email address",
+            "format": "email",
+            "maxLength": 255,
+            "pattern": "^[\\w.-]+@[\\w.-]+\\.\\w+$",
+            "type": "string",
+            "x-db": {
+              "description": "Primary email address",
+              "format": "email",
+              "pattern": "^[\\w.-]+@[\\w.-]+\\.\\w+$",
+              "semantic": "email",
+              "sql_type": {
+                "postgres": "VARCHAR(255)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                255
+              ],
+              "unique": true
+            }
+          },
+          "encryption_key": {
+            "description": "Encryption key, write-only for security",
+            "maxLength": 256,
+            "type": "string",
+            "writeOnly": true,
+            "x-db": {
+              "description": "Encryption key, write-only for security",
+              "sql_type": {
+                "postgres": "VARCHAR(256)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                256
+              ],
+              "write_only": true
+            }
+          },
+          "first_name": {
+            "description": "First name",
+            "maxLength": 100,
+            "type": "string",
+            "x-db": {
+              "description": "First name",
+              "sql_type": {
+                "postgres": "VARCHAR(100)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                100
+              ]
+            }
+          },
+          "id": {
+            "format": "uuid",
+            "readOnly": true,
+            "type": "string",
+            "x-db": {
+              "primary_key": true,
+              "read_only": true,
+              "semantic": "id",
+              "sql_type": {
+                "postgres": "UUID",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "last_name": {
+            "description": "Last name",
+            "maxLength": 100,
+            "type": "string",
+            "x-db": {
+              "description": "Last name",
+              "sql_type": {
+                "postgres": "VARCHAR(100)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                100
+              ]
+            }
+          },
+          "legacy_field": {
+            "deprecated": true,
+            "format": "int32",
+            "nullable": true,
+            "type": "integer",
+            "x-db": {
+              "deprecated": true,
+              "deprecated_reason": "No longer used. Migrate to new_field",
+              "sql_type": {
+                "postgres": "INTEGER",
+                "sqlite": "INTEGER"
+              }
+            }
+          },
+          "old_username": {
+            "deprecated": true,
+            "maxLength": 50,
+            "nullable": true,
+            "type": "string",
+            "x-db": {
+              "deprecated": true,
+              "deprecated_reason": "Use username instead. Will be removed in v2.0",
+              "sql_type": {
+                "postgres": "VARCHAR(50)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                50
+              ]
+            }
+          },
+          "password": {
+            "description": "User password (automatic write-only)",
+            "maxLength": 255,
+            "type": "string",
+            "writeOnly": true,
+            "x-db": {
+              "description": "User password (automatic write-only)",
+              "semantic": "password_hash",
+              "sql_type": {
+                "postgres": "VARCHAR(255)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                255
+              ],
+              "write_only": true
+            }
+          },
+          "phone": {
+            "description": "International phone number in E.164 format",
+            "format": "phone",
+            "maxLength": 20,
+            "minLength": 10,
+            "nullable": true,
+            "pattern": "^\\+?[1-9]\\d{1,14}$",
+            "type": "string",
+            "x-db": {
+              "description": "International phone number in E.164 format",
+              "format": "phone",
+              "maximum": 20,
+              "minimum": 10,
+              "pattern": "^\\+?[1-9]\\d{1,14}$",
+              "sql_type": {
+                "postgres": "VARCHAR(20)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                20
+              ]
+            }
+          },
+          "price": {
+            "description": "Product price",
+            "format": "decimal",
+            "maxLength": 99999,
+            "minLength": 0,
+            "pattern": "^-?\\d+(\\.\\d+)?$",
+            "type": "string",
+            "x-db": {
+              "description": "Product price",
+              "maximum": 99999,
+              "minimum": 0,
+              "sql_type": {
+                "postgres": "NUMERIC(10,2)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                10,
+                2
+              ]
+            }
+          },
+          "rating": {
+            "description": "User rating",
+            "format": "float",
+            "maximum": 5,
+            "minimum": 0,
+            "type": "number",
+            "x-db": {
+              "description": "User rating",
+              "maximum": 5,
+              "minimum": 0,
+              "sql_type": {
+                "postgres": "REAL",
+                "sqlite": "REAL"
+              }
+            }
+          },
+          "server_timestamp": {
+            "description": "Server-generated timestamp, cannot be modified by client",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string",
+            "x-db": {
+              "description": "Server-generated timestamp, cannot be modified by client",
+              "read_only": true,
+              "sql_type": {
+                "postgres": "TIMESTAMPTZ",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "updated_at": {
+            "description": "Last update timestamp (automatic read-only)",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string",
+            "x-db": {
+              "auto_managed": false,
+              "description": "Last update timestamp (automatic read-only)",
+              "read_only": true,
+              "semantic": "updated_at",
+              "sql_type": {
+                "postgres": "TIMESTAMPTZ",
+                "sqlite": "TEXT"
+              }
+            }
+          },
+          "username": {
+            "description": "Unique username, alphanumeric only",
+            "maxLength": 50,
+            "minLength": 3,
+            "pattern": "^[a-zA-Z0-9_]+$",
+            "type": "string",
+            "x-db": {
+              "description": "Unique username, alphanumeric only",
+              "maximum": 50,
+              "minimum": 3,
+              "pattern": "^[a-zA-Z0-9_]+$",
+              "semantic": "username",
+              "sql_type": {
+                "postgres": "VARCHAR(50)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                50
+              ],
+              "unique": true
+            }
+          },
+          "website": {
+            "description": "Personal website URL",
+            "format": "uri",
+            "maxLength": 500,
+            "nullable": true,
+            "type": "string",
+            "x-db": {
+              "description": "Personal website URL",
+              "format": "uri",
+              "semantic": "url",
+              "sql_type": {
+                "postgres": "VARCHAR(500)",
+                "sqlite": "TEXT"
+              },
+              "type_args": [
+                500
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "access_key",
+          "age",
+          "api_secret",
+          "api_token",
+          "computed_hash",
+          "created_at",
+          "email",
+          "encryption_key",
+          "first_name",
+          "last_name",
+          "password",
+          "price",
+          "rating",
+          "server_timestamp",
+          "updated_at",
+          "username"
+        ],
+        "type": "object",
+        "x-db": {
+          "column_order": [
+            "id",
+            "access_key",
+            "age",
+            "api_secret",
+            "api_token",
+            "computed_hash",
+            "created_at",
+            "email",
+            "encryption_key",
+            "first_name",
+            "last_name",
+            "password",
+            "price",
+            "rating",
+            "server_timestamp",
+            "updated_at",
+            "username",
+            "bio",
+            "legacy_field",
+            "old_username",
+            "phone",
+            "website"
+          ],
+          "deprecated": true,
+          "deprecated_reason": "This is a test table. Use production tables instead.",
+          "description": "Comprehensive test table for Phase 1 metadata validation",
+          "filterable": [
+            "age,rating,created_at"
+          ],
+          "indexes": [
+            {
+              "columns": [
+                "id"
+              ],
+              "name": "test_comprehensive_pkey",
+              "primary": true,
+              "unique": true
+            },
+            {
+              "columns": [
+                "email"
+              ],
+              "name": "test_comprehensive_email_key",
+              "unique": true
+            },
+            {
+              "columns": [
+                "username"
+              ],
+              "name": "test_comprehensive_username_key",
+              "unique": true
+            }
+          ],
+          "namespace": "test",
+          "primary_key": [
+            "id"
+          ],
+          "searchable": [
+            "username,email,first_name,last_name"
+          ],
+          "sort_by": [
+            "created_at,-rating"
+          ],
+          "table": "test_comprehensive",
+          "timestamps": true
+        }
       }
     },
     "securitySchemes": {
@@ -337,7 +810,8 @@
                           },
                           {
                             "default": {
-                              "expr": "NOW()"
+                              "postgres": "NOW()",
+                              "sqlite": "CURRENT_TIMESTAMP"
                             },
                             "name": "created_at",
                             "type": "datetime"
@@ -384,7 +858,8 @@
                           },
                           {
                             "default": {
-                              "expr": "NOW()"
+                              "postgres": "NOW()",
+                              "sqlite": "CURRENT_TIMESTAMP"
                             },
                             "name": "updated_at",
                             "type": "datetime"
@@ -413,6 +888,134 @@
                         "name": "user",
                         "primary_key": "id",
                         "table": "auth_user",
+                        "timestamps": true
+                      }
+                    ],
+                    "test": [
+                      {
+                        "columns": [
+                          {
+                            "name": "id",
+                            "type": "uuid"
+                          },
+                          {
+                            "name": "access_key",
+                            "type": "string"
+                          },
+                          {
+                            "name": "age",
+                            "type": "integer"
+                          },
+                          {
+                            "name": "api_secret",
+                            "type": "string"
+                          },
+                          {
+                            "name": "api_token",
+                            "type": "string"
+                          },
+                          {
+                            "name": "computed_hash",
+                            "type": "string"
+                          },
+                          {
+                            "name": "created_at",
+                            "type": "datetime"
+                          },
+                          {
+                            "name": "email",
+                            "type": "string",
+                            "unique": true
+                          },
+                          {
+                            "name": "encryption_key",
+                            "type": "string"
+                          },
+                          {
+                            "name": "first_name",
+                            "type": "string"
+                          },
+                          {
+                            "name": "last_name",
+                            "type": "string"
+                          },
+                          {
+                            "name": "password",
+                            "type": "string"
+                          },
+                          {
+                            "name": "price",
+                            "type": "decimal"
+                          },
+                          {
+                            "name": "rating",
+                            "type": "float"
+                          },
+                          {
+                            "name": "server_timestamp",
+                            "type": "datetime"
+                          },
+                          {
+                            "name": "updated_at",
+                            "type": "datetime"
+                          },
+                          {
+                            "name": "username",
+                            "type": "string",
+                            "unique": true
+                          },
+                          {
+                            "name": "bio",
+                            "nullable": true,
+                            "type": "text"
+                          },
+                          {
+                            "name": "legacy_field",
+                            "nullable": true,
+                            "type": "integer"
+                          },
+                          {
+                            "name": "old_username",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          {
+                            "name": "phone",
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          {
+                            "name": "website",
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        ],
+                        "example": {
+                          "access_key": "Sample text",
+                          "age": 25,
+                          "api_secret": "Sample text",
+                          "api_token": "Sample text",
+                          "bio": "Sample text",
+                          "computed_hash": "Sample text",
+                          "created_at": "2024-01-15T10:30:00Z",
+                          "email": "user@example.com",
+                          "encryption_key": "Sample text",
+                          "first_name": "John",
+                          "id": "550e8400-e29b-41d4-a716-446655440000",
+                          "last_name": "Doe",
+                          "legacy_field": 42,
+                          "old_username": "Sample text",
+                          "phone": "+1234567890",
+                          "price": "99.99",
+                          "rating": "4.5",
+                          "server_timestamp": "2024-01-15T10:30:00Z",
+                          "updated_at": "2024-01-15T10:30:00Z",
+                          "username": "johndoe",
+                          "website": "https://example.com"
+                        },
+                        "name": "comprehensive",
+                        "primary_key": "id",
+                        "table": "test_comprehensive",
                         "timestamps": true
                       }
                     ]

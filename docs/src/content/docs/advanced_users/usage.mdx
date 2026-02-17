@@ -61,7 +61,7 @@ user.unique_columns          # ["email", "username"]
 
 # Defaults
 {c.name: c.default for c in user.columns.values() if c.default is not None}
-# {"is_active": True, "created_at": {"expr": "NOW()"}}
+# {"is_active": True, "created_at": {"postgres": "NOW()", "sqlite": "CURRENT_TIMESTAMP"}}
 ```
 
 ## Computed columns
