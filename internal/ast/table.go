@@ -404,9 +404,10 @@ func (c *ColumnDef) HasDefault() bool {
 }
 
 // formatDefaultValue converts Default field to SQL string.
+// Uses Postgres expression as canonical display form (for hashing/generic display).
 func formatDefaultValue(val any) string {
 	if sqlExpr, ok := val.(*SQLExpr); ok {
-		return sqlExpr.Expr
+		return sqlExpr.Postgres
 	}
 
 	switch v := val.(type) {
@@ -471,30 +472,30 @@ func (c *ColumnDef) EnumValues() []string {
 // SQLExpr - marks raw SQL expressions
 // -----------------------------------------------------------------------------
 
-// SQLExpr marks a string as a raw SQL expression.
+// SQLExpr holds per-dialect raw SQL expressions.
 // Used with the sql() helper in JS to indicate a value should be passed through
-// to the database without escaping.
+// to the database without escaping. Always requires both dialects.
 //
 // Examples:
-//   - sql("NOW()") -> current timestamp
-//   - sql("gen_random_uuid()") -> generate UUID
-//   - sql("CURRENT_USER") -> current database user
+//   - sql({ postgres: "NOW()", sqlite: "CURRENT_TIMESTAMP" })
+//   - sql({ postgres: "gen_random_uuid()", sqlite: "lower(hex(randomblob(4))...)" })
 type SQLExpr struct {
-	Expr string `json:"expr"`
+	Postgres string `json:"postgres"`
+	SQLite   string `json:"sqlite"`
 }
 
-// ConvertSQLExprValue converts JS values (like sql("...") results) to Go types.
-// If v is a map[string]any with {_type: "sql_expr", expr: "..."}, returns *SQLExpr.
-// Otherwise returns v unchanged.
+// ConvertSQLExprValue converts JS values (like sql({...}) results) to Go types.
+// If v is a map[string]any with {_type: "sql_expr", postgres: "...", sqlite: "..."},
+// returns *SQLExpr. Otherwise returns v unchanged.
 func ConvertSQLExprValue(v any) any {
 	m, ok := v.(map[string]any)
 	if !ok {
 		return v
 	}
 	if typ, ok := m["_type"].(string); ok && typ == "sql_expr" {
-		if expr, ok := m["expr"].(string); ok {
-			return &SQLExpr{Expr: expr}
-		}
+		pg, _ := m["postgres"].(string)
+		sl, _ := m["sqlite"].(string)
+		return &SQLExpr{Postgres: pg, SQLite: sl}
 	}
 	return v
 }

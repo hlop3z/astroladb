@@ -425,7 +425,7 @@ func formatDefaultValue(val any) string {
 	case string:
 		return fmt.Sprintf("'%s'", strings.ReplaceAll(v, "'", "''"))
 	case *ast.SQLExpr:
-		return v.Expr
+		return v.Postgres
 	default:
 		return fmt.Sprintf("'%v'", v)
 	}

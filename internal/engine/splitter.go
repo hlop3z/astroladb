@@ -206,10 +206,11 @@ func extractBackfill(op ast.Operation) ast.Operation {
 	backfillValue := addCol.Column.Backfill
 
 	// Format the backfill value for SQL
+	// Note: GenerateBatchedUpdate produces PostgreSQL-specific PL/pgSQL (DO $$ blocks),
+	// so we use the Postgres expression from per-dialect SQLExpr.
 	var valueSQL string
 	if sqlExpr, ok := backfillValue.(*ast.SQLExpr); ok {
-		// Raw SQL expression (e.g., sql("NOW()"))
-		valueSQL = sqlExpr.Expr
+		valueSQL = sqlExpr.Postgres
 	} else {
 		// Literal value - needs proper SQL formatting
 		valueSQL = formatBackfillValue(backfillValue)

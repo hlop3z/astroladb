@@ -108,7 +108,7 @@ func formatDSLValue(method string, value any) string {
 		}
 		return fmt.Sprintf(".%s(\"%s\")", method, v)
 	case *ast.SQLExpr:
-		return fmt.Sprintf(".%s(sql(\"%s\"))", method, v.Expr)
+		return fmt.Sprintf(`.%s(sql({ postgres: "%s", sqlite: "%s" }))`, method, v.Postgres, v.SQLite)
 	default:
 		return ""
 	}

@@ -133,21 +133,6 @@ export default migration({
 The `renames.columns` object maps `namespace.table.old_column` to the new column
 name. This bypasses the rename-detection heuristic.
 
-## Dialect-Specific SQL
-
-Use `postgres()` and `sqlite()` to embed SQL that only runs on a specific
-database dialect:
-
-```js
-up(m) {
-  m.sql(postgres("CREATE EXTENSION IF NOT EXISTS pgcrypto;"));
-  m.sql(sqlite("PRAGMA journal_mode=WAL;"));
-}
-```
-
-AstrolaDB emits only the expression matching the active dialect and ignores the
-rest.
-
 ---
 
 ## Integrity & Safety

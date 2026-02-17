@@ -167,30 +167,32 @@ func (s *Sandbox) restrictGlobals() {
 // bindDSL binds the schema DSL functions to the JS runtime.
 func (s *Sandbox) bindDSL() {
 
-	// sql() helper - marks a string as raw SQL expression
-	s.vm.Set("sql", func(expr string) map[string]any {
-		return map[string]any{
-			"_type": "sql_expr",
-			"expr":  expr,
+	// sql() helper - marks per-dialect raw SQL expressions
+	// Usage: sql({ postgres: "NOW()", sqlite: "CURRENT_TIMESTAMP" })
+	s.vm.Set("sql", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 1 {
+			panicStructured(s.vm, alerr.ErrSchemaInvalid,
+				"sql() requires an object with postgres and sqlite keys",
+				"try `sql({ postgres: 'NOW()', sqlite: 'CURRENT_TIMESTAMP' })`")
 		}
-	})
-
-	// postgres() helper - marks a string as PostgreSQL-specific SQL expression
-	s.vm.Set("postgres", func(expr string) map[string]any {
-		return map[string]any{
-			"_type":   "sql_expr",
-			"expr":    expr,
-			"dialect": "postgres",
+		obj, ok := call.Arguments[0].(*goja.Object)
+		if !ok {
+			panicStructured(s.vm, alerr.ErrSchemaInvalid,
+				"sql() argument must be an object",
+				"try `sql({ postgres: 'NOW()', sqlite: 'CURRENT_TIMESTAMP' })`")
 		}
-	})
-
-	// sqlite() helper - marks a string as SQLite-specific SQL expression
-	s.vm.Set("sqlite", func(expr string) map[string]any {
-		return map[string]any{
-			"_type":   "sql_expr",
-			"expr":    expr,
-			"dialect": "sqlite",
+		pg := obj.Get("postgres")
+		sl := obj.Get("sqlite")
+		if pg == nil || goja.IsUndefined(pg) || sl == nil || goja.IsUndefined(sl) {
+			panicStructured(s.vm, alerr.ErrSchemaInvalid,
+				"sql() requires both `postgres` and `sqlite` keys",
+				"try `sql({ postgres: 'NOW()', sqlite: 'CURRENT_TIMESTAMP' })`")
 		}
+		return s.vm.ToValue(map[string]any{
+			"_type":    "sql_expr",
+			"postgres": pg.String(),
+			"sqlite":   sl.String(),
+		})
 	})
 
 	// col global - column factory for object-based table definitions

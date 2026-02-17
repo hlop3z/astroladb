@@ -165,41 +165,4 @@ func (s *Sandbox) bindGeneratorDSL(result **GeneratorResult, schema map[string]a
 		return vm.ToValue(string(data))
 	})
 
-	// Helper: dedent(str) — removes common leading whitespace
-	vm.Set("dedent", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) < 1 {
-			return vm.ToValue("")
-		}
-		str := call.Arguments[0].String()
-		lines := strings.Split(str, "\n")
-
-		// Find minimum indentation (ignoring empty lines)
-		minIndent := -1
-		for _, line := range lines {
-			if strings.TrimSpace(line) == "" {
-				continue
-			}
-			indent := len(line) - len(strings.TrimLeft(line, " \t"))
-			if minIndent < 0 || indent < minIndent {
-				minIndent = indent
-			}
-		}
-
-		if minIndent <= 0 {
-			return vm.ToValue(str)
-		}
-
-		// Remove common indentation
-		result := make([]string, len(lines))
-		for i, line := range lines {
-			if strings.TrimSpace(line) == "" {
-				result[i] = ""
-			} else if len(line) >= minIndent {
-				result[i] = line[minIndent:]
-			} else {
-				result[i] = line
-			}
-		}
-		return vm.ToValue(strings.Join(result, "\n"))
-	})
 }

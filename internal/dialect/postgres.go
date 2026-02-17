@@ -256,7 +256,7 @@ func (d *postgres) columnTypeSQL(typeName string, typeArgs []any) string {
 
 // defaultValueSQL returns the SQL representation of a default value.
 func (d *postgres) defaultValueSQL(value any) string {
-	return buildDefaultValueSQL(value, PostgresBooleans)
+	return buildDefaultValueSQL(value, "postgres", PostgresBooleans)
 }
 
 // foreignKeyConstraintSQL generates a foreign key constraint.

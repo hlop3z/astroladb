@@ -85,40 +85,6 @@ declare function gen(
 ): RenderOutput;
 
 /**
- * Iterates over schema.tables and merges results into a single render output.
- *
- * @param schema - The schema object
- * @param fn - Callback receiving each table, returns partial render output
- * @returns Merged render output from all tables
- *
- * @example
- * const files = perTable(schema, (table) => {
- *   return { [`${table.name}.txt`]: `Table: ${table.name}` };
- * });
- */
-declare function perTable(
-  schema: GeneratorSchema,
-  fn: (table: SchemaTable) => RenderOutput,
-): RenderOutput;
-
-/**
- * Iterates over schema.models and merges results into a single render output.
- *
- * @param schema - The schema object
- * @param fn - Callback receiving namespace name and tables, returns partial render output
- * @returns Merged render output from all namespaces
- *
- * @example
- * const files = perNamespace(schema, (ns, tables) => {
- *   return { [`${ns}/index.py`]: `# Namespace: ${ns}` };
- * });
- */
-declare function perNamespace(
-  schema: GeneratorSchema,
-  fn: (namespace: string, tables: readonly SchemaTable[]) => RenderOutput,
-): RenderOutput;
-
-/**
  * Converts a value to a JSON string.
  *
  * @param value - The value to serialize
@@ -131,15 +97,4 @@ declare function perNamespace(
  */
 declare function json(value: any, indent?: string): string;
 
-/**
- * Removes common leading whitespace from a multi-line string.
- *
- * @param str - The string to dedent
- * @returns Dedented string
- *
- * @example
- * dedent("    line1\n    line2")  // "line1\nline2"
- */
-declare function dedent(str: string): string;
-
-export { gen, render, perTable, perNamespace, json, dedent };
+export { gen, render, json };

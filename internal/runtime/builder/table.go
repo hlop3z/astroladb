@@ -202,17 +202,17 @@ func (tb *TableBuilder) addColumn(name, colType string, opts ...ColOpt) *goja.Ob
 	return tb.columnBuilder(col)
 }
 
-// addTimestamps appends created_at and updated_at datetime columns with NOW() defaults.
+// addTimestamps appends created_at and updated_at datetime columns with per-dialect defaults.
 func (tb *TableBuilder) addTimestamps() {
 	tb.Columns = append(tb.Columns, &ColumnDef{
 		Name:    "created_at",
 		Type:    "datetime",
-		Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
+		Default: map[string]any{"_type": "sql_expr", "postgres": "NOW()", "sqlite": "CURRENT_TIMESTAMP"},
 	})
 	tb.Columns = append(tb.Columns, &ColumnDef{
 		Name:    "updated_at",
 		Type:    "datetime",
-		Default: map[string]any{"_type": "sql_expr", "expr": "NOW()"},
+		Default: map[string]any{"_type": "sql_expr", "postgres": "NOW()", "sqlite": "CURRENT_TIMESTAMP"},
 	})
 }
 

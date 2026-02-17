@@ -50,7 +50,10 @@ func (t *TableBuilder) AddIndex(idx *ast.IndexDef) {
 func (t *TableBuilder) ID() *ColumnBuilder {
 	col := NewColumnBuilder("id", "uuid")
 	col.PrimaryKey()
-	col.Default(&ast.SQLExpr{Expr: "gen_random_uuid()"})
+	col.Default(&ast.SQLExpr{
+		Postgres: "gen_random_uuid()",
+		SQLite:   "lower(hex(randomblob(4))||'-'||hex(randomblob(2))||'-4'||substr(hex(randomblob(2)),2)||'-'||substr('89ab',abs(random())%4+1,1)||substr(hex(randomblob(2)),2)||'-'||hex(randomblob(6)))",
+	})
 	t.AddColumn(col.Build())
 	return col
 }
@@ -158,11 +161,11 @@ func (t *TableBuilder) Enum(name string, values []string) *ColumnBuilder {
 // Timestamps adds created_at and updated_at columns.
 func (t *TableBuilder) Timestamps() {
 	createdAt := NewColumnBuilder("created_at", "datetime")
-	createdAt.Default(&ast.SQLExpr{Expr: "NOW()"})
+	createdAt.Default(&ast.SQLExpr{Postgres: "NOW()", SQLite: "CURRENT_TIMESTAMP"})
 	t.AddColumn(createdAt.Build())
 
 	updatedAt := NewColumnBuilder("updated_at", "datetime")
-	updatedAt.Default(&ast.SQLExpr{Expr: "NOW()"})
+	updatedAt.Default(&ast.SQLExpr{Postgres: "NOW()", SQLite: "CURRENT_TIMESTAMP"})
 	t.AddColumn(updatedAt.Build())
 }
 

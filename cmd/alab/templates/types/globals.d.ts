@@ -6,71 +6,46 @@
 import { ColBuilder, FnBuilder, FnExpr } from "./column";
 
 /**
- * Represents a raw SQL expression.
+ * Per-dialect SQL expression input.
+ *
+ * Both `postgres` and `sqlite` keys are required so that every schema
+ * and migration works identically on both supported databases.
+ */
+export interface SQLDialects {
+  readonly postgres: string;
+  readonly sqlite: string;
+}
+
+/**
+ * Represents a raw SQL expression (returned by `sql()`).
  *
  * Created by the sql() helper function. Used for database-level
  * defaults and computations that can't be expressed as static values.
  */
 export interface SQLExpr {
   readonly __sql: true;
-  readonly expr: string;
+  readonly postgres: string;
+  readonly sqlite: string;
 }
 
 /**
- * Wraps a string as a raw SQL expression.
+ * Wraps per-dialect strings as a raw SQL expression.
  *
  * Use when you need database-side computation for defaults or backfills.
- * The expression is passed directly to the database without escaping.
+ * Both `postgres` and `sqlite` keys are required.
  *
- * Common use cases:
- * - Current timestamp: sql("NOW()") or sql("CURRENT_TIMESTAMP")
- * - UUID generation: sql("gen_random_uuid()")
- * - Computed backfills: sql("LOWER(existing_column)")
- *
- * @param expr - Raw SQL expression string
+ * @param dialects - Object with `postgres` and `sqlite` SQL strings
  * @returns SQLExpr object recognized by Alab
- *
- * @example
- * // Auto-generate UUID for new column (object API)
- * { public_id: col.uuid().default(sql("gen_random_uuid()")) }
  *
  * @example
  * // Timestamp defaults
- * { expires_at: col.datetime().default(sql("NOW() + INTERVAL '30 days'")) }
+ * { expires_at: col.datetime().default(sql({ postgres: "NOW()", sqlite: "CURRENT_TIMESTAMP" })) }
  *
  * @example
- * // Backfill from existing data
- * { slug: col.string(200).backfill(sql("LOWER(REPLACE(title, ' ', '-'))")) }
+ * // UUID generation
+ * { token: col.uuid().default(sql({ postgres: "gen_random_uuid()", sqlite: "lower(hex(randomblob(16)))" })) }
  */
-declare function sql(expr: string): SQLExpr;
-
-/**
- * Wraps a string as a PostgreSQL-specific raw SQL expression.
- *
- * The expression is only included when migrating against a PostgreSQL database
- * and is silently skipped for other dialects.
- *
- * @param expr - Raw SQL expression string (PostgreSQL dialect)
- * @returns SQLExpr object recognized by Alab
- *
- * @example
- * m.add_column("auth.user", c => c.text("search_vector").optional().default(postgres("to_tsvector('english', '')")))
- */
-declare function postgres(expr: string): SQLExpr;
-
-/**
- * Wraps a string as a SQLite-specific raw SQL expression.
- *
- * The expression is only included when migrating against a SQLite database
- * and is silently skipped for other dialects.
- *
- * @param expr - Raw SQL expression string (SQLite dialect)
- * @returns SQLExpr object recognized by Alab
- *
- * @example
- * m.add_column("auth.user", c => c.text("data").optional().default(sqlite("json('{}'")))
- */
-declare function sqlite(expr: string): SQLExpr;
+declare function sql(dialects: SQLDialects): SQLExpr;
 
 /**
  * Column factory for the object-based table API.
@@ -106,4 +81,4 @@ declare const col: ColBuilder;
  */
 declare const fn: FnBuilder;
 
-export { sql, postgres, sqlite, col, fn };
+export { sql, col, fn };

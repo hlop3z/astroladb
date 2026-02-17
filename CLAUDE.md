@@ -275,6 +275,7 @@ Follow the testing pyramid from TESTING.md:
 4. **Error throwing** - Always `panic(vm.ToValue(string))` from Go callbacks. Never call a JS function from Go to throw — Goja captures the wrong call site.
 5. **Cause message cleaning** - Strip error codes, Goja stack traces, and redundant line numbers from cause display
 6. **Help text style** - Always start with `try`, wrap code in backticks, keep lowercase. See "Help Text Style Guide" above.
+7. **`sql()` is always per-dialect** - Never split SQL helpers into separate dialect functions. Use `sql({ postgres: "...", sqlite: "..." })` everywhere. This matches `fn.sql()` and follows the "one way to do things" principle.
 
 ## Documentation
 

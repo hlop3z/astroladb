@@ -399,13 +399,32 @@ func mustParseRef(ref string, vm *goja.Runtime) (namespace, table string) {
 	return ns, tbl
 }
 
-// BindSQL creates the sql() helper function.
-// sql("expr") returns {_type: "sql_expr", expr: "..."}
+// BindSQL creates the sql() helper function for per-dialect raw SQL expressions.
+// sql({ postgres: "...", sqlite: "..." }) returns {_type: "sql_expr", postgres: "...", sqlite: "..."}
 func BindSQL(vm *goja.Runtime) {
-	vm.Set("sql", func(expr string) map[string]any {
-		return map[string]any{
-			"_type": "sql_expr",
-			"expr":  expr,
+	vm.Set("sql", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 1 {
+			panicStructured(vm, alerr.ErrSchemaInvalid,
+				"sql() requires an object with postgres and sqlite keys",
+				"try `sql({ postgres: 'NOW()', sqlite: 'CURRENT_TIMESTAMP' })`")
 		}
+		obj, ok := call.Arguments[0].(*goja.Object)
+		if !ok {
+			panicStructured(vm, alerr.ErrSchemaInvalid,
+				"sql() argument must be an object",
+				"try `sql({ postgres: 'NOW()', sqlite: 'CURRENT_TIMESTAMP' })`")
+		}
+		pg := obj.Get("postgres")
+		sl := obj.Get("sqlite")
+		if pg == nil || goja.IsUndefined(pg) || sl == nil || goja.IsUndefined(sl) {
+			panicStructured(vm, alerr.ErrSchemaInvalid,
+				"sql() requires both `postgres` and `sqlite` keys",
+				"try `sql({ postgres: 'NOW()', sqlite: 'CURRENT_TIMESTAMP' })`")
+		}
+		return vm.ToValue(map[string]any{
+			"_type":    "sql_expr",
+			"postgres": pg.String(),
+			"sqlite":   sl.String(),
+		})
 	})
 }

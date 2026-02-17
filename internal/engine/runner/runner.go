@@ -796,7 +796,10 @@ func (r *Runner) addColumnSQL(op *ast.AddColumn) ([]string, error) {
 // formatBackfillValue formats a backfill value for SQL.
 func (r *Runner) formatBackfillValue(v any) string {
 	if expr, ok := v.(*ast.SQLExpr); ok {
-		return expr.Expr
+		if r.dialect.Name() == "sqlite" {
+			return expr.SQLite
+		}
+		return expr.Postgres
 	}
 
 	// Format as literal

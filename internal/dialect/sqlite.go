@@ -2,7 +2,6 @@ package dialect
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
 	"github.com/hlop3z/astroladb/internal/ast"
@@ -268,15 +267,8 @@ func (d *sqlite) columnTypeSQL(typeName string, typeArgs []any) string {
 
 // defaultValueSQL returns the SQL representation of a default value.
 func (d *sqlite) defaultValueSQL(value any) string {
-	// Handle SQLExpr specially for SQLite's NOW() -> CURRENT_TIMESTAMP conversion
-	if sqlExpr, ok := value.(*ast.SQLExpr); ok {
-		expr := sqlExpr.Expr
-		expr = strings.ReplaceAll(expr, "NOW()", "CURRENT_TIMESTAMP")
-		expr = strings.ReplaceAll(expr, "now()", "CURRENT_TIMESTAMP")
-		return expr
-	}
-	// Use shared implementation for all other value types
-	return buildDefaultValueSQL(value, SQLiteBooleans)
+	// No NOW() -> CURRENT_TIMESTAMP hack needed — users specify per-dialect via sql()
+	return buildDefaultValueSQL(value, "sqlite", SQLiteBooleans)
 }
 
 // foreignKeyConstraintSQL generates a foreign key constraint.

@@ -146,11 +146,14 @@ var PostgresBooleans = BooleanLiterals{True: "TRUE", False: "FALSE"}
 var SQLiteBooleans = BooleanLiterals{True: "1", False: "0"}
 
 // buildDefaultValueSQL generates the SQL representation of a default value.
-// This is shared logic - only boolean handling differs between dialects.
-func buildDefaultValueSQL(value any, bools BooleanLiterals) string {
+// The dialectName selects the per-dialect expression from SQLExpr.
+func buildDefaultValueSQL(value any, dialectName string, bools BooleanLiterals) string {
 	switch v := value.(type) {
 	case *ast.SQLExpr:
-		return v.Expr
+		if dialectName == "sqlite" {
+			return v.SQLite
+		}
+		return v.Postgres
 	case string:
 		escaped := strings.ReplaceAll(v, "'", "''")
 		return fmt.Sprintf("'%s'", escaped)
