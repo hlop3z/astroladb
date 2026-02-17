@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## IMPORTANT
+
+Cargo-style formatting is required for all DSL errors.
+
 ## Build & Test Commands
 
 ```bash
