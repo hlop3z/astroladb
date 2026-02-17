@@ -48,7 +48,5 @@ func Header(text string, colorFuncs ...func(string) string) string {
 
 // Aliases for compatibility
 func Muted(text string) string     { return Dim(text) }
-func Failed(text string) string    { return Error(text) }
-func Done(message string) string   { return Success(message) }
 func FilePath(path string) string  { return Primary(path) }
 func FormatError(err error) string { return Error(err.Error()) }

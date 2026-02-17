@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -46,18 +45,6 @@ func FormatChange(prefix, oldValue, newValue string) string {
 		return fmt.Sprintf("%s %s %s %s", prefix, old, arrow, new)
 	}
 	return fmt.Sprintf("%s %s %s", old, arrow, new)
-}
-
-// Indent indents each line of text with the given number of spaces.
-func Indent(text string, spaces int) string {
-	prefix := strings.Repeat(" ", spaces)
-	lines := strings.Split(text, "\n")
-	for i, line := range lines {
-		if line != "" {
-			lines[i] = prefix + line
-		}
-	}
-	return strings.Join(lines, "\n")
 }
 
 // padRight pads a string to the right with spaces to reach the desired width.

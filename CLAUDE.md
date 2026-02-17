@@ -49,7 +49,7 @@ AstrolaDB is a **polyglot code generator** with a Go core that embeds a JavaScri
 ```
 ┌─────────────────────────────────────────┐
 │  User Layer (JavaScript DSL)            │  ← Users write schemas/generators
-│  • table(), col.*                       │
+│  • table(), col.*, fn.*                 │
 │  • gen(), render()                      │
 └──────────────┬──────────────────────────┘
                │ parsed by

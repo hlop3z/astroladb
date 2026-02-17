@@ -46,7 +46,6 @@ const (
 	PanelSQLPreview        = " SQL Preview "
 	PanelConfirm           = " Confirm "
 	PanelInput             = " Input "
-	PanelSelect            = " Select "
 )
 
 // View headers
@@ -57,7 +56,6 @@ const (
 // Status bar hints
 const (
 	HintsStatus = " q quit  1/2/3/4 tabs  h/l panels  j/k navigate  g/G top/bottom "
-	HintsSelect = "↑↓ navigate  Enter select  Esc cancel"
 )
 
 // Migration status

@@ -124,7 +124,7 @@ func printSchemaTable(revision string, tables []*ast.TableDef) {
 			)
 		}
 
-		fmt.Print(ui.Indent(colTable.String(), 2))
+		fmt.Print(strutil.Indent(colTable.String(), 2))
 		fmt.Println()
 
 		// Indexes

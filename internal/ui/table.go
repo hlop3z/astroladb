@@ -12,8 +12,8 @@ type Table struct {
 	rows    [][]string
 }
 
-// NewTable creates a new table with the given headers.
-func NewTable(headers ...string) *Table {
+// newTable creates a new table with the given headers.
+func newTable(headers ...string) *Table {
 	table := tview.NewTable().
 		SetBorders(false).
 		SetSeparator(tview.Borders.Vertical)
@@ -136,7 +136,7 @@ func (t *Table) String() string {
 	return output
 }
 
-// NewStyledTable is an alias for NewTable for backward compatibility.
+// NewStyledTable creates a new styled table with the given headers.
 func NewStyledTable(headers ...string) *Table {
-	return NewTable(headers...)
+	return newTable(headers...)
 }
