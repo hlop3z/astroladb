@@ -1,5 +1,7 @@
 package builder
 
+import "github.com/hlop3z/astroladb/internal/ast"
+
 // Type-safe definitions for the builder package.
 
 // -----------------------------------------------------------------------------
@@ -26,28 +28,12 @@ type ColumnDef struct {
 	Deprecated     string
 	ReadOnly       bool
 	WriteOnly      bool
-	Reference      *RefDef
+	Reference      *ast.Reference
 	Hidden         bool   // x_hidden for OpenAPI
 	XRef           string // Original reference (e.g., "auth.user")
 	Computed       any    // Computed expression (FnExpr or map)
 	Virtual        bool   // VIRTUAL instead of STORED, or app-only if no Computed
 	IsRelationship bool   // True if this is a relationship column
-}
-
-// RefDef represents a foreign key reference.
-type RefDef struct {
-	Table    string
-	Column   string
-	OnDelete string
-	OnUpdate string
-}
-
-// IndexDef represents a type-safe index definition.
-type IndexDef struct {
-	Name    string
-	Columns []string
-	Unique  bool
-	Where   string
 }
 
 // RelationshipDef represents a many-to-many, polymorphic, or junction relationship.

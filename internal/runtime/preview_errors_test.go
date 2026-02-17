@@ -124,6 +124,70 @@ func TestPreviewAllErrors(t *testing.T) {
 		}
 	}
 
+	// --- Lifecycle errors (VAL-020 / VAL-021) ---
+	lifecycleCases := []struct {
+		name string
+		code string
+	}{
+		{"lifecycle() missing column key", "export default table({\n  id: col.id(),\n  status: col.enum([\"draft\", \"published\"]),\n}).lifecycle({})"},
+		{"lifecycle() column not found", "export default table({\n  id: col.id(),\n  status: col.enum([\"draft\", \"published\"]),\n}).lifecycle({ column: \"state\" })"},
+		{"lifecycle() column not enum", "export default table({\n  id: col.id(),\n  name: col.string(100),\n}).lifecycle({ column: \"name\" })"},
+		{"lifecycle() unknown transition state", "export default table({\n  id: col.id(),\n  status: col.enum([\"draft\", \"published\"]),\n}).lifecycle({ column: \"status\", transitions: { activate: { from: \"draft\", to: \"active\" } } })"},
+	}
+
+	fmt.Printf("%s\n  LIFECYCLE ERRORS (VAL-020 / VAL-021)\n%s\n\n", sep, sep)
+	for _, tc := range lifecycleCases {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "preview.js")
+		_ = os.WriteFile(path, []byte(tc.code), 0644)
+		sb := NewSandbox(nil)
+		_, err := sb.EvalSchemaFile(path, "auth", "preview")
+		if err != nil {
+			fmt.Printf("  [%s]\n\n%s\n\n", tc.name, cli.FormatError(err))
+		}
+	}
+
+	// --- Policy errors (VAL-022) ---
+	policyCases := []struct {
+		name string
+		code string
+	}{
+		{"policy() empty roles", "export default table({\n  id: col.id(),\n  name: col.string(100),\n}).policy({ create: [] })"},
+	}
+
+	fmt.Printf("%s\n  POLICY ERRORS (VAL-022)\n%s\n\n", sep, sep)
+	for _, tc := range policyCases {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "preview.js")
+		_ = os.WriteFile(path, []byte(tc.code), 0644)
+		sb := NewSandbox(nil)
+		_, err := sb.EvalSchemaFile(path, "auth", "preview")
+		if err != nil {
+			fmt.Printf("  [%s]\n\n%s\n\n", tc.name, cli.FormatError(err))
+		}
+	}
+
+	// --- Events errors (VAL-023) ---
+	eventsCases := []struct {
+		name string
+		code string
+	}{
+		{"events() empty payload", "export default table({\n  id: col.id(),\n  name: col.string(100),\n}).events({ item_created: { payload: [] } })"},
+		{"events() unknown column", "export default table({\n  id: col.id(),\n  name: col.string(100),\n}).events({ item_created: { payload: [\"id\", \"missing\"] } })"},
+	}
+
+	fmt.Printf("%s\n  EVENTS ERRORS (VAL-023)\n%s\n\n", sep, sep)
+	for _, tc := range eventsCases {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "preview.js")
+		_ = os.WriteFile(path, []byte(tc.code), 0644)
+		sb := NewSandbox(nil)
+		_, err := sb.EvalSchemaFile(path, "auth", "preview")
+		if err != nil {
+			fmt.Printf("  [%s]\n\n%s\n\n", tc.name, cli.FormatError(err))
+		}
+	}
+
 	// --- Generator errors ---
 	genCases := []struct {
 		name string

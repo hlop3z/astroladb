@@ -144,6 +144,12 @@ type TableDef struct {
 	Searchable []string // Columns for fulltext search
 	Filterable []string // Columns allowed in WHERE clauses
 
+	// Higher-order metadata (for generators, not migrations)
+	Meta      map[string]any       // Freeform developer metadata (.meta())
+	Lifecycle *LifecycleDef        // State machine on an enum column (.lifecycle())
+	Policy    *PolicyDef           // Access intent per action (.policy())
+	Events    map[string]*EventDef // Event declarations (.events())
+
 	// Source location (for error reporting)
 	SourceFile string // Path to the schema file that defined this table
 }
@@ -606,6 +612,44 @@ func (c *CheckDef) Validate() error {
 		return err
 	}
 	return nil
+}
+
+// -----------------------------------------------------------------------------
+// LifecycleDef - state machine on an enum column
+// -----------------------------------------------------------------------------
+
+// LifecycleDef represents a state machine declared on an enum column.
+// States are derived from the referenced col.enum() values at export time.
+type LifecycleDef struct {
+	Column      string                    // Enum column name (states derived from it)
+	Transitions map[string]*TransitionDef // transition_name → {from, to}
+}
+
+// TransitionDef represents a single state transition.
+type TransitionDef struct {
+	From string // Source state (must be valid enum value)
+	To   string // Target state (must be valid enum value)
+}
+
+// -----------------------------------------------------------------------------
+// PolicyDef - access intent per action
+// -----------------------------------------------------------------------------
+
+// PolicyDef represents access policy declarations: action → [roles].
+// Actions and roles are freeform strings — no built-in CRUD constraint.
+type PolicyDef struct {
+	Rules map[string][]string // action → [roles]
+}
+
+// -----------------------------------------------------------------------------
+// EventDef - event declaration
+// -----------------------------------------------------------------------------
+
+// EventDef represents an event that this entity emits.
+// Payload column names are validated against the table's columns.
+type EventDef struct {
+	Payload []string // Column names included in the event payload
+	Topic   string   // Optional publish target (e.g., "orders.created")
 }
 
 // -----------------------------------------------------------------------------

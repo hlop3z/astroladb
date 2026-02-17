@@ -7,6 +7,7 @@ import (
 	"github.com/dop251/goja"
 
 	"github.com/hlop3z/astroladb/internal/alerr"
+	"github.com/hlop3z/astroladb/internal/ast"
 	"github.com/hlop3z/astroladb/internal/strutil"
 )
 
@@ -20,7 +21,7 @@ type TableBuilder struct {
 	vm *goja.Runtime
 
 	Columns       []*ColumnDef
-	Indexes       []*IndexDef
+	Indexes       []*ast.IndexDef
 	Relationships []*RelationshipDef
 	Docs          string
 	Deprecated    string
@@ -30,6 +31,12 @@ type TableBuilder struct {
 	SortBy     []string
 	Searchable []string
 	Filterable []string
+
+	// Higher-order metadata (for generators, not migrations)
+	Meta      map[string]any
+	Lifecycle *ast.LifecycleDef
+	Policy    *ast.PolicyDef
+	Events    map[string]*ast.EventDef
 }
 
 // NewTableBuilder creates a new table builder for JavaScript.
@@ -37,14 +44,14 @@ func NewTableBuilder(vm *goja.Runtime) *TableBuilder {
 	return &TableBuilder{
 		vm:            vm,
 		Columns:       make([]*ColumnDef, 0),
-		Indexes:       make([]*IndexDef, 0),
+		Indexes:       make([]*ast.IndexDef, 0),
 		Relationships: make([]*RelationshipDef, 0),
 	}
 }
 
 // NewTableBuilderWithColumns creates a TableBuilder with pre-existing columns and indexes.
 // Used by the schema path where columns are defined as object keys.
-func NewTableBuilderWithColumns(vm *goja.Runtime, columns []*ColumnDef, indexes []*IndexDef) *TableBuilder {
+func NewTableBuilderWithColumns(vm *goja.Runtime, columns []*ColumnDef, indexes []*ast.IndexDef) *TableBuilder {
 	return &TableBuilder{
 		vm:            vm,
 		Columns:       columns,
@@ -275,11 +282,11 @@ func (tb *TableBuilder) registerCommonHelpers(obj *goja.Object, chainable bool) 
 		_ = obj.Set("soft_delete", func() *goja.Object { tb.addSoftDelete(); return obj })
 		_ = obj.Set("sortable", func() *goja.Object { tb.addSortable(); return obj })
 		_ = obj.Set("index", func(columns ...string) *goja.Object {
-			tb.Indexes = append(tb.Indexes, &IndexDef{Columns: columns})
+			tb.Indexes = append(tb.Indexes, &ast.IndexDef{Columns: columns})
 			return obj
 		})
 		_ = obj.Set("unique", func(columns ...string) *goja.Object {
-			tb.Indexes = append(tb.Indexes, &IndexDef{Columns: tb.resolveUniqueColumns(columns), Unique: true})
+			tb.Indexes = append(tb.Indexes, &ast.IndexDef{Columns: tb.resolveUniqueColumns(columns), Unique: true})
 			return obj
 		})
 		_ = obj.Set("docs", func(description string) *goja.Object { tb.Docs = description; return obj })
@@ -289,10 +296,10 @@ func (tb *TableBuilder) registerCommonHelpers(obj *goja.Object, chainable bool) 
 		_ = obj.Set("soft_delete", func() { tb.addSoftDelete() })
 		_ = obj.Set("sortable", func() { tb.addSortable() })
 		_ = obj.Set("index", func(columns ...string) {
-			tb.Indexes = append(tb.Indexes, &IndexDef{Columns: columns})
+			tb.Indexes = append(tb.Indexes, &ast.IndexDef{Columns: columns})
 		})
 		_ = obj.Set("unique", func(columns ...string) {
-			tb.Indexes = append(tb.Indexes, &IndexDef{Columns: tb.resolveUniqueColumns(columns), Unique: true})
+			tb.Indexes = append(tb.Indexes, &ast.IndexDef{Columns: tb.resolveUniqueColumns(columns), Unique: true})
 		})
 		_ = obj.Set("docs", func(description string) { tb.Docs = description })
 		_ = obj.Set("deprecated", func(reason string) { tb.Deprecated = reason })
@@ -357,7 +364,7 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 		col := &ColumnDef{
 			Name: colName,
 			Type: "uuid",
-			Reference: &RefDef{
+			Reference: &ast.Reference{
 				Table:  ref,
 				Column: "id",
 			},
@@ -387,7 +394,7 @@ func (tb *TableBuilder) toBaseObject() *goja.Object {
 			Name:   colName,
 			Type:   "uuid",
 			Unique: true,
-			Reference: &RefDef{
+			Reference: &ast.Reference{
 				Table:  ref,
 				Column: "id",
 			},
@@ -490,7 +497,7 @@ func (tb *TableBuilder) ToChainableObject() *goja.Object {
 			as = "polymorphic"
 		}
 		tb.addPolymorphicColumns(as)
-		tb.Indexes = append(tb.Indexes, &IndexDef{
+		tb.Indexes = append(tb.Indexes, &ast.IndexDef{
 			Columns: []string{as + "_type", as + "_id"},
 		})
 		tb.Relationships = append(tb.Relationships, &RelationshipDef{
@@ -532,6 +539,128 @@ func (tb *TableBuilder) ToChainableObject() *goja.Object {
 	// filterable(...columns) - columns allowed in WHERE clauses
 	_ = obj.Set("filterable", func(columns ...string) *goja.Object {
 		tb.Filterable = columns
+		return obj
+	})
+
+	// lifecycle(obj) - state machine on an enum column
+	_ = obj.Set("lifecycle", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return obj
+		}
+		arg := call.Arguments[0]
+		if arg == nil || goja.IsUndefined(arg) || goja.IsNull(arg) {
+			return obj
+		}
+		exported := arg.Export()
+		m, ok := exported.(map[string]any)
+		if !ok {
+			return obj
+		}
+
+		lc := &ast.LifecycleDef{}
+
+		// Extract column (required — validated lazily in ToResult)
+		if col, ok := m["column"].(string); ok {
+			lc.Column = col
+		}
+
+		// Extract transitions (optional)
+		if transitions, ok := m["transitions"].(map[string]any); ok {
+			lc.Transitions = make(map[string]*ast.TransitionDef, len(transitions))
+			for name, v := range transitions {
+				if tMap, ok := v.(map[string]any); ok {
+					td := &ast.TransitionDef{}
+					if from, ok := tMap["from"].(string); ok {
+						td.From = from
+					}
+					if to, ok := tMap["to"].(string); ok {
+						td.To = to
+					}
+					lc.Transitions[name] = td
+				}
+			}
+		}
+
+		tb.Lifecycle = lc
+		return obj
+	})
+
+	// meta(obj) - freeform developer metadata for generators
+	_ = obj.Set("meta", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return obj
+		}
+		arg := call.Arguments[0]
+		if arg == nil || goja.IsUndefined(arg) || goja.IsNull(arg) {
+			return obj
+		}
+		exported := arg.Export()
+		if m, ok := exported.(map[string]any); ok {
+			tb.Meta = m
+		}
+		return obj
+	})
+
+	// policy(obj) - access intent per action for generators
+	_ = obj.Set("policy", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return obj
+		}
+		arg := call.Arguments[0]
+		if arg == nil || goja.IsUndefined(arg) || goja.IsNull(arg) {
+			return obj
+		}
+		exported := arg.Export()
+		m, ok := exported.(map[string]any)
+		if !ok {
+			return obj
+		}
+
+		pd := &ast.PolicyDef{
+			Rules: make(map[string][]string, len(m)),
+		}
+		for action, v := range m {
+			roles := toStringSlice(v)
+			if len(roles) == 0 {
+				throwStructuredError(tb.vm, string(alerr.ErrPolicyInvalid),
+					fmt.Sprintf("policy() action %q must have a non-empty array of role names", action),
+					fmt.Sprintf("try `policy({ %s: ['admin', 'owner'] })`", action))
+			}
+			pd.Rules[action] = roles
+		}
+		tb.Policy = pd
+		return obj
+	})
+
+	// events(obj) - event declarations for generators
+	_ = obj.Set("events", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 {
+			return obj
+		}
+		arg := call.Arguments[0]
+		if arg == nil || goja.IsUndefined(arg) || goja.IsNull(arg) {
+			return obj
+		}
+		exported := arg.Export()
+		m, ok := exported.(map[string]any)
+		if !ok {
+			return obj
+		}
+
+		events := make(map[string]*ast.EventDef, len(m))
+		for name, v := range m {
+			ed := &ast.EventDef{}
+			if evMap, ok := v.(map[string]any); ok {
+				if payload := toStringSlice(evMap["payload"]); len(payload) > 0 {
+					ed.Payload = payload
+				}
+				if topic, ok := evMap["topic"].(string); ok {
+					ed.Topic = topic
+				}
+			}
+			events[name] = ed
+		}
+		tb.Events = events
 		return obj
 	})
 
@@ -698,7 +827,7 @@ func createChainBuilder(vm *goja.Runtime, col *ColumnDef, includeRelOpts bool, c
 
 // relationshipBuilder creates a fluent builder for FK relationships with chaining.
 // Composes createChainBuilder (optional, on_delete, on_update, docs, etc.) with an additional "as" method.
-func (tb *TableBuilder) relationshipBuilder(ref string, col *ColumnDef, idx *IndexDef) *goja.Object {
+func (tb *TableBuilder) relationshipBuilder(ref string, col *ColumnDef, idx *ast.IndexDef) *goja.Object {
 	obj := createChainBuilder(tb.vm, col, true)
 
 	// as(alias) - Set custom column name
@@ -716,8 +845,131 @@ func (tb *TableBuilder) relationshipBuilder(ref string, col *ColumnDef, idx *Ind
 
 // ToResult converts the builder state to a result object for JavaScript.
 // Stashes a reference to the TableBuilder for direct extraction by registerTableFunc().
+// Performs lazy validation for features that depend on the full column set (e.g., lifecycle).
 func (tb *TableBuilder) ToResult() goja.Value {
+	tb.validateLifecycle()
+	tb.validateEvents()
+
 	result := tb.vm.NewObject()
 	_ = result.Set("_tableBuilder", tb)
 	return result
+}
+
+// toStringSlice converts an any value (typically []any from JS) to []string.
+// Returns nil if the value is not a slice or contains non-string elements.
+func toStringSlice(v any) []string {
+	switch s := v.(type) {
+	case []string:
+		return s
+	case []any:
+		result := make([]string, 0, len(s))
+		for _, item := range s {
+			if str, ok := item.(string); ok {
+				result = append(result, str)
+			}
+		}
+		if len(result) != len(s) {
+			return nil // mixed types
+		}
+		return result
+	}
+	return nil
+}
+
+// validateLifecycle checks that the lifecycle configuration references a valid enum column
+// and that all transition states are valid enum values.
+func (tb *TableBuilder) validateLifecycle() {
+	lc := tb.Lifecycle
+	if lc == nil {
+		return
+	}
+
+	// Column is required
+	if lc.Column == "" {
+		throwStructuredError(tb.vm, string(alerr.ErrLifecycleInvalid),
+			"lifecycle() requires a `column` key",
+			"try `lifecycle({ column: 'status' })`")
+	}
+
+	// Find the referenced column
+	var col *ColumnDef
+	for _, c := range tb.Columns {
+		if c.Name == lc.Column {
+			col = c
+			break
+		}
+	}
+
+	if col == nil {
+		throwStructuredError(tb.vm, string(alerr.ErrLifecycleColumn),
+			fmt.Sprintf("lifecycle() column %q does not exist", lc.Column),
+			"try `lifecycle({ column: 'status' })` where `status` is defined with `col.enum(...)`")
+	}
+
+	// Must be an enum column
+	if col.Type != "enum" {
+		throwStructuredError(tb.vm, string(alerr.ErrLifecycleColumn),
+			fmt.Sprintf("lifecycle() column %q is not an enum column", lc.Column),
+			fmt.Sprintf("try `lifecycle({ column: '%s' })` where `%s` is defined with `col.enum(...)`", lc.Column, lc.Column))
+	}
+
+	// Validate transition states against enum values
+	if len(lc.Transitions) == 0 {
+		return
+	}
+
+	// Build set of valid enum values
+	var enumValues []string
+	if len(col.TypeArgs) > 0 {
+		if vals, ok := col.TypeArgs[0].([]string); ok {
+			enumValues = vals
+		}
+	}
+	validStates := make(map[string]bool, len(enumValues))
+	for _, v := range enumValues {
+		validStates[v] = true
+	}
+
+	for tName, tr := range lc.Transitions {
+		if tr.From != "" && !validStates[tr.From] {
+			throwStructuredError(tb.vm, string(alerr.ErrLifecycleColumn),
+				fmt.Sprintf("lifecycle() transition %q references unknown state %q", tName, tr.From),
+				fmt.Sprintf("valid states for column %q are: %s", lc.Column, strings.Join(enumValues, ", ")))
+		}
+		if tr.To != "" && !validStates[tr.To] {
+			throwStructuredError(tb.vm, string(alerr.ErrLifecycleColumn),
+				fmt.Sprintf("lifecycle() transition %q references unknown state %q", tName, tr.To),
+				fmt.Sprintf("valid states for column %q are: %s", lc.Column, strings.Join(enumValues, ", ")))
+		}
+	}
+}
+
+// validateEvents checks that all event payload column names reference existing columns.
+func (tb *TableBuilder) validateEvents() {
+	if len(tb.Events) == 0 {
+		return
+	}
+
+	// Build set of valid column names
+	validCols := make(map[string]bool, len(tb.Columns))
+	colNames := make([]string, 0, len(tb.Columns))
+	for _, c := range tb.Columns {
+		validCols[c.Name] = true
+		colNames = append(colNames, c.Name)
+	}
+
+	for evName, ev := range tb.Events {
+		if len(ev.Payload) == 0 {
+			throwStructuredError(tb.vm, string(alerr.ErrEventsInvalid),
+				fmt.Sprintf("events() event %q requires a non-empty payload", evName),
+				fmt.Sprintf("try `events({ %s: { payload: ['id'] } })`", evName))
+		}
+		for _, col := range ev.Payload {
+			if !validCols[col] {
+				throwStructuredError(tb.vm, string(alerr.ErrEventsInvalid),
+					fmt.Sprintf("events() payload references unknown column %q", col),
+					fmt.Sprintf("available columns are: %s", strings.Join(colNames, ", ")))
+			}
+		}
+	}
 }

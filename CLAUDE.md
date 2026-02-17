@@ -46,7 +46,20 @@ task check          # Run lint + vuln + test
 
 ## Architecture Overview
 
-AstrolaDB is a **polyglot code generator** with a Go core that embeds a JavaScript runtime (Goja) to execute user-written schemas and generators.
+AstrolaDB is a **documentation-oriented meta-model system** that captures higher-order system metadata through a declarative JavaScript DSL. It's fundamentally about modeling system intent across multiple dimensions — structural, behavioral, and operational — making this metadata consumable by generators and documentation tooling.
+
+### What is Higher-Order System Metadata?
+
+AstrolaDB schemas are **not just database schemas**. They encode:
+
+- **Structural metadata** — tables, columns, types, relationships (traditional schema)
+- **Lifecycle metadata** — entity states, workflow transitions, state machines
+- **Access metadata** — role-based or attribute-based policy intents
+- **Event metadata** — event contracts, payloads, publish targets
+- **Service metadata** — bounded contexts, ownership, domain partitions
+- **Deployment metadata** — regions, replicas, storage, topology hints
+
+**Migrations are just one built-in core** that consumes structural metadata to generate SQL. Generators consume the full metadata graph to produce application code, documentation, infrastructure templates, and more.
 
 ### Three-Layer Architecture
 
@@ -66,10 +79,11 @@ AstrolaDB is a **polyglot code generator** with a Go core that embeds a JavaScri
                │ produces
                ▼
 ┌─────────────────────────────────────────┐
-│  Engine Layer (Go)                      │  ← Core processing
-│  • internal/engine - Migration engine   │
+│  Core Layer (Go)                        │  ← Built-in metadata consumers
+│  • internal/engine - Migration core     │  (structural → SQL)
 │  • internal/dialect - SQL generation    │
 │  • internal/types - Type exports        │
+│  • [Future: Generator registry]         │  (full metadata → code/docs/IaC)
 └─────────────────────────────────────────┘
 ```
 
@@ -78,13 +92,14 @@ AstrolaDB is a **polyglot code generator** with a Go core that embeds a JavaScri
 - `cmd/alab/` - CLI entry point, command implementations
 - `internal/runtime/` - **Goja JavaScript VM and DSL bindings**
   - `sandbox.go` - Secure JS execution environment
-  - `builder/` - JavaScript DSL implementation (col.\*, table())
+  - `builder/` - JavaScript DSL implementation (col.\*, table(), metadata builders)
   - `jserror.go` - JavaScript error parsing and formatting
-- `internal/engine/` - Migration generation and planning
+- `internal/engine/` - **Migration core** (one of multiple built-in cores)
+  - Consumes structural metadata to generate SQL migrations
 - `internal/dialect/` - SQL generation for PostgreSQL, SQLite
 - `internal/alerr/` - Structured error system with error codes
 - `internal/cli/` - CLI output formatting (Rust/Cargo-style errors)
-- `internal/ast/` - Schema AST representation
+- `internal/ast/` - Schema AST representation (structural + higher-order metadata)
 - `pkg/astroladb/` - Public Go API
 
 ## Critical Implementation Details
@@ -104,13 +119,14 @@ This applies to:
 
 - Column methods: `.belongs_to()`, `.created_at`, `.updated_at`
 - Table methods: `.sort_by()`, `.searchable()`, `.filterable()`
+- Higher-order metadata methods: `.lifecycle()`, `.policy()`, `.events()`, `.meta()`, `.deploy()`
 - All future DSL additions
 
 ### JavaScript Runtime & Error Handling
 
-**Unified Error Pipeline — Schemas, Migrations, and Generators:**
+**Unified Error Pipeline — All DSL Features:**
 
-All three JS file types (schemas, migrations, generators) execute through the **same Sandbox** and must follow the **same error pipeline**:
+All JavaScript DSL features (table definitions with higher-order metadata, manual migrations, custom generators) execute through the **same Sandbox** and must follow the **same error pipeline**:
 
 1. JS code executes in Goja VM → validation errors `panic(vm.ToValue(string))`
 2. Goja captures the JS call site (line:col) in the Exception stack
@@ -192,6 +208,8 @@ help: try `col.belongs_to('namespace.table')` or `col.belongs_to('.table')` for 
 
 **Consistency rule:** If a new DSL feature (schema, migration, or generator) can produce an error, it MUST go through the same pipeline and produce this same format. Test with `CRITICAL` prefix tests in `error_pipeline_test.go`.
 
+**Error preview rule:** Every new error MUST be added to `TestPreviewAllErrors` in `internal/runtime/preview_errors_test.go`. This visual test renders every structured error with `cli.FormatError()` so developers can inspect formatting. Run with `go test -run TestPreviewAllErrors ./internal/runtime/ -v -count=1` or `task preview-errors`.
+
 ### Help Text Style Guide (Cargo conventions)
 
 All `help:` text follows Rust/Cargo conventions for consistency:
@@ -235,13 +253,14 @@ All `help:` text follows Rust/Cargo conventions for consistency:
 
 ### Project Philosophy (from CONTRIBUTING.md)
 
-**Four Core Principles:**
+**Five Core Principles:**
 
 1. **Simple** - One way to do things. No config options where a default will do.
 2. **Boring** - No magic. Predictable behavior. Convention over configuration.
    - **ALL validation should happen during JavaScript execution**, not post-parse
 3. **Deterministic** - Same input = same output, always.
 4. **JS-Friendly** - All types safe in JavaScript (no int64, float64, etc.)
+5. **Documentation-Oriented** - Schemas are living documentation capturing system intent across structural, behavioral, and operational dimensions. All higher-order metadata is **declarative and generator-consumable only** — no runtime enforcement.
 
 **Hard Constraints:**
 

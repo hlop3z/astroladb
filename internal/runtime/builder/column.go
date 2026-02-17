@@ -2,6 +2,8 @@ package builder
 
 import (
 	"github.com/dop251/goja"
+
+	"github.com/hlop3z/astroladb/internal/ast"
 )
 
 // -----------------------------------------------------------------------------
@@ -117,7 +119,7 @@ func (cb *ColBuilder) ToObject() *goja.Object {
 		col := &ColumnDef{
 			Type:           "uuid",
 			IsRelationship: true,
-			Reference: &RefDef{
+			Reference: &ast.Reference{
 				Table:  ref,
 				Column: "id",
 			},
@@ -134,7 +136,7 @@ func (cb *ColBuilder) ToObject() *goja.Object {
 			Type:           "uuid",
 			Unique:         true,
 			IsRelationship: true,
-			Reference: &RefDef{
+			Reference: &ast.Reference{
 				Table:  ref,
 				Column: "id",
 			},

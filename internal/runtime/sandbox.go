@@ -231,7 +231,7 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 
 		// Extract column definitions from the object
 		columns := make([]*builder.ColumnDef, 0)
-		indexes := make([]*builder.IndexDef, 0)
+		indexes := make([]*ast.IndexDef, 0)
 
 		// Get keys and sort them for deterministic column order
 		keys := columnsObj.Keys()
@@ -303,7 +303,7 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 				columns = append(columns, idCol)
 
 				// Create composite index on type + id
-				indexes = append(indexes, &builder.IndexDef{
+				indexes = append(indexes, &ast.IndexDef{
 					Columns: []string{key + "_type", key + "_id"},
 					Unique:  false,
 				})
@@ -322,7 +322,7 @@ func (s *Sandbox) tableFunc() func(goja.FunctionCall) goja.Value {
 				columnDef.Reference = colDef.Reference
 
 				// Auto-create index on foreign key
-				indexes = append(indexes, &builder.IndexDef{
+				indexes = append(indexes, &ast.IndexDef{
 					Columns: []string{columnDef.Name},
 					Unique:  colDef.Unique,
 				})

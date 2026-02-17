@@ -34,6 +34,10 @@ const (
 	ErrMissingLength     Code = "VAL-007" // String column requires length
 	ErrTypeMismatchVal   Code = "VAL-008" // Default value type doesn't match column type
 	ErrMissingReference  Code = "VAL-009" // belongs_to/many_to_many requires a reference
+	ErrLifecycleInvalid  Code = "VAL-020" // lifecycle() configuration is invalid
+	ErrLifecycleColumn   Code = "VAL-021" // lifecycle() column is not an enum or references unknown state
+	ErrPolicyInvalid     Code = "VAL-022" // policy() values must be non-empty arrays of role names
+	ErrEventsInvalid     Code = "VAL-023" // events() payload references unknown column
 
 	// Migration errors (MIG-xxx) - problems during migration operations
 	ErrMigrationFailed   Code = "MIG-001" // Migration execution failed

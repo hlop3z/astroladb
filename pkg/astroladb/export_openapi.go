@@ -188,6 +188,20 @@ func buildModelEntry(table *ast.TableDef) map[string]any {
 		entry["foreign_keys"] = fks
 	}
 
+	// Higher-order metadata
+	if len(table.Meta) > 0 {
+		entry["meta"] = table.Meta
+	}
+	if table.Lifecycle != nil {
+		entry["lifecycle"] = buildLifecycleEntry(table)
+	}
+	if table.Policy != nil {
+		entry["policy"] = table.Policy.Rules
+	}
+	if len(table.Events) > 0 {
+		entry["events"] = buildEventsEntry(table)
+	}
+
 	return entry
 }
 
@@ -548,6 +562,20 @@ func buildSchemaXDB(table *ast.TableDef, allTables []*ast.TableDef, meta *metada
 	// Filterable columns
 	if len(table.Filterable) > 0 {
 		xdb["filterable"] = table.Filterable
+	}
+
+	// Higher-order metadata
+	if len(table.Meta) > 0 {
+		xdb["meta"] = table.Meta
+	}
+	if table.Lifecycle != nil {
+		xdb["lifecycle"] = buildLifecycleEntry(table)
+	}
+	if table.Policy != nil {
+		xdb["policy"] = table.Policy.Rules
+	}
+	if len(table.Events) > 0 {
+		xdb["events"] = buildEventsEntry(table)
 	}
 
 	// Indexes
@@ -1225,6 +1253,53 @@ func buildSQLType(col *ast.ColumnDef) map[string]string {
 	}
 
 	return sqlType
+}
+
+// buildLifecycleEntry builds the lifecycle export object, enriching the declaration
+// with derived data (initial state, full states list) from the enum column.
+func buildLifecycleEntry(table *ast.TableDef) map[string]any {
+	lc := table.Lifecycle
+	entry := map[string]any{
+		"column": lc.Column,
+	}
+
+	// Derive states from the enum column
+	if col := table.GetColumn(lc.Column); col != nil {
+		if enumValues := col.EnumValues(); len(enumValues) > 0 {
+			entry["initial"] = enumValues[0]
+			entry["states"] = enumValues
+		}
+	}
+
+	// Transitions
+	if len(lc.Transitions) > 0 {
+		transitions := make(map[string]map[string]string, len(lc.Transitions))
+		for name, tr := range lc.Transitions {
+			transitions[name] = map[string]string{
+				"from": tr.From,
+				"to":   tr.To,
+			}
+		}
+		entry["transitions"] = transitions
+	}
+
+	return entry
+}
+
+// buildEventsEntry builds the events export object.
+// Payload stays as plain column name strings — types live in table.columns.
+func buildEventsEntry(table *ast.TableDef) map[string]any {
+	result := make(map[string]any, len(table.Events))
+	for name, ev := range table.Events {
+		entry := map[string]any{
+			"payload": ev.Payload,
+		}
+		if ev.Topic != "" {
+			entry["topic"] = ev.Topic
+		}
+		result[name] = entry
+	}
+	return result
 }
 
 // isWriteOnlyColumn returns true if the column should be marked as writeOnly based on naming conventions.

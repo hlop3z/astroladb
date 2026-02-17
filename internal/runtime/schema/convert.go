@@ -72,9 +72,9 @@ func (c *ColumnConverter) ToAST(col *builder.ColumnDef) *ast.ColumnDef {
 		astCol.Max = col.Max
 	}
 
-	// Convert reference
+	// Pass through reference directly (builder already uses ast.Reference)
 	if col.Reference != nil {
-		astCol.Reference = c.RefToAST(col.Reference)
+		astCol.Reference = col.Reference
 	}
 
 	// Convert computed expression
@@ -85,56 +85,12 @@ func (c *ColumnConverter) ToAST(col *builder.ColumnDef) *ast.ColumnDef {
 	return astCol
 }
 
-// RefToAST converts a runtime RefDef to an ast.Reference.
-func (c *ColumnConverter) RefToAST(ref *builder.RefDef) *ast.Reference {
-	if ref == nil {
-		return nil
-	}
-
-	column := ref.Column
-	if column == "" {
-		column = "id" // Default to id
-	}
-
-	return &ast.Reference{
-		Table:    ref.Table,
-		Column:   column,
-		OnDelete: ref.OnDelete,
-		OnUpdate: ref.OnUpdate,
-	}
-}
-
-// IndexToAST converts a runtime IndexDef to an ast.IndexDef.
-func (c *ColumnConverter) IndexToAST(idx *builder.IndexDef) *ast.IndexDef {
-	if idx == nil {
-		return nil
-	}
-
-	return &ast.IndexDef{
-		Name:    idx.Name,
-		Columns: idx.Columns,
-		Unique:  idx.Unique,
-		Where:   idx.Where,
-	}
-}
-
 // ColumnsToAST converts a slice of runtime ColumnDefs to ast.ColumnDefs.
 func (c *ColumnConverter) ColumnsToAST(cols []*builder.ColumnDef) []*ast.ColumnDef {
 	result := make([]*ast.ColumnDef, 0, len(cols))
 	for _, col := range cols {
 		if astCol := c.ToAST(col); astCol != nil {
 			result = append(result, astCol)
-		}
-	}
-	return result
-}
-
-// IndexesToAST converts a slice of runtime IndexDefs to ast.IndexDefs.
-func (c *ColumnConverter) IndexesToAST(idxs []*builder.IndexDef) []*ast.IndexDef {
-	result := make([]*ast.IndexDef, 0, len(idxs))
-	for _, idx := range idxs {
-		if astIdx := c.IndexToAST(idx); astIdx != nil {
-			result = append(result, astIdx)
 		}
 	}
 	return result
@@ -153,7 +109,7 @@ func (c *ColumnConverter) TableBuilderToAST(tb *builder.TableBuilder, namespace,
 		Namespace:  namespace,
 		Name:       name,
 		Columns:    c.ColumnsToAST(tb.Columns),
-		Indexes:    c.IndexesToAST(tb.Indexes),
+		Indexes:    tb.Indexes,
 		Checks:     make([]*ast.CheckDef, 0),
 		Docs:       tb.Docs,
 		Deprecated: tb.Deprecated,
@@ -161,5 +117,9 @@ func (c *ColumnConverter) TableBuilderToAST(tb *builder.TableBuilder, namespace,
 		SortBy:     tb.SortBy,
 		Searchable: tb.Searchable,
 		Filterable: tb.Filterable,
+		Meta:       tb.Meta,
+		Lifecycle:  tb.Lifecycle,
+		Policy:     tb.Policy,
+		Events:     tb.Events,
 	}
 }
