@@ -177,48 +177,6 @@ func Golden(t *testing.T, name string, got string) {
 	}
 }
 
-// GoldenSQL compares a SQL string against a golden file.
-// Unlike Golden, this performs SQL normalization before comparison.
-// Golden files are stored in testdata/ directory with .sql extension.
-func GoldenSQL(t *testing.T, name string, got string) {
-	t.Helper()
-
-	path := goldenPath(t, name, ".sql")
-
-	if *updateGolden {
-		// Ensure testdata directory exists
-		dir := filepath.Dir(path)
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatalf("failed to create golden directory: %v", err)
-		}
-
-		// Write the new golden file (not normalized, preserve formatting)
-		if err := os.WriteFile(path, []byte(got), 0644); err != nil {
-			t.Fatalf("failed to write golden file: %v", err)
-		}
-		return
-	}
-
-	// Read the expected golden file
-	want, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			t.Fatalf("golden file does not exist: %s\nrun with -update-golden to create it\n\ngot:\n%s",
-				path, got)
-		}
-		t.Fatalf("failed to read golden file: %v", err)
-	}
-
-	// Compare normalized SQL
-	gotNorm := NormalizeSQL(got)
-	wantNorm := NormalizeSQL(string(want))
-
-	if gotNorm != wantNorm {
-		t.Errorf("golden SQL mismatch: %s\n\nnormalized got:\n%s\n\nnormalized want:\n%s\n\nrun with -update-golden to update",
-			path, gotNorm, wantNorm)
-	}
-}
-
 // -----------------------------------------------------------------------------
 // Test Helpers
 // -----------------------------------------------------------------------------
@@ -237,26 +195,6 @@ func TempDir(t *testing.T) string {
 	})
 
 	return dir
-}
-
-// TempFile creates a temporary file with the given content.
-// Returns the file path. The file is automatically cleaned up.
-func TempFile(t *testing.T, name, content string) string {
-	t.Helper()
-
-	dir := TempDir(t)
-	path := filepath.Join(dir, name)
-
-	// Create parent directories if needed
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		t.Fatalf("failed to create parent directories: %v", err)
-	}
-
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatalf("failed to write temp file: %v", err)
-	}
-
-	return path
 }
 
 // WriteFile writes content to a file, creating parent directories as needed.

@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/dop251/goja"
@@ -60,39 +61,66 @@ func NewTableBuilderWithColumns(vm *goja.Runtime, columns []*ColumnDef, indexes 
 // Shared validation helpers (used by both ColBuilder and TableBuilder)
 // -----------------------------------------------------------------------------
 
+// throwStructuredError panics with a formatted error string containing the error code.
+// Goja catches the panic and creates an Exception at the JS call site, giving correct
+// line numbers. The error code and help are extracted later by wrapJSError via
+// extractStructuredError.
+func throwStructuredError(vm *goja.Runtime, code, message, help string) {
+	panic(vm.ToValue(fmt.Sprintf("[%s] %s|%s", code, message, help)))
+}
+
 // validateRef panics if ref is empty or missing namespace.
 func validateRef(vm *goja.Runtime, ref, method string) {
 	if ref == "" {
-		panic(vm.ToValue(alerr.NewMissingReferenceError(method).Error()))
+		throwStructuredError(vm, string(alerr.ErrMissingReference),
+			method+"() requires a table reference",
+			"Use "+method+"('namespace.table') or "+method+"('.table') for same namespace")
 	}
 	if !alerr.HasNamespace(ref) {
-		panic(vm.ToValue(alerr.NewMissingNamespaceError(ref).Error()))
+		throwStructuredError(vm, string(alerr.ErrMissingNamespace),
+			"Reference '"+ref+"' is missing namespace prefix",
+			"Use '."+ref+"' for same namespace or 'namespace."+ref+"'")
 	}
 }
 
 // validateStringLength panics if length is invalid.
-// For table context (name != ""), uses alerr for semantic error with column name.
-// For col context (name == ""), uses BuilderError.
 func validateStringLength(vm *goja.Runtime, length int, name string) {
 	if length <= 0 {
 		if name != "" {
-			panic(vm.ToValue(alerr.NewMissingLengthError(name).Error()))
+			// Table context: include column name
+			throwStructuredError(vm, string(alerr.ErrMissingLength),
+				"string() requires a length argument",
+				"try t.string(\""+name+"\", 255) for VARCHAR(255)")
+		} else {
+			// Col context: generic message
+			throwStructuredError(vm, string(alerr.ErrMissingLength),
+				"string() requires a length argument",
+				"try col.string(255) for VARCHAR(255)")
 		}
-		panic(vm.ToValue(ErrMsgStringRequiresLength.String()))
 	}
 }
 
 // validateDecimalArgs panics if precision/scale are invalid.
 func validateDecimalArgs(vm *goja.Runtime, precision, scale int, isTable bool) {
 	if precision <= 0 || scale < 0 {
-		panic(vm.ToValue(ErrDecimalRequiresArgs(isTable).String()))
+		if isTable {
+			throwStructuredError(vm, string(alerr.ErrMissingLength),
+				"decimal() requires precision and scale arguments",
+				"try c.decimal(\"price\", 10, 2) for DECIMAL(10,2)")
+		} else {
+			throwStructuredError(vm, string(alerr.ErrMissingLength),
+				"decimal() requires precision and scale arguments",
+				"try col.decimal(10, 2) for DECIMAL(10,2)")
+		}
 	}
 }
 
 // validateEnumValues panics if values slice is empty.
 func validateEnumValues(vm *goja.Runtime, values []string) {
 	if len(values) == 0 {
-		panic(vm.ToValue(ErrMsgEnumRequiresValues.String()))
+		throwStructuredError(vm, string(alerr.ErrMissingLength),
+			"enum() requires at least one value",
+			"try col.enum(['active', 'inactive']) or c.enum(\"status\", ['active', 'inactive'])")
 	}
 }
 
@@ -434,7 +462,9 @@ func (tb *TableBuilder) ToChainableObject() *goja.Object {
 	// junction(refs...) - marks table as M2M junction
 	_ = obj.Set("junction", func(refs ...string) *goja.Object {
 		if len(refs) != 0 && len(refs) != 2 {
-			panic(tb.vm.ToValue("junction() requires 0 or 2 parameters, got " + string(rune(len(refs)))))
+			throwStructuredError(tb.vm, string(alerr.ErrMissingReference),
+				fmt.Sprintf("junction() requires 0 or 2 parameters, got %d", len(refs)),
+				"try t.junction() for auto-detect or t.junction('table1', 'table2') for explicit")
 		}
 
 		rel := &RelationshipDef{

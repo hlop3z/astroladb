@@ -166,6 +166,7 @@ func (s *Sandbox) restrictGlobals() {
 
 // bindDSL binds the schema DSL functions to the JS runtime.
 func (s *Sandbox) bindDSL() {
+
 	// sql() helper - marks a string as raw SQL expression
 	s.vm.Set("sql", func(expr string) map[string]any {
 		return map[string]any{
@@ -433,6 +434,39 @@ func (s *Sandbox) SetCurrentFile(path string) {
 	s.currentFile = path
 }
 
+// extractStructuredError parses error messages for embedded error codes and structured content.
+// Format: "[E2009] cause\n       Use help..." returns (code, cause, help)
+// Returns ("", original, "") if no code found.
+func extractStructuredError(msg string) (code string, cause string, help string) {
+	// Check for "[EXXXX] " pattern at start of message
+	if len(msg) > 7 && msg[0] == '[' && msg[1] == 'E' {
+		endIdx := strings.Index(msg, "]")
+		if endIdx > 0 && endIdx < 8 { // "[E####]" is max 7 chars
+			code = msg[1:endIdx] // Extract "E####"
+			cleanMsg := strings.TrimSpace(msg[endIdx+1:])
+
+			// Check for pipe format "cause|help" (from BuilderError.String())
+			if idx := strings.Index(cleanMsg, "|"); idx != -1 {
+				cause = strings.TrimSpace(cleanMsg[:idx])
+				help = strings.TrimSpace(cleanMsg[idx+1:])
+				return code, cause, help
+			}
+
+			// Check for "\n       Use " pattern (alerr.NewXXXError format)
+			if idx := strings.Index(cleanMsg, "\n       Use "); idx != -1 {
+				cause = strings.TrimSpace(cleanMsg[:idx])
+				help = strings.TrimSpace(cleanMsg[idx+1:])
+				help = strings.TrimPrefix(help, "       ") // Remove leading spaces
+				return code, cause, help
+			}
+
+			// No help text, return just the cause
+			return code, cleanMsg, ""
+		}
+	}
+	return "", msg, ""
+}
+
 // wrapJSError creates a rich error with source location and context.
 func (s *Sandbox) wrapJSError(err error, code alerr.Code, message string) *alerr.Error {
 	jsErr := ParseJSError(err)
@@ -440,37 +474,53 @@ func (s *Sandbox) wrapJSError(err error, code alerr.Code, message string) *alerr
 		return alerr.Wrap(code, err, message)
 	}
 
-	// Create base error
-	alErr := alerr.Wrap(code, err, message)
-
-	// Adjust line number for wrapper offset (the IIFE wrapper adds 2 lines before user code)
-	// This converts from wrapped code line numbers back to original source line numbers.
-	adjustedLine := jsErr.Line
-	if s.lineOffset > 0 && adjustedLine > s.lineOffset {
-		adjustedLine = adjustedLine - s.lineOffset
+	// Check for structured error code in the message string.
+	// Validation errors panic with "[E####] cause|help" format, which
+	// extractStructuredError parses to extract code, cause, and help.
+	eCode, eCause, eHelp := extractStructuredError(jsErr.Message)
+	if eCode != "" {
+		code = alerr.Code(eCode)
+		message = eCause
 	}
 
-	// BUGFIX: Empirical testing shows we need +1 to get correct source line from file.
-	// This is due to how Goja indexes lines in wrapped vs unwrapped code.
-	sourceFileLine := adjustedLine + 1
+	// Create base error. For structured errors, don't wrap the raw Goja
+	// exception as cause — the code, message, and help are already extracted.
+	var alErr *alerr.Error
+	if eCode != "" {
+		alErr = alerr.New(code, message)
+	} else {
+		alErr = alerr.Wrap(code, err, message)
+	}
+
+	// Add help text if available from structured error
+	if eHelp != "" {
+		alErr.WithHelp(eHelp)
+	}
+
+	// Adjust line number for wrapper offset.
+	// The IIFE wrapper template puts "var __result = " on the same line as user code line 1,
+	// so wrapped_line = user_line + lineOffset - 1, hence user_line = wrapped_line - lineOffset + 1.
+	adjustedLine := jsErr.Line
+	if s.lineOffset > 0 && adjustedLine > s.lineOffset {
+		adjustedLine = adjustedLine - s.lineOffset + 1
+	}
 
 	// Add file location if available (use adjusted line for display)
 	if s.currentFile != "" {
-		alErr.WithLocation(s.currentFile, sourceFileLine, jsErr.Column)
-	} else if sourceFileLine > 0 {
-		alErr.With("line", sourceFileLine)
+		alErr.WithLocation(s.currentFile, adjustedLine, jsErr.Column)
+	} else if adjustedLine > 0 {
+		alErr.With("line", adjustedLine)
 		if jsErr.Column > 0 {
 			alErr.With("column", jsErr.Column)
 		}
 	}
 
 	// Try to get source line for context
-	if sourceFileLine > 0 {
+	if adjustedLine > 0 {
 		var sourceLine string
 		if s.currentFile != "" {
-			sourceLine = GetSourceLineFromFile(s.currentFile, sourceFileLine)
+			sourceLine = GetSourceLineFromFile(s.currentFile, adjustedLine)
 		} else if s.currentCode != "" {
-			// For in-memory code, use the original adjusted line (no +1 needed)
 			sourceLine = GetSourceLine(s.currentCode, adjustedLine)
 		}
 

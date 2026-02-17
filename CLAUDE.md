@@ -104,71 +104,73 @@ This applies to:
 
 ### JavaScript Runtime & Error Handling
 
-**Schema Execution Flow:**
+**Unified Error Pipeline — Schemas, Migrations, and Generators:**
+
+All three JS file types (schemas, migrations, generators) execute through the **same Sandbox** and must follow the **same error pipeline**:
+
+1. JS code executes in Goja VM → validation errors `panic(vm.ToValue(string))`
+2. Goja captures the JS call site (line:col) in the Exception stack
+3. `ParseJSError()` extracts line, column, and message from the Exception
+4. `wrapJSError()` adjusts line offset, reads source from file, builds `*alerr.Error`
+5. `cli.FormatError()` renders the Cargo-style output
+
+**This pipeline is the same regardless of file type.** Never create a separate error path for migrations or generators — always go through `wrapJSError` so every error gets file location, source context, and consistent formatting.
+
+**Execution Flow (all file types):**
 
 1. Load `.js` file from disk → `sandbox.currentFile` set
 2. Strip "export default " → code modified
 3. Optionally wrap in IIFE → `lineOffset = 2` if wrapped, `0` if not
 4. Execute with Goja → reports line numbers in executed code
-5. On error: adjust line with `jsErr.Line - lineOffset` to get original file line
+5. On error: adjust line with `jsErr.Line - lineOffset + 1` to get original file line
 
 **Line Number Indexing Convention:**
 
 - Goja: 1-indexed (first line is 1)
 - `GetSourceLine()` / `GetSourceLineFromFile()`: 1-indexed (first line is 1)
-- After wrapper adjustment, need +1 correction to fetch correct source line from file
-- See `internal/runtime/jserror_test.go` test case `goja_error_line_accuracy` for validation
+- IIFE wrapper offset: `adjustedLine = jsErr.Line - lineOffset + 1`
+- See `internal/runtime/jserror_test.go` and `error_pipeline_test.go` for validation
 
-**Error Handling Patterns:**
+**Error Throwing Pattern (simple panic — same for all DSL builders):**
 
-Use **different error formats** for different APIs:
+Validation errors panic with a simple string value. Goja wraps this in an Exception and captures the JS call site automatically. **Never** call a JS function from Go to throw — Goja will capture the wrong call site.
 
-1. **Column API (col.\*)** - Use `BuilderError` (pipe format):
+```go
+// Structured error: "[E####] cause|help" — used for all validation errors
+panic(vm.ToValue(fmt.Sprintf("[%s] %s|%s", code, message, help)))
 
-   ```go
-   // internal/runtime/builder/errors.go
-   ErrMsgStringRequiresLength = BuilderError{
-       Cause: "string() requires a length argument",
-       Help:  "try col.string(255) for VARCHAR(255)",
-   }
+// BuilderError helper (col.* API) — same format via .String()
+panic(cb.vm.ToValue(ErrMsgStringRequiresLength.String()))
 
-   // internal/runtime/builder/column.go
-   panic(cb.vm.ToValue(ErrMsgStringRequiresLength.String()))
-   ```
+// throwStructuredError helper (table.* API)
+throwStructuredError(vm, alerr.ErrMissingReference, "belongs_to() requires a reference", "try col.belongs_to('ns.table')")
+```
 
-2. **Table API (t.\*)** - Use `alerr.NewXXXError()` functions:
-
-   ```go
-   // internal/alerr/suggestions.go
-   func NewMissingReferenceError(method string) *Error { ... }
-
-   // internal/runtime/builder/table.go
-   panic(tb.vm.ToValue(alerr.NewMissingReferenceError("t.belongs_to").Error()))
-   ```
-
-**IMPORTANT - TODO:** All validation errors for schemas and migrations should use Goja's structured error types (`CompilerSyntaxError`, `Exception`) instead of string parsing. Use `syntaxErr.Message`, `syntaxErr.File.Position(syntaxErr.Offset)` to get clean messages and accurate line numbers. See `internal/runtime/jserror.go:37-44` for the correct pattern.
+`extractStructuredError()` in `sandbox.go` parses the `[E####] cause|help` format back into code, message, and help text.
 
 ### Error Display Format
 
-Follows Rust/Cargo-style formatting (implemented in `internal/cli/error.go`):
+**All errors** — from schemas, migrations, and generators — follow the same Rust/Cargo-style formatting (implemented in `internal/cli/error.go`):
 
 ```
-error[E2003]: belongs_to() requires a table reference
+error[E2009]: belongs_to() requires a table reference
   --> schemas/auth/role.js:5:18
    |
  5 |   owner: col.belongs_to()
    |          ^^^^^^^^^^^^^^^^
    |
-note: relationships need a target table
 help: try col.belongs_to('namespace.table') or col.belongs_to('.table') for same namespace
 ```
 
-**Key Components:**
+**Key Components (must be present for ALL error types):**
 
+- Error code with message (`error[E####]: ...`)
 - File location with line:column (`--> file:line:col`)
 - Source code line with caret highlighting (`^^^`)
-- Notes and help messages
+- Contextual notes and actionable help messages
 - Clean cause messages (no redundant line numbers, no `[E####]` codes in cause)
+
+**Consistency rule:** If a new DSL feature (schema, migration, or generator) can produce an error, it MUST go through the same pipeline and produce this same format. Test with `CRITICAL` prefix tests in `error_pipeline_test.go`.
 
 ### CLI Output Styling
 
@@ -221,9 +223,9 @@ Follow the testing pyramid from TESTING.md:
 
 1. **Line number off-by-one errors** - Always use 1-indexed conventions, apply wrapper offset, then +1 for file reading
 2. **Validation timing** - Validate during JS execution (in builder/\*.go), not post-parse (in merge.go or similar)
-3. **Error format consistency** - BuilderError for col._, alerr functions for t._
-4. **Cause message cleaning** - Strip error codes, Goja stack traces, and redundant line numbers from cause display
-5. **Case-insensitive regex** - Goja uses "Line X:Y" (capital L) in error messages - use `(?i)` flag
+3. **Error format consistency** - All DSL errors (schemas, migrations, generators) must go through the same `wrapJSError` → `alerr.Error` → `cli.FormatError` pipeline. Never create a separate error path.
+4. **Error throwing** - Always `panic(vm.ToValue(string))` from Go callbacks. Never call a JS function from Go to throw — Goja captures the wrong call site.
+5. **Cause message cleaning** - Strip error codes, Goja stack traces, and redundant line numbers from cause display
 
 ## Documentation
 

@@ -15,10 +15,12 @@ import (
 
 // JSErrorInfo contains extracted information from a JavaScript error.
 type JSErrorInfo struct {
-	Message string
-	Line    int
-	Column  int
-	Stack   string
+	Message   string
+	Line      int
+	Column    int
+	Stack     string
+	ErrorCode string // Structured error code (from __errorCode property)
+	Help      string // Structured help text (from __errorHelp property)
 }
 
 // ParseJSError extracts detailed error information from a Goja error.
@@ -50,11 +52,30 @@ func ParseJSError(err error) *JSErrorInfo {
 		info.Message = exception.Value().String()
 		info.Stack = exception.String()
 
-		// ✅ Use Goja's structured stack frames (no regex parsing needed)
+		// Check if this is a structured error (has __errorCode property)
+		if obj, ok := exception.Value().(*goja.Object); ok {
+			if codeVal := obj.Get("__errorCode"); codeVal != nil && !goja.IsUndefined(codeVal) && !goja.IsNull(codeVal) {
+				info.ErrorCode = codeVal.String()
+			}
+			if msgVal := obj.Get("__errorMessage"); msgVal != nil && !goja.IsUndefined(msgVal) && !goja.IsNull(msgVal) {
+				info.Message = msgVal.String()
+			}
+			if helpVal := obj.Get("__errorHelp"); helpVal != nil && !goja.IsUndefined(helpVal) && !goja.IsNull(helpVal) {
+				info.Help = helpVal.String()
+			}
+		}
+
+		// Use Goja's structured stack frames (no regex parsing needed).
+		// Skip native Go frames (line=0) to find the first JS call site.
 		if frames := exception.Stack(); len(frames) > 0 {
-			pos := frames[0].Position()
-			info.Line = pos.Line
-			info.Column = pos.Column
+			for _, frame := range frames {
+				pos := frame.Position()
+				if pos.Line > 0 {
+					info.Line = pos.Line
+					info.Column = pos.Column
+					break
+				}
+			}
 		} else {
 			// Fallback for syntax errors wrapped in Exception (have zero stack frames)
 			// Parse Goja's structured error format: "SyntaxError: (file): Line X:Y ..."

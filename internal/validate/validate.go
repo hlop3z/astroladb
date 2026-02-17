@@ -208,49 +208,6 @@ func IsSnakeCase(s string) bool {
 	return snakeCaseRegex.MatchString(s)
 }
 
-// -----------------------------------------------------------------------------
-// Identifier Validation
-// -----------------------------------------------------------------------------
-
-// identifierRegex matches valid SQL identifiers:
-// - starts with letter or underscore
-// - contains only letters, digits, and underscores
-// - max length 63 characters (PostgreSQL limit)
-var identifierRegex = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
-
-const maxIdentifierLength = 63
-
-// Identifier validates that s is a valid SQL identifier.
-// A valid identifier:
-// - Is not empty
-// - Starts with a letter or underscore
-// - Contains only letters, digits, and underscores
-// - Is not longer than 63 characters
-// - Is not a reserved word
-func Identifier(s string) error {
-	if s == "" {
-		return alerr.New(ErrInvalidIdentifier, "identifier cannot be empty")
-	}
-
-	if len(s) > maxIdentifierLength {
-		return alerr.New(ErrInvalidIdentifier, fmt.Sprintf("identifier exceeds maximum length of %d characters", maxIdentifierLength)).
-			With("identifier", s).
-			With("length", len(s))
-	}
-
-	if !identifierRegex.MatchString(s) {
-		return alerr.New(ErrInvalidIdentifier, "identifier contains invalid characters").
-			With("identifier", s).
-			With("allowed", "letters, digits, underscores (must start with letter or underscore)")
-	}
-
-	if err := ReservedWordError(s); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // SnakeCase validates that s is valid snake_case.
 // A valid snake_case string:
 // - Is not empty
@@ -275,8 +232,19 @@ func SnakeCase(s string) error {
 		return err
 	}
 
-	// Also validate as identifier (length, reserved words)
-	return Identifier(s)
+	// Validate length (PostgreSQL limit)
+	if len(s) > 63 {
+		return alerr.New(ErrInvalidIdentifier, "name exceeds maximum length of 63 characters").
+			With("name", s).
+			With("length", len(s))
+	}
+
+	// Check for reserved words
+	if err := ReservedWordError(s); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Namespace validates a namespace name.
@@ -316,92 +284,6 @@ func ColumnName(s string) error {
 		return err
 	}
 	return nil
-}
-
-// -----------------------------------------------------------------------------
-// Reference Validation
-// -----------------------------------------------------------------------------
-
-// TableRef parses a table reference in the format "namespace.table" or "table".
-// Returns the namespace and table name, or an error if invalid.
-// If no namespace is provided (just "table"), namespace will be empty.
-func TableRef(ref string) (namespace, table string, err error) {
-	if ref == "" {
-		return "", "", alerr.New(ErrInvalidReference, "table reference cannot be empty")
-	}
-
-	// Check for leading dot (e.g., ".users" for same-namespace reference)
-	if strings.HasPrefix(ref, ".") {
-		table = strings.TrimPrefix(ref, ".")
-		if table == "" {
-			return "", "", alerr.New(ErrInvalidReference, "table name cannot be empty after '.'").
-				With("reference", ref)
-		}
-		if err := TableName(table); err != nil {
-			return "", "", err
-		}
-		return "", table, nil
-	}
-
-	parts := strings.Split(ref, ".")
-	switch len(parts) {
-	case 1:
-		// Just table name
-		table = parts[0]
-		if err := TableName(table); err != nil {
-			return "", "", err
-		}
-		return "", table, nil
-
-	case 2:
-		// namespace.table
-		namespace = parts[0]
-		table = parts[1]
-
-		if namespace == "" {
-			return "", "", alerr.New(ErrInvalidReference, "namespace cannot be empty").
-				With("reference", ref)
-		}
-		if table == "" {
-			return "", "", alerr.New(ErrInvalidReference, "table name cannot be empty").
-				With("reference", ref)
-		}
-
-		if err := Namespace(namespace); err != nil {
-			return "", "", err
-		}
-		if err := TableName(table); err != nil {
-			return "", "", err
-		}
-		return namespace, table, nil
-
-	default:
-		return "", "", alerr.New(ErrInvalidReference, "invalid table reference format").
-			With("reference", ref).
-			With("expected", "namespace.table or table")
-	}
-}
-
-// ParseRef parses a table reference and resolves it against the current namespace.
-// - "namespace.table" -> (namespace, table)
-// - ".table" -> (currentNS, table)  -- explicit same-namespace reference
-// - "table" -> (currentNS, table)   -- implicit same-namespace reference
-func ParseRef(ref, currentNS string) (namespace, table string, err error) {
-	ns, tbl, err := TableRef(ref)
-	if err != nil {
-		return "", "", err
-	}
-
-	// If no namespace in reference, use current namespace
-	if ns == "" {
-		if currentNS == "" {
-			return "", "", alerr.New(ErrInvalidReference, "cannot resolve relative reference without current namespace").
-				With("reference", ref)
-		}
-		return currentNS, tbl, nil
-	}
-
-	return ns, tbl, nil
 }
 
 // -----------------------------------------------------------------------------

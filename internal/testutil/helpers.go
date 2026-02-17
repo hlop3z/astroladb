@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"database/sql"
-	"os"
 	"testing"
 	"time"
 )
@@ -76,49 +75,6 @@ func SkipIfShort(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
-}
-
-// SkipInCI skips the test if running in CI environment.
-// Useful for tests that require local resources.
-func SkipInCI(t *testing.T) {
-	t.Helper()
-
-	if isCI() {
-		t.Skip("Skipping test in CI environment")
-	}
-}
-
-// isCI checks if running in a CI environment.
-func isCI() bool {
-	// Check common CI environment variables
-	ciEnvVars := []string{
-		"CI",
-		"CONTINUOUS_INTEGRATION",
-		"GITHUB_ACTIONS",
-		"GITLAB_CI",
-		"CIRCLECI",
-		"TRAVIS",
-	}
-
-	for _, envVar := range ciEnvVars {
-		if value := os.Getenv(envVar); value != "" {
-			return true
-		}
-	}
-
-	return false
-}
-
-// RequireEnv ensures an environment variable is set, or skips the test.
-func RequireEnv(t *testing.T, key string) string {
-	t.Helper()
-
-	value := os.Getenv(key)
-	if value == "" {
-		t.Skipf("Required environment variable %s not set", key)
-	}
-
-	return value
 }
 
 // Must asserts that err is nil, or fails the test immediately.
