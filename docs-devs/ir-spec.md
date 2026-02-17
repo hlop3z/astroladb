@@ -1171,7 +1171,9 @@ When a breaking change is introduced (new major version):
    name: col.string(255).serverDefault("'Unknown'");
 
    // v2.0 (new pattern)
-   name: col.string(255).default(sql({ postgres: "'Unknown'", sqlite: "'Unknown'" }));
+   name: col
+     .string(255)
+     .default(sql({ postgres: "'Unknown'", sqlite: "'Unknown'" }));
    ```
 
 2. **Run Migration Tool**:

@@ -23,10 +23,10 @@ Bound in `internal/runtime/sandbox.go`.
 
 Bound in `internal/runtime/bindings.go`.
 
-| Global       | Kind     | Description                           |
-| ------------ | -------- | ------------------------------------- |
-| `migration`  | function | Migration entry point                 |
-| `sql({...})` | function | Per-dialect raw SQL expression        |
+| Global       | Kind     | Description                    |
+| ------------ | -------- | ------------------------------ |
+| `migration`  | function | Migration entry point          |
+| `sql({...})` | function | Per-dialect raw SQL expression |
 
 Note: `m.sql()` inside migrations is a different function — it executes raw SQL as a migration operation.
 
@@ -36,8 +36,8 @@ Note: `m.sql()` inside migrations is a different function — it executes raw SQ
 
 Bound in `internal/runtime/sandbox_gen.go`.
 
-| Global       | Kind     | Description                      |
-| ------------ | -------- | -------------------------------- |
-| `gen(fn)`    | function | Generator entry point            |
-| `render(obj)`| function | Output file map to disk          |
+| Global               | Kind     | Description                   |
+| -------------------- | -------- | ----------------------------- |
+| `gen(fn)`            | function | Generator entry point         |
+| `render(obj)`        | function | Output file map to disk       |
 | `json(val, indent?)` | function | Safe `JSON.stringify` wrapper |

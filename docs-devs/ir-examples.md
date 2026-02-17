@@ -84,13 +84,21 @@ export default table("user", (t) => {
     {
       "name": "created_at",
       "type": "datetime",
-      "default": { "_type": "sql_expr", "postgres": "NOW()", "sqlite": "CURRENT_TIMESTAMP" },
+      "default": {
+        "_type": "sql_expr",
+        "postgres": "NOW()",
+        "sqlite": "CURRENT_TIMESTAMP"
+      },
       "nullable": false
     },
     {
       "name": "updated_at",
       "type": "datetime",
-      "default": { "_type": "sql_expr", "postgres": "NOW()", "sqlite": "CURRENT_TIMESTAMP" },
+      "default": {
+        "_type": "sql_expr",
+        "postgres": "NOW()",
+        "sqlite": "CURRENT_TIMESTAMP"
+      },
       "nullable": false
     }
   ],
@@ -870,13 +878,21 @@ export default table("order_item", (t) => {
     {
       "name": "created_at",
       "type": "datetime",
-      "default": { "_type": "sql_expr", "postgres": "NOW()", "sqlite": "CURRENT_TIMESTAMP" },
+      "default": {
+        "_type": "sql_expr",
+        "postgres": "NOW()",
+        "sqlite": "CURRENT_TIMESTAMP"
+      },
       "nullable": false
     },
     {
       "name": "updated_at",
       "type": "datetime",
-      "default": { "_type": "sql_expr", "postgres": "NOW()", "sqlite": "CURRENT_TIMESTAMP" },
+      "default": {
+        "_type": "sql_expr",
+        "postgres": "NOW()",
+        "sqlite": "CURRENT_TIMESTAMP"
+      },
       "nullable": false
     }
   ],
