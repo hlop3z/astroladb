@@ -1,0 +1,60 @@
+# Low Level
+
+Low-level types give you direct control over SQL column types when semantic
+types don't fit your needs.
+
+## Type Reference
+
+| Type               | SQL           | Notes               |
+| ------------------ | ------------- | ------------------- |
+| `col.string(n)`    | VARCHAR(n)    | Fixed-length string |
+| `col.text()`       | TEXT          | Unlimited length    |
+| `col.integer()`    | INTEGER       | 32-bit integer      |
+| `col.float()`      | FLOAT         | Floating point      |
+| `col.decimal(p,s)` | NUMERIC(p, s) | Precise decimal     |
+| `col.boolean()`    | BOOLEAN       | True/false          |
+| `col.date()`       | DATE          | Date only           |
+| `col.time()`       | TIME          | Time only           |
+| `col.datetime()`   | TIMESTAMP     | Date and time       |
+| `col.uuid()`       | UUID          | Unique identifier   |
+| `col.json()`       | JSONB         | JSON data           |
+| `col.base64()`     | BYTEA/BLOB    | Base64 encoded      |
+| `col.enum([...])`  | CHECK         | Constrained values  |
+
+## Example
+
+```js
+export default table({
+  ...
+  // Strings
+  sku: col.string(50).unique(), // VARCHAR(50)
+  description: col.text().optional(), // TEXT, nullable
+
+  // Numbers
+  amount: col.decimal(10, 2), // DECIMAL(10,2)
+  count: col.integer(), // INTEGER
+  rate: col.float(), // FLOAT
+
+  // Dates and Times
+  event_date: col.date(), // DATE
+  start_time: col.time(), // TIME
+  created_at: col.datetime(), // TIMESTAMP
+
+  // JSON and UUID
+  preferences: col.json(), // JSONB
+  id: col.uuid(), // UUID (use col.id() for primary key)
+
+  // Enums
+  priority: col.enum(["low", "normal", "high"]).default("normal"),
+});
+```
+
+## Prefer Semantic Types
+
+| Instead of...       | Use...           |
+| ------------------- | ---------------- |
+| `col.string(255)`   | `col.email()`    |
+| `col.string(100)`   | `col.name()`     |
+| `col.integer()`     | `col.quantity()` |
+| `col.decimal(19,4)` | `col.money()`    |
+| `col.boolean()`     | `col.flag()`     |
